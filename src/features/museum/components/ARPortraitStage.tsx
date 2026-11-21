@@ -1,21 +1,12 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react';
-import {
-  Camera,
-  Image as ImageIcon,
-  Scan,
-  Upload,
-  Sparkles,
-  RotateCcw,
-  Eye,
-  EyeOff,
-  Mic,
-  MicOff,
-} from 'lucide-react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Camera, Scan, RotateCcw, Eye, EyeOff, Mic } from 'lucide-react';
 import {
   ARHotspot,
   DialogueEntry,
-  LensMode,
+  FocalBox,
+  FocalQuad,
   PortraitArtwork,
+  QuadCorner,
   VoiceConnectionState,
 } from '../types/portrait';
 import { WASHINGTON_PORTRAIT } from '../data/washingtonPortrait';
@@ -26,26 +17,32 @@ import {
   getPortraitRegionSpecs,
 } from '../utils/livingPortraitLayers';
 import { WashingtonAnchorTracker } from '../utils/washingtonAnchorTracker';
+import {
+  boxToQuad,
+  PerspectiveCanvasRenderer,
+  projectUvThroughQuad,
+  quadToBoundingBox,
+} from '../utils/perspectiveWarp';
 
 interface ARPortraitStageProps {
   artwork: PortraitArtwork;
-  lensMode: LensMode;
-  onChangeLensMode: (mode: LensMode) => void;
   speechLevelRef: React.MutableRefObject<number>;
   isSpeaking: boolean;
   isListening: boolean;
+  needsAudioGesture: boolean;
   connectionState: VoiceConnectionState;
   activeHotspotId: string | null;
   activeCue: string | null;
   latestDialogue: DialogueEntry | null;
   latestVisitorLine: DialogueEntry | null;
+  errorMessage: string | null;
   onSelectHotspot: (hotspot: ARHotspot) => void;
-  onArtworkIdentified: (artwork: PortraitArtwork, source: 'camera' | 'upload') => void;
+  onArtworkIdentified: (artwork: PortraitArtwork) => void;
   onResetToWashington: () => void;
   isCustomArtwork: boolean;
   onSendCameraFrame: (jpegBase64: string) => void;
   onCameraError: (msg: string | null) => void;
-  onToggleVoice: () => void;
+  onCameraReadyChange?: (ready: boolean) => void;
   onAvatarTap: () => void;
 }
 
@@ -60,79 +57,86 @@ interface DustMote {
   phase: number;
 }
 
-interface TrackedBox {
-  x: number;
-  y: number;
-  width: number;
-  height: number;
+interface PositionedTag {
+  spot: ARHotspot;
+  dotX: number;
+  dotY: number;
+  side: 'left' | 'right';
+  placement: 'hidden' | 'wide-side' | 'above-line';
+  elbowX: number;
+  lineEndX: number;
+  labelAnchorX: number;
+  labelY: number;
+  maxWidthPx: number;
 }
+
+const DEFAULT_BOX: FocalBox = { x: 24, y: 14, width: 52, height: 72 };
+const DEFAULT_QUAD: FocalQuad = boxToQuad(DEFAULT_BOX);
 
 export const ARPortraitStage: React.FC<ARPortraitStageProps> = ({
   artwork,
-  lensMode,
-  onChangeLensMode,
   speechLevelRef,
   isSpeaking,
   isListening,
+  needsAudioGesture,
   connectionState,
   activeHotspotId,
   activeCue,
   latestDialogue,
   latestVisitorLine,
+  errorMessage,
   onSelectHotspot,
   onArtworkIdentified,
   onResetToWashington,
   isCustomArtwork,
   onSendCameraFrame,
   onCameraError,
-  onToggleVoice,
+  onCameraReadyChange,
   onAvatarTap,
 }) => {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const videoRef = useRef<HTMLVideoElement | null>(null);
-  const portraitImgRef = useRef<HTMLImageElement | null>(null);
-  const cachedLayersRef = useRef<CachedPortraitLayer[]>([]);
   const washingtonAnchorImgRef = useRef<HTMLImageElement | null>(null);
   const washingtonAnchorLayersRef = useRef<CachedPortraitLayer[]>([]);
+  const avatarOffscreenCanvasRef = useRef<HTMLCanvasElement | null>(null);
+  const perspectiveRendererRef = useRef<PerspectiveCanvasRenderer | null>(null);
   const anchorTrackerRef = useRef<WashingtonAnchorTracker>(
     new WashingtonAnchorTracker(WASHINGTON_PORTRAIT.imageUrl)
   );
   const videoPatchCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const videoMaskCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
-  const fileInputRef = useRef<HTMLInputElement | null>(null);
 
-  const [imgLoaded, setImgLoaded] = useState(false);
   const [washingtonAvatarLoaded, setWashingtonAvatarLoaded] = useState(false);
-  const [imgError, setImgError] = useState(false);
   const [cameraReady, setCameraReady] = useState(false);
   const [isScanning, setIsScanning] = useState(false);
   const [autoScan, setAutoScan] = useState(true);
   const [cameraDetected, setCameraDetected] = useState(false);
   const [anchorType, setAnchorType] = useState<'washington' | 'other' | null>(null);
-  const [trackedBox, setTrackedBox] = useState<TrackedBox>({
-    x: 18,
-    y: 12,
-    width: 64,
-    height: 76,
-  });
+  const [trackedQuad, setTrackedQuad] = useState<FocalQuad>(DEFAULT_QUAD);
   const [anchorConfidence, setAnchorConfidence] = useState<number>(0);
-  const [scanNotice, setScanNotice] = useState<string | null>(null);
-  const [showHotspots, setShowHotspots] = useState(true);
+  const [scanNotice, setScanNotice] = useState<string | null>(
+    'Aim camera at the Washington painting anchor.'
+  );
+  const [showHotspots, setShowHotspots] = useState(false);
+  const [availableCameras, setAvailableCameras] = useState<MediaDeviceInfo[]>([]);
+  const [selectedCameraId, setSelectedCameraId] = useState<string>('');
   const [tilt, setTilt] = useState({ x: 0, y: 0 });
+  const [containerSize, setContainerSize] = useState({ width: 1024, height: 768 });
 
   const tiltRef = useRef({ x: 0, y: 0 });
   const activeCueRef = useRef<string | null>(activeCue);
   const artworkRef = useRef<PortraitArtwork>(artwork);
-  const lensModeRef = useRef<LensMode>(lensMode);
   const cameraReadyRef = useRef(cameraReady);
   const cameraDetectedRef = useRef(cameraDetected);
   const anchorTypeRef = useRef<'washington' | 'other' | null>(anchorType);
-  const trackedBoxRef = useRef<TrackedBox>(trackedBox);
+  const trackedQuadRef = useRef<FocalQuad>(trackedQuad);
   const isSpeakingRef = useRef(isSpeaking);
   const isListeningRef = useRef(isListening);
   const connectionStateRef = useRef(connectionState);
+
+  const trackedBox = useMemo(() => quadToBoundingBox(trackedQuad), [trackedQuad]);
 
   useEffect(() => {
     tiltRef.current = tilt;
@@ -144,11 +148,9 @@ export const ARPortraitStage: React.FC<ARPortraitStageProps> = ({
     artworkRef.current = artwork;
   }, [artwork]);
   useEffect(() => {
-    lensModeRef.current = lensMode;
-  }, [lensMode]);
-  useEffect(() => {
     cameraReadyRef.current = cameraReady;
-  }, [cameraReady]);
+    onCameraReadyChange?.(cameraReady);
+  }, [cameraReady, onCameraReadyChange]);
   useEffect(() => {
     cameraDetectedRef.current = cameraDetected;
   }, [cameraDetected]);
@@ -156,8 +158,8 @@ export const ARPortraitStage: React.FC<ARPortraitStageProps> = ({
     anchorTypeRef.current = anchorType;
   }, [anchorType]);
   useEffect(() => {
-    trackedBoxRef.current = trackedBox;
-  }, [trackedBox]);
+    trackedQuadRef.current = trackedQuad;
+  }, [trackedQuad]);
   useEffect(() => {
     isSpeakingRef.current = isSpeaking;
   }, [isSpeaking]);
@@ -182,42 +184,6 @@ export const ARPortraitStage: React.FC<ARPortraitStageProps> = ({
     img.src = WASHINGTON_PORTRAIT.imageUrl;
   }, []);
 
-  // Load portrait image for Gallery Portrait mode
-  useEffect(() => {
-    if (lensMode === 'camera') return;
-    setImgLoaded(false);
-    setImgError(false);
-    cachedLayersRef.current = [];
-    const img = new Image();
-    img.crossOrigin = 'anonymous';
-    img.onload = () => {
-      portraitImgRef.current = img;
-      const specs = getPortraitRegionSpecs(
-        artwork.id === 'washington-equestrian-1777',
-        artwork.focalPoint
-      );
-      cachedLayersRef.current = buildFeatheredLayers(img, specs);
-      setImgLoaded(true);
-    };
-    img.onerror = () => {
-      setImgError(true);
-    };
-    img.src = artwork.imageUrl;
-  }, [artwork.imageUrl, artwork.id, artwork.focalPoint, lensMode]);
-
-  // Reset camera anchor lock when switching back into Camera AR
-  useEffect(() => {
-    if (lensMode === 'camera') {
-      setCameraDetected(false);
-      setAnchorType(null);
-      setAnchorConfidence(0);
-      anchorTrackerRef.current.clearLock();
-      setScanNotice('Aim your camera at the Washington painting anchor.');
-    } else {
-      setScanNotice(null);
-    }
-  }, [lensMode]);
-
   // Smartphone gyroscope parallax
   useEffect(() => {
     const handleOrientation = (e: DeviceOrientationEvent) => {
@@ -228,6 +194,26 @@ export const ARPortraitStage: React.FC<ARPortraitStageProps> = ({
     };
     window.addEventListener('deviceorientation', handleOrientation);
     return () => window.removeEventListener('deviceorientation', handleOrientation);
+  }, []);
+
+  // Track viewport dimensions for mobile-safe AR tag label placement
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+    const updateSize = () => {
+      setContainerSize({
+        width: Math.max(1, el.clientWidth),
+        height: Math.max(1, el.clientHeight),
+      });
+    };
+    updateSize();
+    if (typeof ResizeObserver !== 'undefined') {
+      const ro = new ResizeObserver(updateSize);
+      ro.observe(el);
+      return () => ro.disconnect();
+    }
+    window.addEventListener('resize', updateSize);
+    return () => window.removeEventListener('resize', updateSize);
   }, []);
 
   const handlePointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
@@ -245,33 +231,77 @@ export const ARPortraitStage: React.FC<ARPortraitStageProps> = ({
     setTilt({ x: 0, y: 0 });
   };
 
-  // Manage smartphone camera stream lifecycle
+  // Manage camera lifecycle: automatically prefer plugged-in external USB webcam over built-in laptop webcam
   useEffect(() => {
     let cancelled = false;
-    if (lensMode !== 'camera') {
+
+    const stopCurrentStream = () => {
       if (streamRef.current) {
         streamRef.current.getTracks().forEach((t) => t.stop());
         streamRef.current = null;
       }
-      setCameraReady(false);
-      return;
-    }
+    };
 
     const startCamera = async () => {
       onCameraError(null);
+      stopCurrentStream();
+      setCameraReady(false);
       try {
-        const stream = await navigator.mediaDevices.getUserMedia({
-          video: {
-            facingMode: { ideal: 'environment' },
-            width: { ideal: 1280 },
-            height: { ideal: 720 },
-          },
+        const initialConstraints: MediaStreamConstraints = {
+          video: selectedCameraId
+            ? {
+                deviceId: { exact: selectedCameraId },
+                width: { ideal: 1920 },
+                height: { ideal: 1080 },
+              }
+            : {
+                facingMode: { ideal: 'environment' },
+                width: { ideal: 1920 },
+                height: { ideal: 1080 },
+              },
           audio: false,
-        });
+        };
+
+        let stream = await navigator.mediaDevices.getUserMedia(initialConstraints);
         if (cancelled) {
           stream.getTracks().forEach((t) => t.stop());
           return;
         }
+
+        const allDevices = await navigator.mediaDevices.enumerateDevices();
+        if (cancelled) {
+          stream.getTracks().forEach((t) => t.stop());
+          return;
+        }
+        const videoDevices = allDevices.filter((d) => d.kind === 'videoinput');
+        setAvailableCameras(videoDevices);
+
+        const currentTrackDeviceId = stream.getVideoTracks()[0]?.getSettings()?.deviceId || '';
+
+        if (!selectedCameraId && videoDevices.length > 1) {
+          const preferred = pickPreferredExternalCamera(videoDevices);
+          if (preferred && preferred.deviceId && preferred.deviceId !== currentTrackDeviceId) {
+            stream.getTracks().forEach((t) => t.stop());
+            stream = await navigator.mediaDevices.getUserMedia({
+              video: {
+                deviceId: { exact: preferred.deviceId },
+                width: { ideal: 1920 },
+                height: { ideal: 1080 },
+              },
+              audio: false,
+            });
+            if (cancelled) {
+              stream.getTracks().forEach((t) => t.stop());
+              return;
+            }
+            setSelectedCameraId(preferred.deviceId);
+          } else if (currentTrackDeviceId) {
+            setSelectedCameraId(currentTrackDeviceId);
+          }
+        } else if (!selectedCameraId && currentTrackDeviceId) {
+          setSelectedCameraId(currentTrackDeviceId);
+        }
+
         streamRef.current = stream;
         if (videoRef.current) {
           videoRef.current.srcObject = stream;
@@ -283,8 +313,8 @@ export const ARPortraitStage: React.FC<ARPortraitStageProps> = ({
           setCameraReady(false);
           onCameraError(
             err instanceof Error
-              ? `Camera unavailable: ${err.message}. Switch to Gallery Portrait or upload a photo.`
-              : 'Camera permission unavailable. Switch to Gallery Portrait or upload a photo.'
+              ? `Camera unavailable: ${err.message}`
+              : 'Camera permission is required for AR tracking.'
           );
         }
       }
@@ -292,26 +322,35 @@ export const ARPortraitStage: React.FC<ARPortraitStageProps> = ({
 
     startCamera();
 
+    const handleDeviceChange = async () => {
+      try {
+        const all = await navigator.mediaDevices.enumerateDevices();
+        if (!cancelled) {
+          setAvailableCameras(all.filter((d) => d.kind === 'videoinput'));
+        }
+      } catch {
+        // ignore enumeration errors
+      }
+    };
+    navigator.mediaDevices?.addEventListener?.('devicechange', handleDeviceChange);
+
     return () => {
       cancelled = true;
-      if (streamRef.current) {
-        streamRef.current.getTracks().forEach((t) => t.stop());
-        streamRef.current = null;
-      }
+      navigator.mediaDevices?.removeEventListener?.('devicechange', handleDeviceChange);
+      stopCurrentStream();
       setCameraReady(false);
     };
-  }, [lensMode, onCameraError]);
+  }, [selectedCameraId, onCameraError]);
 
-  // Real-time 10Hz AR Image Anchor Tracking loop against the uploaded Washington painting
+  // Real-time 12Hz 4-corner AR Image Anchor Tracking loop against the uploaded Washington painting
   useEffect(() => {
-    if (lensMode !== 'camera' || !cameraReady) return;
+    if (!cameraReady) return;
 
     const interval = window.setInterval(() => {
       const video = videoRef.current;
       const container = containerRef.current;
       if (!video || !container || video.readyState < 2) return;
 
-      // If locked onto a non-Washington painting via Gemini Vision, keep it until user re-scans
       if (anchorTypeRef.current === 'other' && cameraDetectedRef.current) return;
 
       const result = anchorTrackerRef.current.trackFrame(
@@ -324,17 +363,18 @@ export const ARPortraitStage: React.FC<ARPortraitStageProps> = ({
       setAnchorConfidence(result.confidence);
 
       if (result.detected) {
-        trackedBoxRef.current = result.box;
-        setTrackedBox(result.box);
+        trackedQuadRef.current = result.quad;
+        setTrackedQuad(result.quad);
         if (!cameraDetectedRef.current || anchorTypeRef.current !== 'washington') {
           setCameraDetected(true);
           setAnchorType('washington');
-          setScanNotice('Washington AR anchor locked — tap or speak to converse.');
+          setScanNotice(null);
           if (artworkRef.current.id !== WASHINGTON_PORTRAIT.id) {
-            onArtworkIdentified(
-              { ...WASHINGTON_PORTRAIT, focalBox: result.box },
-              'camera'
-            );
+            onArtworkIdentified({
+              ...WASHINGTON_PORTRAIT,
+              focalBox: result.box,
+              focalQuad: result.quad,
+            });
           }
         }
       } else if (anchorTypeRef.current === 'washington') {
@@ -342,10 +382,10 @@ export const ARPortraitStage: React.FC<ARPortraitStageProps> = ({
         setAnchorType(null);
         setScanNotice('Anchor lost — aim camera back at the Washington portrait.');
       }
-    }, 100);
+    }, 85);
 
     return () => window.clearInterval(interval);
-  }, [lensMode, cameraReady, onArtworkIdentified]);
+  }, [cameraReady, onArtworkIdentified]);
 
   // Capture exact visible object-cover crop from the live camera feed
   const captureVisibleVideoFrame = useCallback((): string | null => {
@@ -379,29 +419,25 @@ export const ARPortraitStage: React.FC<ARPortraitStageProps> = ({
 
   // Forward 1 FPS JPEG frames to Gemini Live when Camera + Live Voice are active
   useEffect(() => {
-    if (lensMode !== 'camera' || !cameraReady || connectionState !== 'live') return;
+    if (!cameraReady || connectionState !== 'live') return;
     const interval = window.setInterval(() => {
       const frame = captureVisibleVideoFrame();
       if (frame) onSendCameraFrame(frame);
     }, 1000);
     return () => window.clearInterval(interval);
-  }, [lensMode, cameraReady, connectionState, captureVisibleVideoFrame, onSendCameraFrame]);
+  }, [cameraReady, connectionState, captureVisibleVideoFrame, onSendCameraFrame]);
 
-  // Gemini Vision recognition for steep angles or other paintings
-  const identifyImageBase64 = useCallback(
-    async (dataUrl: string, source: 'camera' | 'upload', mimeType = 'image/jpeg') => {
+  // Gemini Vision recognition with 4-corner perspective quad detection
+  const identifyCameraFrame = useCallback(
+    async (dataUrl: string) => {
       setIsScanning(true);
-      setScanNotice(
-        source === 'camera'
-          ? 'Checking camera frame for portrait anchor...'
-          : 'Analyzing portrait artwork...'
-      );
+      setScanNotice('Scanning camera feed for portrait anchor...');
       onCameraError(null);
       try {
         const res = await fetch('/api/identify-portrait', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ imageBase64: dataUrl, mimeType }),
+          body: JSON.stringify({ imageBase64: dataUrl, mimeType: 'image/jpeg' }),
         });
         const data = await res.json();
         if (!res.ok) {
@@ -409,49 +445,53 @@ export const ARPortraitStage: React.FC<ARPortraitStageProps> = ({
         }
 
         if (!data.detected) {
-          if (source === 'camera' && anchorTypeRef.current !== 'washington') {
+          if (anchorTypeRef.current !== 'washington') {
             setCameraDetected(false);
             setScanNotice(
               data.historicalContext ||
-                'No painting recognized yet. Aim at the Washington portrait anchor.'
+                'Aim camera at the Washington portrait anchor.'
             );
           }
           return;
         }
 
-        const fBox: TrackedBox = data.focalBox || { x: 18, y: 12, width: 64, height: 76 };
+        const fBox: FocalBox = data.focalBox || DEFAULT_BOX;
+        const fQuad: FocalQuad = isValidQuadShape(data.focalQuad)
+          ? data.focalQuad
+          : boxToQuad(fBox);
 
-        // If Gemini Vision recognized the Washington anchor image in the camera feed,
-        // lock the interactive Washington AI Avatar directly onto that anchor!
         if (data.isWashingtonAnchor) {
-          const washingtonAnchored: PortraitArtwork = {
+          anchorTrackerRef.current.seedQuad(fQuad);
+          trackedQuadRef.current = fQuad;
+          setTrackedQuad(fQuad);
+          setCameraDetected(true);
+          setAnchorType('washington');
+          setScanNotice(null);
+          onArtworkIdentified({
             ...WASHINGTON_PORTRAIT,
-            focalBox: fBox,
-          };
-          if (source === 'camera') {
-            anchorTrackerRef.current.seedLock(fBox);
-            trackedBoxRef.current = fBox;
-            setTrackedBox(fBox);
-            setCameraDetected(true);
-            setAnchorType('washington');
-            setScanNotice('Washington AR anchor locked — avatar active.');
-          }
-          onArtworkIdentified(washingtonAnchored, source);
+            focalBox: quadToBoundingBox(fQuad),
+            focalQuad: fQuad,
+          });
           return;
         }
 
+        const fp = {
+          x: typeof data.focalPoint?.x === 'number' ? data.focalPoint.x : fBox.x + fBox.width / 2,
+          y: typeof data.focalPoint?.y === 'number' ? data.focalPoint.y : fBox.y + fBox.height * 0.3,
+        };
+
         const identified: PortraitArtwork = {
-          id: `${source}-${Date.now()}`,
-          accessionNumber: source === 'camera' ? 'LIVE AR ANCHOR' : 'UPLOADED PORTRAIT',
+          id: `camera-${Date.now()}`,
+          accessionNumber: 'LIVE AR ANCHOR',
           title: data.paintingTitle || 'Identified Historical Portrait',
           characterName: data.characterName || 'Historical Figure',
           roleTitle: data.roleTitle || 'Museum Portrait Subject',
           artist: data.artist || 'Attributed School',
           year: data.year || 'Historical Period',
           medium: data.medium || 'Oil on canvas',
-          dimensions: source === 'camera' ? 'Tracked in Live Camera' : 'Uploaded Study',
-          galleryLocation: source === 'camera' ? 'Camera AR Viewfinder' : 'Visitor Archive',
-          imageUrl: source === 'upload' ? dataUrl : artworkRef.current.imageUrl,
+          dimensions: 'Tracked in Live Camera',
+          galleryLocation: 'Camera AR Viewfinder',
+          imageUrl: artworkRef.current.imageUrl,
           voiceName: ['Charon', 'Fenrir', 'Kore', 'Zephyr', 'Puck'].includes(data.suggestedVoice)
             ? data.suggestedVoice
             : 'Charon',
@@ -462,29 +502,34 @@ export const ARPortraitStage: React.FC<ARPortraitStageProps> = ({
           openingLine:
             data.openingLine ||
             `Greetings, visitor. I am ${data.characterName}. Ask me what you wish to know about my life and this painting.`,
-          focalPoint: {
-            x: typeof data.focalPoint?.x === 'number' ? data.focalPoint.x : fBox.x + fBox.width / 2,
-            y: typeof data.focalPoint?.y === 'number' ? data.focalPoint.y : fBox.y + fBox.height * 0.3,
-          },
-          focalBox: fBox,
+          focalPoint: fp,
+          focalBox: quadToBoundingBox(fQuad),
+          focalQuad: fQuad,
           hotspots:
             Array.isArray(data.hotspots) && data.hotspots.length > 0
-              ? data.hotspots.map((h: Partial<ARHotspot>, idx: number) => ({
-                  id: h.id || `hs-${idx}`,
-                  label: h.label || `Detail ${idx + 1}`,
-                  eraDetail: h.eraDetail || 'Historical detail',
-                  x: typeof h.x === 'number' ? h.x : fBox.x + fBox.width / 2,
-                  y: typeof h.y === 'number' ? h.y : fBox.y + fBox.height * (0.3 + idx * 0.14),
-                  prompt: h.prompt || `Tell me about ${h.label || 'this detail'}.`,
-                  animationCue:
-                    h.animationCue === 'sword' ||
-                    h.animationCue === 'horse' ||
-                    h.animationCue === 'gaze' ||
-                    h.animationCue === 'uniform' ||
-                    h.animationCue === 'horizon'
-                      ? h.animationCue
-                      : 'gaze',
-                }))
+              ? data.hotspots.map((h: Partial<ARHotspot>, idx: number) => {
+                  const rawX = typeof h.x === 'number' ? h.x : fBox.x + fBox.width / 2;
+                  const rawY =
+                    typeof h.y === 'number' ? h.y : fBox.y + fBox.height * (0.3 + idx * 0.14);
+                  // Keep markers slightly offset away from face/eyes
+                  const offsetPos = offsetAwayFromFocal(rawX, rawY, fp.x, fp.y);
+                  return {
+                    id: h.id || `hs-${idx}`,
+                    label: h.label || `Detail ${idx + 1}`,
+                    eraDetail: h.eraDetail || 'Historical detail',
+                    x: offsetPos.x,
+                    y: offsetPos.y,
+                    prompt: h.prompt || `Tell me about ${h.label || 'this detail'}.`,
+                    animationCue:
+                      h.animationCue === 'sword' ||
+                      h.animationCue === 'horse' ||
+                      h.animationCue === 'gaze' ||
+                      h.animationCue === 'uniform' ||
+                      h.animationCue === 'horizon'
+                        ? h.animationCue
+                        : 'gaze',
+                  };
+                })
               : [],
           suggestedQuestions:
             Array.isArray(data.suggestedQuestions) && data.suggestedQuestions.length > 0
@@ -495,20 +540,15 @@ export const ARPortraitStage: React.FC<ARPortraitStageProps> = ({
                 ],
         };
 
-        if (source === 'camera') {
-          trackedBoxRef.current = fBox;
-          setTrackedBox(fBox);
-          setCameraDetected(true);
-          setAnchorType('other');
-          setAutoScan(false);
-          setScanNotice(`Anchored: ${identified.characterName}`);
-        } else {
-          setScanNotice(null);
-        }
-        onArtworkIdentified(identified, source);
+        trackedQuadRef.current = fQuad;
+        setTrackedQuad(fQuad);
+        setCameraDetected(true);
+        setAnchorType('other');
+        setAutoScan(false);
+        setScanNotice(null);
+        onArtworkIdentified(identified);
       } catch (err) {
         onCameraError(err instanceof Error ? err.message : 'Portrait recognition failed.');
-        setScanNotice(null);
       } finally {
         setIsScanning(false);
       }
@@ -520,12 +560,12 @@ export const ARPortraitStage: React.FC<ARPortraitStageProps> = ({
     if (isScanning) return;
     const frame = captureVisibleVideoFrame();
     if (!frame) return;
-    identifyImageBase64(frame, 'camera', 'image/jpeg');
-  }, [captureVisibleVideoFrame, identifyImageBase64, isScanning]);
+    identifyCameraFrame(frame);
+  }, [captureVisibleVideoFrame, identifyCameraFrame, isScanning]);
 
-  // Fallback Vision scan if real-time NCC hasn't locked yet (e.g. steep perspective or another painting)
+  // Fallback Vision scan if real-time NCC hasn't locked yet
   useEffect(() => {
-    if (lensMode !== 'camera' || !cameraReady || !autoScan || cameraDetected) return;
+    if (!cameraReady || !autoScan || cameraDetected) return;
     const timer = window.setTimeout(() => {
       if (!cameraDetectedRef.current) {
         handleScanCameraFrame();
@@ -540,35 +580,32 @@ export const ARPortraitStage: React.FC<ARPortraitStageProps> = ({
       window.clearTimeout(timer);
       window.clearInterval(interval);
     };
-  }, [lensMode, cameraReady, autoScan, cameraDetected, handleScanCameraFrame]);
+  }, [cameraReady, autoScan, cameraDetected, handleScanCameraFrame]);
 
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = () => {
-      if (typeof reader.result === 'string') {
-        identifyImageBase64(reader.result, 'upload', file.type || 'image/jpeg');
-      }
-    };
-    reader.readAsDataURL(file);
-    e.target.value = '';
-  };
-
-  // 60fps AR Render Loop
+  // 60fps Perspective-Warped AR Render Loop
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
-    const motes: DustMote[] = Array.from({ length: 28 }, () => ({
+    if (!avatarOffscreenCanvasRef.current) {
+      const off = document.createElement('canvas');
+      off.width = 520;
+      off.height = 728;
+      avatarOffscreenCanvasRef.current = off;
+    }
+    if (!perspectiveRendererRef.current) {
+      perspectiveRendererRef.current = new PerspectiveCanvasRenderer();
+    }
+
+    const motes: DustMote[] = Array.from({ length: 26 }, () => ({
       x: Math.random(),
       y: Math.random(),
       r: 0.9 + Math.random() * 1.9,
       vx: (Math.random() - 0.35) * 0.00018,
       vy: -0.00012 - Math.random() * 0.00022,
-      alpha: 0.16 + Math.random() * 0.38,
+      alpha: 0.16 + Math.random() * 0.36,
       depth: 0.4 + Math.random() * 1.1,
       phase: Math.random() * Math.PI * 2,
     }));
@@ -592,7 +629,6 @@ export const ARPortraitStage: React.FC<ARPortraitStageProps> = ({
 
         const speech = speechLevelRef.current;
         const currentArtwork = artworkRef.current;
-        const mode = lensModeRef.current;
         const currentTilt = tiltRef.current;
         const cue = activeCueRef.current;
         const behavior = {
@@ -607,127 +643,101 @@ export const ARPortraitStage: React.FC<ARPortraitStageProps> = ({
           tiltY: currentTilt.y,
         };
 
-        if (mode === 'portrait') {
-          const img = portraitImgRef.current;
-          const layers = cachedLayersRef.current;
-          if (img && imgLoaded) {
-            const imgRatio = img.naturalWidth / Math.max(1, img.naturalHeight);
-            const boxRatio = cw / Math.max(1, ch);
-            let drawW = cw;
-            let drawH = ch;
-            if (imgRatio > boxRatio) {
-              drawH = cw / imgRatio;
-            } else {
-              drawW = ch * imgRatio;
-            }
-            const dx = (cw - drawW) / 2 + currentTilt.x * -7;
-            const dy = (ch - drawH) / 2 + currentTilt.y * -5;
+        const detected = cameraDetectedRef.current;
+        const aType = anchorTypeRef.current;
+        const video = videoRef.current;
+        const hasVideo = cameraReadyRef.current && video && video.readyState >= 2;
 
-            drawAnimatedPaintingComposition(
-              ctx,
-              img,
-              layers,
-              dx,
-              dy,
-              drawW,
-              drawH,
-              elapsed,
-              behavior,
-              1,
-              false
-            );
-
-            const fx = dx + (currentArtwork.focalPoint.x / 100) * drawW;
-            const fy = dy + (currentArtwork.focalPoint.y / 100) * drawH;
-            drawLivingVoiceAura(ctx, fx, fy, Math.min(drawW, drawH), speech, elapsed);
-            drawCueOverlay(ctx, dx, dy, drawW, drawH, cue, elapsed);
-          }
-
-          drawAmbientMotes(ctx, motes, cw, ch, 0, 0, cw, ch, currentTilt, speech, elapsed);
+        if (!detected) {
+          const padX = cw * 0.18;
+          const padY = ch * 0.14;
+          drawOpticalQuadCorners(
+            ctx,
+            boxToQuad({ x: padX, y: padY, width: cw - padX * 2, height: ch - padY * 2 }),
+            0,
+            elapsed,
+            0.38
+          );
         } else {
-          // CAMERA AR MODE:
-          // Never display the uploaded image unless the anchor tracker or Vision
-          // actively recognizes the painting in the live camera feed!
-          const detected = cameraDetectedRef.current;
-          const aType = anchorTypeRef.current;
-          const video = videoRef.current;
-          const hasVideo = cameraReadyRef.current && video && video.readyState >= 2;
+          const quadPct = trackedQuadRef.current;
+          const quadPx: FocalQuad = {
+            topLeft: { x: (quadPct.topLeft.x / 100) * cw, y: (quadPct.topLeft.y / 100) * ch },
+            topRight: { x: (quadPct.topRight.x / 100) * cw, y: (quadPct.topRight.y / 100) * ch },
+            bottomRight: {
+              x: (quadPct.bottomRight.x / 100) * cw,
+              y: (quadPct.bottomRight.y / 100) * ch,
+            },
+            bottomLeft: {
+              x: (quadPct.bottomLeft.x / 100) * cw,
+              y: (quadPct.bottomLeft.y / 100) * ch,
+            },
+          };
+          const boxPx = quadToBoundingBox(quadPx);
 
-          if (!detected) {
-            const padX = cw * 0.16;
-            const padY = ch * 0.14;
-            drawOpticalFrameCorners(
-              ctx,
-              padX,
-              padY,
-              cw - padX * 2,
-              ch - padY * 2,
-              0,
-              elapsed,
-              0.42
-            );
-          } else {
-            const box = trackedBoxRef.current;
-            const bx = (box.x / 100) * cw;
-            const by = (box.y / 100) * ch;
-            const bw = (box.width / 100) * cw;
-            const bh = (box.height / 100) * ch;
-
-            if (
-              aType === 'washington' &&
-              washingtonAnchorImgRef.current &&
-              washingtonAvatarLoaded
-            ) {
-              // Render the interactive, speech-reactive AI Avatar of George Washington
-              // anchored directly onto the tracked Washington anchor box!
+          if (
+            aType === 'washington' &&
+            washingtonAnchorImgRef.current &&
+            washingtonAvatarLoaded &&
+            avatarOffscreenCanvasRef.current &&
+            perspectiveRendererRef.current
+          ) {
+            const offCanvas = avatarOffscreenCanvasRef.current;
+            const offCtx = offCanvas.getContext('2d');
+            if (offCtx) {
+              const ow = offCanvas.width;
+              const oh = offCanvas.height;
+              offCtx.clearRect(0, 0, ow, oh);
               drawAnimatedPaintingComposition(
-                ctx,
+                offCtx,
                 washingtonAnchorImgRef.current,
                 washingtonAnchorLayersRef.current,
-                bx,
-                by,
-                bw,
-                bh,
+                0,
+                0,
+                ow,
+                oh,
                 elapsed,
                 behavior,
-                0.96,
+                1,
                 true
               );
+              const offFx = (WASHINGTON_PORTRAIT.focalPoint.x / 100) * ow;
+              const offFy = (WASHINGTON_PORTRAIT.focalPoint.y / 100) * oh;
+              drawLivingVoiceAura(offCtx, offFx, offFy, Math.min(ow, oh), speech, elapsed);
+              drawCueOverlay(offCtx, 0, 0, ow, oh, cue, elapsed);
 
-              const fx = bx + (WASHINGTON_PORTRAIT.focalPoint.x / 100) * bw;
-              const fy = by + (WASHINGTON_PORTRAIT.focalPoint.y / 100) * bh;
-              drawOpticalFrameCorners(ctx, bx, by, bw, bh, speech, elapsed, 0.85);
-              drawLivingVoiceAura(ctx, fx, fy, Math.min(bw, bh), speech, elapsed);
-              drawCueOverlay(ctx, bx, by, bw, bh, cue, elapsed);
-              drawAmbientMotes(ctx, motes, cw, ch, bx, by, bw, bh, currentTilt, speech, elapsed);
-            } else {
-              // Other identified painting: animate the live camera video pixels directly
-              const fx = (currentArtwork.focalPoint.x / 100) * cw;
-              const fy = (currentArtwork.focalPoint.y / 100) * ch;
-              if (hasVideo && video) {
-                animateFigureInLiveVideo(
-                  ctx,
-                  video,
-                  cw,
-                  ch,
-                  bx,
-                  by,
-                  bw,
-                  bh,
-                  fx,
-                  fy,
-                  elapsed,
-                  speech,
-                  cue,
-                  videoPatchCanvasRef,
-                  videoMaskCanvasRef
-                );
-              }
-              drawOpticalFrameCorners(ctx, bx, by, bw, bh, speech, elapsed, 0.8);
-              drawLivingVoiceAura(ctx, fx, fy, Math.min(bw, bh), speech, elapsed);
-              drawCueOverlay(ctx, bx, by, bw, bh, cue, elapsed);
-              drawAmbientMotes(ctx, motes, cw, ch, bx, by, bw, bh, currentTilt, speech, elapsed);
+              // Perspective-skew the animated portrait to fit the 4 tracked corners!
+              perspectiveRendererRef.current.draw(ctx, offCanvas, quadPx, cw, ch, 0.96);
             }
+
+            drawOpticalQuadCorners(ctx, quadPx, speech, elapsed, 0.85);
+            drawAmbientMotesInQuad(ctx, motes, cw, ch, quadPx, boxPx, currentTilt, speech, elapsed);
+          } else {
+            // Other identified painting: animate the live camera video pixels directly
+            const fx = (currentArtwork.focalPoint.x / 100) * cw;
+            const fy = (currentArtwork.focalPoint.y / 100) * ch;
+            if (hasVideo && video) {
+              animateFigureInLiveVideo(
+                ctx,
+                video,
+                cw,
+                ch,
+                boxPx.x,
+                boxPx.y,
+                boxPx.width,
+                boxPx.height,
+                fx,
+                fy,
+                elapsed,
+                speech,
+                cue,
+                videoPatchCanvasRef,
+                videoMaskCanvasRef
+              );
+            }
+            drawOpticalQuadCorners(ctx, quadPx, speech, elapsed, 0.78);
+            drawLivingVoiceAura(ctx, fx, fy, Math.min(boxPx.width, boxPx.height), speech, elapsed);
+            drawCueOverlay(ctx, boxPx.x, boxPx.y, boxPx.width, boxPx.height, cue, elapsed);
+            drawAmbientMotesInQuad(ctx, motes, cw, ch, quadPx, boxPx, currentTilt, speech, elapsed);
           }
         }
       }
@@ -737,172 +747,327 @@ export const ARPortraitStage: React.FC<ARPortraitStageProps> = ({
 
     rafId = requestAnimationFrame(render);
     return () => cancelAnimationFrame(rafId);
-  }, [imgLoaded, washingtonAvatarLoaded, speechLevelRef]);
+  }, [washingtonAvatarLoaded, speechLevelRef]);
 
-  // Compute DOM hotspot coordinates
-  const getHotspotPosition = (spot: ARHotspot) => {
-    const el = containerRef.current;
-    if (lensMode === 'camera') {
+  // Compute non-blocking AR tag dots + mobile-safe side/above-line callouts
+  const positionedTags: PositionedTag[] = useMemo(() => {
+    if (!cameraDetected || !showHotspots || artwork.hotspots.length === 0) return [];
+
+    const viewW = containerSize.width;
+    const leftMarginPct = Math.max(0, trackedBox.x);
+    const rightMarginPct = Math.max(0, 100 - (trackedBox.x + trackedBox.width));
+    const leftSpacePx = (leftMarginPct / 100) * viewW;
+    const rightSpacePx = (rightMarginPct / 100) * viewW;
+
+    const getSidePlacement = (spacePx: number): 'hidden' | 'wide-side' | 'above-line' => {
+      if (spacePx >= 138) return 'wide-side';
+      if (spacePx >= 44) return 'above-line';
+      return 'hidden';
+    };
+
+    const leftPlacement = getSidePlacement(leftSpacePx);
+    const rightPlacement = getSidePlacement(rightSpacePx);
+
+    const raw = artwork.hotspots.map((spot) => {
+      let dotX = spot.x;
+      let dotY = spot.y;
       if (anchorType === 'washington') {
+        const pt = projectUvThroughQuad(trackedQuad, spot.x / 100, spot.y / 100);
+        dotX = pt.x;
+        dotY = pt.y;
+      }
+
+      const boxMidX = trackedBox.x + trackedBox.width / 2;
+      const side: 'left' | 'right' = dotX < boxMidX ? 'left' : 'right';
+      return { spot, dotX, dotY, side };
+    });
+
+    const assignStaggeredY = (items: typeof raw, placement: 'hidden' | 'wide-side' | 'above-line') => {
+      const sorted = [...items].sort((a, b) => a.dotY - b.dotY);
+      const minGap = placement === 'above-line' ? 10 : 8.5;
+      const result = new Map<string, number>();
+      let prevY = 12;
+      for (const item of sorted) {
+        const clamped = Math.max(prevY + minGap, Math.min(76, item.dotY));
+        result.set(item.spot.id, clamped);
+        prevY = clamped;
+      }
+      return result;
+    };
+
+    const leftYMap = assignStaggeredY(raw.filter((r) => r.side === 'left'), leftPlacement);
+    const rightYMap = assignStaggeredY(raw.filter((r) => r.side === 'right'), rightPlacement);
+
+    return raw.map((item) => {
+      const isLeft = item.side === 'left';
+      const placement = isLeft ? leftPlacement : rightPlacement;
+      const spacePx = isLeft ? leftSpacePx : rightSpacePx;
+      const labelY =
+        (isLeft ? leftYMap.get(item.spot.id) : rightYMap.get(item.spot.id)) ?? item.dotY;
+
+      const safeOuterPct = 3;
+      if (placement === 'wide-side') {
+        const labelAnchorX = isLeft
+          ? Math.max(12, trackedBox.x - 2.2)
+          : Math.min(88, trackedBox.x + trackedBox.width + 2.2);
+        const elbowX = isLeft
+          ? Math.max(labelAnchorX + 1.0, trackedBox.x - 0.5)
+          : Math.min(labelAnchorX - 1.0, trackedBox.x + trackedBox.width + 0.5);
+        const availPx = isLeft
+          ? (labelAnchorX / 100) * viewW - 12
+          : ((100 - labelAnchorX) / 100) * viewW - 12;
+
         return {
-          leftPct: trackedBox.x + (spot.x / 100) * trackedBox.width,
-          topPct: trackedBox.y + (spot.y / 100) * trackedBox.height,
+          spot: item.spot,
+          dotX: item.dotX,
+          dotY: item.dotY,
+          side: item.side,
+          placement,
+          elbowX,
+          lineEndX: labelAnchorX,
+          labelAnchorX,
+          labelY,
+          maxWidthPx: Math.max(76, Math.round(availPx)),
         };
       }
-      return { leftPct: spot.x, topPct: spot.y };
-    }
 
-    if (!el || !portraitImgRef.current || !imgLoaded) {
-      return { leftPct: spot.x, topPct: spot.y };
-    }
-    const cw = el.clientWidth;
-    const ch = el.clientHeight;
-    if (!cw || !ch) return { leftPct: spot.x, topPct: spot.y };
+      // 'above-line' mobile-safe placement: horizontal shelf ends near safe screen edge (3% / 97%),
+      // and wrapped compact text sits directly above that line inside the viewport.
+      const lineEndX = isLeft ? safeOuterPct : 100 - safeOuterPct;
+      const elbowX = isLeft
+        ? Math.max(safeOuterPct + 4, trackedBox.x - 0.6)
+        : Math.min(100 - safeOuterPct - 4, trackedBox.x + trackedBox.width + 0.6);
 
-    const img = portraitImgRef.current;
-    const imgRatio = img.naturalWidth / Math.max(1, img.naturalHeight);
-    const boxRatio = cw / Math.max(1, ch);
-    let drawW = cw;
-    let drawH = ch;
-    if (imgRatio > boxRatio) {
-      drawH = cw / imgRatio;
-    } else {
-      drawW = ch * imgRatio;
-    }
-    const dxPct = ((cw - drawW) / 2 / cw) * 100;
-    const dyPct = ((ch - drawH) / 2 / ch) * 100;
-    const dwPct = (drawW / cw) * 100;
-    const dhPct = (drawH / ch) * 100;
+      return {
+        spot: item.spot,
+        dotX: item.dotX,
+        dotY: item.dotY,
+        side: item.side,
+        placement,
+        elbowX,
+        lineEndX,
+        labelAnchorX: lineEndX,
+        labelY,
+        maxWidthPx: Math.max(66, Math.min(110, Math.round(spacePx + 14))),
+      };
+    });
+  }, [anchorType, artwork.hotspots, cameraDetected, containerSize.width, showHotspots, trackedBox, trackedQuad]);
 
+  const activeHotspot = useMemo(
+    () => artwork.hotspots.find((h) => h.id === activeHotspotId) || null,
+    [artwork.hotspots, activeHotspotId]
+  );
+
+  const avatarTapCenter = useMemo(() => {
+    if (anchorType === 'washington') {
+      return projectUvThroughQuad(trackedQuad, 0.45, 0.34);
+    }
     return {
-      leftPct: dxPct + (spot.x / 100) * dwPct,
-      topPct: dyPct + (spot.y / 100) * dhPct,
+      x: trackedBox.x + trackedBox.width * 0.5,
+      y: trackedBox.y + trackedBox.height * 0.36,
     };
-  };
-
-  const hotspotsVisible =
-    showHotspots && (lensMode === 'portrait' || (lensMode === 'camera' && cameraDetected));
+  }, [anchorType, trackedBox, trackedQuad]);
 
   return (
     <div
       ref={containerRef}
       onPointerMove={handlePointerMove}
       onPointerLeave={handlePointerLeave}
-      className="relative w-full h-full min-h-[420px] lg:min-h-[600px] bg-[#11100F] overflow-hidden select-none rounded-2xl border border-[#2C2824]"
+      className="relative w-full h-full min-h-0 bg-[#11100F] overflow-hidden select-none"
     >
-      <input
-        ref={fileInputRef}
-        type="file"
-        accept="image/*"
-        className="hidden"
-        onChange={handleFileUpload}
-      />
-
-      {/* Live Camera Feed */}
+      {/* Full-Screen Live Camera Feed */}
       <video
         ref={videoRef}
         playsInline
         muted
         className={`absolute inset-0 w-full h-full object-cover transition-opacity duration-300 ${
-          lensMode === 'camera' && cameraReady ? 'opacity-100' : 'opacity-0 pointer-events-none'
+          cameraReady ? 'opacity-100' : 'opacity-0 pointer-events-none'
         }`}
       />
 
-      {/* Camera permission awaiting state (never shows uploaded painting) */}
-      {lensMode === 'camera' && !cameraReady && (
-        <div className="absolute inset-0 flex flex-col items-center justify-center p-6 text-center bg-[#141210] text-[#F6F3EC]">
+      {/* Camera permission awaiting state */}
+      {!cameraReady && (
+        <div className="absolute inset-0 flex flex-col items-center justify-center p-6 text-center bg-[#0D0C0A] text-[#F6F3EC]">
           <Camera className="w-9 h-9 text-[#C79A52] mb-3" />
-          <h3 className="font-serif text-2xl font-medium">AR Anchor Camera</h3>
+          <p className="font-serif text-2xl font-medium">Starting AR Camera</p>
           <p className="text-sm text-[#B8B0A2] max-w-sm mt-2 leading-relaxed">
-            Allow camera access and point at the Washington equestrian portrait to lock the AR image anchor and awaken an interactive George Washington avatar.
+            Allow camera and microphone access, then point at the George Washington painting anchor.
           </p>
-          <div className="mt-5 flex flex-wrap items-center justify-center gap-3">
-            <button
-              type="button"
-              onClick={() => fileInputRef.current?.click()}
-              className="min-h-[44px] px-4 py-2 rounded-lg bg-[#B4833E] text-[#11100F] text-sm font-medium hover:bg-[#C79A52] transition-colors flex items-center gap-2 whitespace-nowrap shrink-0"
-            >
-              <Upload className="w-4 h-4" />
-              Upload Portrait
-            </button>
-            <button
-              type="button"
-              onClick={() => onChangeLensMode('portrait')}
-              className="min-h-[44px] px-4 py-2 rounded-lg border border-white/20 text-[#F6F3EC] text-sm font-medium hover:bg-white/10 transition-colors whitespace-nowrap shrink-0"
-            >
-              View Anchor Painting
-            </button>
-          </div>
         </div>
       )}
 
-      {/* Fallback gallery plate if image fails to load in Gallery Portrait mode */}
-      {lensMode === 'portrait' && imgError && (
-        <div className="absolute inset-0 flex flex-col items-center justify-center p-8 text-center bg-gradient-to-b from-[#1E1B18] to-[#11100F] text-[#E8E2D6]">
-          <ImageIcon className="w-10 h-10 text-[#B4833E] mb-3" />
-          <p className="font-serif text-xl">{artwork.title}</p>
-          <p className="text-sm text-[#A59D90] mt-1">{artwork.characterName}</p>
-        </div>
-      )}
-
-      {/* Living AR Canvas Overlay */}
+      {/* Living Perspective-Warped AR Canvas Overlay */}
       <canvas ref={canvasRef} className="absolute inset-0 w-full h-full pointer-events-none" />
 
-      {/* Interactive Tap Target Directly on Anchored George Washington Avatar in Camera AR */}
-      {lensMode === 'camera' && cameraDetected && (
+      {/* Interactive Tap Target Directly on Anchored George Washington Avatar */}
+      {cameraDetected && (
         <button
           type="button"
           onClick={onAvatarTap}
           aria-label={`Interact with ${artwork.characterName} avatar`}
           style={{
-            left: `${trackedBox.x + trackedBox.width * 0.25}%`,
-            top: `${trackedBox.y + trackedBox.height * 0.15}%`,
-            width: `${trackedBox.width * 0.5}%`,
-            height: `${trackedBox.height * 0.45}%`,
+            left: `${avatarTapCenter.x}%`,
+            top: `${avatarTapCenter.y}%`,
+            width: `${Math.max(14, trackedBox.width * 0.45)}%`,
+            height: `${Math.max(18, trackedBox.height * 0.4)}%`,
+            transform: 'translate(-50%, -50%)',
           }}
-          className="absolute z-10 cursor-pointer bg-transparent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#E2B46D] rounded-xl"
+          className="absolute z-10 cursor-pointer bg-transparent focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[#E2B46D]/70 rounded-xl"
         />
       )}
 
-      {/* Top Viewfinder HUD */}
+      {/* Non-Blocking AR Tags: Very Small Offset Circles + Responsive Side / Above-Line Callouts */}
+      {positionedTags.length > 0 && (
+        <div className="absolute inset-0 z-10 pointer-events-none">
+          <svg
+            viewBox="0 0 100 100"
+            preserveAspectRatio="none"
+            className="absolute inset-0 w-full h-full pointer-events-none"
+          >
+            {positionedTags.map((tag) => {
+              if (tag.placement === 'hidden') return null;
+              const isActive = activeHotspotId === tag.spot.id;
+              return (
+                <polyline
+                  key={`line-${tag.spot.id}`}
+                  points={`${tag.dotX},${tag.dotY} ${tag.elbowX},${tag.labelY} ${tag.lineEndX},${tag.labelY}`}
+                  fill="none"
+                  vectorEffect="non-scaling-stroke"
+                  stroke={isActive ? 'rgba(229, 190, 128, 0.95)' : 'rgba(246, 243, 236, 0.6)'}
+                  strokeWidth={isActive ? 1.5 : 1}
+                />
+              );
+            })}
+          </svg>
+
+          {positionedTags.map((tag) => {
+            const isActive = activeHotspotId === tag.spot.id;
+            return (
+              <button
+                key={`dot-${tag.spot.id}`}
+                type="button"
+                onClick={() => onSelectHotspot(tag.spot)}
+                aria-label={`Inspect ${tag.spot.label}`}
+                style={{ left: `${tag.dotX}%`, top: `${tag.dotY}%` }}
+                className="pointer-events-auto absolute -translate-x-1/2 -translate-y-1/2 w-9 h-9 flex items-center justify-center rounded-full bg-transparent cursor-pointer focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[#E2B46D]"
+              >
+                <span
+                  className={`rounded-full transition-transform duration-150 ${
+                    isActive
+                      ? 'w-2.5 h-2.5 bg-[#E2B46D] ring-2 ring-[#F6F3EC] scale-110'
+                      : 'w-2 h-2 bg-[#F6F3EC]/90 ring-1 ring-[#E2B46D]/90 hover:scale-125'
+                  }`}
+                />
+              </button>
+            );
+          })}
+
+          {positionedTags.map((tag) => {
+            if (tag.placement === 'hidden') return null;
+            const isActive = activeHotspotId === tag.spot.id;
+            const isLeft = tag.side === 'left';
+            const isAboveLine = tag.placement === 'above-line';
+
+            const transform = isAboveLine
+              ? isLeft
+                ? 'translate(0, -100%)'
+                : 'translate(-100%, -100%)'
+              : isLeft
+              ? 'translate(-100%, -50%)'
+              : 'translate(0, -50%)';
+
+            const textAlignClass = isAboveLine
+              ? isLeft
+                ? 'text-left pb-1'
+                : 'text-right pb-1'
+              : isLeft
+              ? 'text-right pr-1.5'
+              : 'text-left pl-1.5';
+
+            return (
+              <button
+                key={`label-${tag.spot.id}`}
+                type="button"
+                onClick={() => onSelectHotspot(tag.spot)}
+                style={{
+                  left: `${tag.labelAnchorX}%`,
+                  top: `${tag.labelY}%`,
+                  transform,
+                  maxWidth: `${tag.maxWidthPx}px`,
+                }}
+                className={`pointer-events-auto absolute py-0.5 leading-[1.15] cursor-pointer transition-colors ${
+                  isAboveLine ? 'text-[10px] whitespace-normal' : 'text-[11px] whitespace-nowrap truncate'
+                } ${textAlignClass} ${
+                  isActive
+                    ? 'text-[#E6C285] font-semibold'
+                    : 'text-[#F6F3EC]/92 hover:text-[#E6C285] font-medium'
+                }`}
+              >
+                <span className="drop-shadow-[0_1px_4px_rgba(0,0,0,0.95)]">{tag.spot.label}</span>
+              </button>
+            );
+          })}
+        </div>
+      )}
+
+      {/* Minimal Floating Top Viewfinder Controls (No Speak Button) */}
       <div className="absolute top-3 left-3 right-3 z-20 flex flex-wrap items-center justify-between gap-2 pointer-events-none">
-        <div className="pointer-events-auto inline-flex items-center p-1 rounded-xl bg-black/65 backdrop-blur-md border border-white/12">
-          <button
-            type="button"
-            onClick={() => onChangeLensMode('portrait')}
-            className={`min-h-[38px] px-3 py-1.5 rounded-lg text-xs font-medium transition-colors flex items-center gap-1.5 whitespace-nowrap shrink-0 ${
-              lensMode === 'portrait'
-                ? 'bg-[#F6F3EC] text-[#181614]'
-                : 'text-[#E5DFD3] hover:text-white'
+        <div className="pointer-events-auto inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-black/55 backdrop-blur-md border border-white/12 text-xs text-[#F6F3EC]">
+          <span
+            className={`w-2 h-2 rounded-full ${
+              isSpeaking
+                ? 'bg-[#E2B46D] animate-pulse'
+                : isListening
+                ? 'bg-emerald-400 animate-pulse'
+                : connectionState === 'connecting'
+                ? 'bg-amber-300 animate-pulse'
+                : 'bg-white/40'
             }`}
-          >
-            <ImageIcon className="w-3.5 h-3.5" />
-            Gallery Portrait
-          </button>
-          <button
-            type="button"
-            onClick={() => onChangeLensMode('camera')}
-            className={`min-h-[38px] px-3 py-1.5 rounded-lg text-xs font-medium transition-colors flex items-center gap-1.5 whitespace-nowrap shrink-0 ${
-              lensMode === 'camera'
-                ? 'bg-[#F6F3EC] text-[#181614]'
-                : 'text-[#E5DFD3] hover:text-white'
-            }`}
-          >
-            <Camera className="w-3.5 h-3.5" />
-            Camera AR
-          </button>
+          />
+          <Mic className="w-3.5 h-3.5 text-[#E6C285]" />
+          <span className="font-medium">
+            {needsAudioGesture
+              ? 'Tap anywhere to enable mic'
+              : isSpeaking
+              ? `${artwork.characterName} speaking`
+              : isListening
+              ? 'Mic active'
+              : connectionState === 'connecting'
+              ? 'Connecting mic...'
+              : 'Mic standby'}
+          </span>
+          {cameraDetected && anchorType === 'washington' && anchorConfidence > 0 && (
+            <span className="hidden sm:inline text-white/55 font-mono tabular-nums">
+              · {Math.round(anchorConfidence * 100)}%
+            </span>
+          )}
         </div>
 
-        <div className="pointer-events-auto flex items-center gap-2">
-          {lensMode === 'camera' && cameraReady && (
+        <div className="pointer-events-auto flex flex-wrap items-center gap-2">
+          {availableCameras.length > 1 && (
+            <select
+              aria-label="Select camera device"
+              value={selectedCameraId}
+              onChange={(e) => setSelectedCameraId(e.target.value)}
+              className="min-h-[36px] max-w-[175px] px-2.5 py-1 rounded-lg bg-black/60 backdrop-blur-md border border-white/15 text-[#F6F3EC] text-xs font-medium truncate focus:outline-none focus:border-[#E2B46D]"
+            >
+              {availableCameras.map((cam, idx) => (
+                <option key={cam.deviceId} value={cam.deviceId} className="bg-[#181614] text-[#F6F3EC]">
+                  {cam.label || `Camera ${idx + 1}`}
+                </option>
+              ))}
+            </select>
+          )}
+
+          {cameraReady && (
             <>
               <button
                 type="button"
                 onClick={() => setAutoScan((v) => !v)}
-                className={`min-h-[40px] px-3 py-1.5 rounded-xl backdrop-blur-md border text-xs font-medium transition-colors whitespace-nowrap shrink-0 ${
+                className={`min-h-[36px] px-3 py-1 rounded-lg backdrop-blur-md border text-xs font-medium transition-colors whitespace-nowrap shrink-0 ${
                   autoScan
                     ? 'bg-[#F6F3EC]/90 text-[#181614] border-[#F6F3EC]'
-                    : 'bg-black/65 text-[#F6F3EC] border-white/15 hover:bg-black/80'
+                    : 'bg-black/60 text-[#F6F3EC] border-white/15 hover:bg-black/80'
                 }`}
               >
                 {autoScan ? 'Auto-Track On' : 'Auto-Track Off'}
@@ -919,10 +1084,10 @@ export const ARPortraitStage: React.FC<ARPortraitStageProps> = ({
                   handleScanCameraFrame();
                 }}
                 disabled={isScanning}
-                className="min-h-[40px] px-3.5 py-1.5 rounded-xl bg-[#B4833E] text-[#11100F] text-xs font-semibold hover:bg-[#C79A52] disabled:opacity-60 transition-colors flex items-center gap-1.5 whitespace-nowrap shrink-0"
+                className="min-h-[36px] px-3 py-1 rounded-lg bg-[#B4833E] text-[#11100F] text-xs font-semibold hover:bg-[#C79A52] disabled:opacity-60 transition-colors flex items-center gap-1.5 whitespace-nowrap shrink-0"
               >
                 <Scan className="w-3.5 h-3.5" />
-                {isScanning ? 'Scanning...' : cameraDetected ? 'Re-Scan' : 'Scan Anchor'}
+                {isScanning ? 'Scanning...' : cameraDetected ? 'Re-Scan' : 'Scan'}
               </button>
             </>
           )}
@@ -936,8 +1101,8 @@ export const ARPortraitStage: React.FC<ARPortraitStageProps> = ({
                 setAnchorType(null);
                 onResetToWashington();
               }}
-              title="Return to Washington Portrait"
-              className="min-h-[40px] px-3 py-1.5 rounded-xl bg-black/65 backdrop-blur-md border border-white/15 text-[#F6F3EC] text-xs font-medium hover:bg-black/80 transition-colors flex items-center gap-1.5 whitespace-nowrap shrink-0"
+              title="Return to Washington Anchor"
+              className="min-h-[36px] px-2.5 py-1 rounded-lg bg-black/60 backdrop-blur-md border border-white/15 text-[#F6F3EC] text-xs font-medium hover:bg-black/80 transition-colors flex items-center gap-1.5 whitespace-nowrap shrink-0"
             >
               <RotateCcw className="w-3.5 h-3.5" />
               Washington
@@ -947,166 +1112,77 @@ export const ARPortraitStage: React.FC<ARPortraitStageProps> = ({
           <button
             type="button"
             onClick={() => setShowHotspots((v) => !v)}
-            aria-label={showHotspots ? 'Hide portrait hotspots' : 'Show portrait hotspots'}
-            className="min-h-[40px] min-w-[40px] px-2.5 rounded-xl bg-black/65 backdrop-blur-md border border-white/15 text-[#F6F3EC] hover:bg-black/80 transition-colors flex items-center justify-center"
+            aria-label={showHotspots ? 'Hide portrait markers' : 'Show portrait markers'}
+            className="min-h-[36px] min-w-[36px] px-2 rounded-lg bg-black/60 backdrop-blur-md border border-white/15 text-[#F6F3EC] hover:bg-black/80 transition-colors flex items-center justify-center"
           >
             {showHotspots ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
           </button>
         </div>
       </div>
 
-      {/* Anchored AR Avatar Header & Quick Voice Action attached directly to Tracked Painting */}
-      {lensMode === 'camera' && cameraDetected && (
-        <div
-          style={{
-            left: `${Math.max(3, Math.min(58, trackedBox.x))}%`,
-            top: `${Math.max(12, trackedBox.y - 7)}%`,
-          }}
-          className="absolute z-20 flex items-center gap-2 pointer-events-auto"
-        >
-          <div className="px-2.5 py-1 rounded-md bg-black/80 backdrop-blur-sm border border-[#D9B16E]/45 text-[#F6F3EC] text-[11px] tracking-wide whitespace-nowrap">
-            <span className="font-serif italic text-[#E6C285]">
-              {anchorType === 'washington' ? 'Washington Anchor Locked' : artwork.characterName}
-            </span>
-            {anchorType === 'washington' && anchorConfidence > 0 && (
-              <>
-                <span className="mx-1.5 text-white/35">·</span>
-                <span className="font-mono tabular-nums text-white/75">
-                  {Math.round(anchorConfidence * 100)}%
-                </span>
-              </>
-            )}
-          </div>
-
-          <button
-            type="button"
-            onClick={onToggleVoice}
-            className={`min-h-[30px] px-2.5 py-1 rounded-md text-[11px] font-semibold flex items-center gap-1 transition-colors whitespace-nowrap shrink-0 ${
-              isListening || connectionState === 'connecting'
-                ? 'bg-[#9A3412] text-[#FBF9F4]'
-                : 'bg-[#B4833E] text-[#11100F] hover:bg-[#C79A52]'
-            }`}
-          >
-            {isListening || connectionState === 'connecting' ? (
-              <>
-                <MicOff className="w-3 h-3" />
-                Stop Voice
-              </>
-            ) : (
-              <>
-                <Mic className="w-3 h-3" />
-                Talk Live
-              </>
-            )}
-          </button>
+      {/* Subtle scan or error notice */}
+      {(errorMessage || scanNotice) && (
+        <div className="absolute top-15 left-1/2 -translate-x-1/2 z-20 px-3.5 py-1.5 rounded-lg bg-black/70 backdrop-blur-md border border-white/15 text-xs text-[#F6F3EC] max-w-[90%] text-center pointer-events-none">
+          {errorMessage || scanNotice}
         </div>
       )}
 
-      {/* Interactive AR Tags Overlaid on Portrait Details */}
-      {hotspotsVisible && (
-        <div className="absolute inset-0 z-10 pointer-events-none">
-          {artwork.hotspots.map((spot) => {
-            const isActive = activeHotspotId === spot.id;
-            const { leftPct, topPct } = getHotspotPosition(spot);
-            return (
-              <div
-                key={spot.id}
-                style={{ left: `${leftPct}%`, top: `${topPct}%` }}
-                className="absolute -translate-x-1/2 -translate-y-1/2 pointer-events-auto"
-              >
-                <button
-                  type="button"
-                  onClick={() => onSelectHotspot(spot)}
-                  aria-label={`Inspect ${spot.label}`}
-                  className="group relative min-h-[44px] min-w-[44px] flex items-center justify-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#E2B46D] rounded-full"
-                >
-                  <span
-                    className={`w-6 h-6 rounded-full border transition-transform duration-200 flex items-center justify-center ${
-                      isActive
-                        ? 'scale-110 bg-[#B4833E] border-[#F6F3EC] text-[#11100F]'
-                        : 'bg-black/65 border-[#D9B16E]/85 text-[#F6F3EC] group-hover:scale-110 group-hover:bg-[#B4833E]/90 group-hover:text-[#11100F]'
-                    }`}
-                  >
-                    <Sparkles className="w-3 h-3" />
-                  </span>
+      {/* Subtle Bottom Scrim: Live AR Subtitles Only */}
+      <div className="absolute bottom-0 left-0 right-0 z-10 pointer-events-none bg-gradient-to-t from-black/85 via-black/45 to-transparent pt-14 pb-5 px-5 sm:px-8">
+        <div className="max-w-3xl">
+          {activeHotspot && (
+            <p className="text-[11px] uppercase tracking-widest text-[#E6C285] mb-1">
+              {activeHotspot.label} · {activeHotspot.eraDetail}
+            </p>
+          )}
 
-                  <span
-                    className={`absolute left-1/2 -translate-x-1/2 top-full mt-0.5 px-2.5 py-1 rounded-lg bg-[#141210]/90 border border-[#D9B16E]/40 text-[#F6F3EC] text-[11px] font-medium whitespace-nowrap shadow-lg transition-opacity duration-150 pointer-events-none ${
-                      isActive || lensMode === 'camera'
-                        ? 'opacity-100'
-                        : 'opacity-0 group-hover:opacity-100'
-                    }`}
-                  >
-                    {spot.label}
-                  </span>
-                </button>
-              </div>
-            );
-          })}
-        </div>
-      )}
+          {latestVisitorLine && (
+            <p className="text-xs text-[#D6CFC2] truncate mb-0.5">
+              You: “{latestVisitorLine.text}”
+            </p>
+          )}
 
-      {/* Scan notice banner */}
-      {scanNotice && (
-        <div className="absolute top-16 left-1/2 -translate-x-1/2 z-20 px-3.5 py-1.5 rounded-lg bg-black/75 backdrop-blur-md border border-white/15 text-xs text-[#F6F3EC] max-w-[90%] text-center">
-          {scanNotice}
-        </div>
-      )}
-
-      {/* Measured Bottom Scrim: Live AR Subtitles */}
-      <div className="absolute bottom-0 left-0 right-0 z-10 pointer-events-none bg-gradient-to-t from-black/90 via-black/55 to-transparent pt-14 pb-4 px-4 sm:px-6">
-        <div className="flex items-end justify-between gap-4">
-          <div className="min-w-0 flex-1 max-w-2xl">
-            <div className="flex items-center gap-2 text-[11px] uppercase tracking-widest text-[#D6B47B] mb-1">
-              <span>
-                {lensMode === 'camera' && !cameraDetected
-                  ? 'Washington Image Anchor'
-                  : artwork.characterName}
-              </span>
-              <span aria-hidden="true">·</span>
-              <span>
-                {lensMode === 'camera' && !cameraDetected
-                  ? isScanning
-                    ? 'Matching anchor'
-                    : 'Searching camera feed'
-                  : isSpeaking
-                  ? 'Avatar speaking'
-                  : isListening
-                  ? 'Avatar listening'
-                  : connectionState === 'thinking'
-                  ? 'Avatar thinking'
-                  : connectionState === 'connecting'
-                  ? 'Connecting voice'
-                  : 'Avatar ready'}
-              </span>
-            </div>
-
-            {latestVisitorLine && (
-              <p className="text-xs text-[#C7C0B4] truncate mb-0.5">
-                You: “{latestVisitorLine.text}”
-              </p>
-            )}
-
-            {latestDialogue && (lensMode === 'portrait' || cameraDetected) && (
-              <p className="text-sm sm:text-base text-[#F6F3EC] font-serif italic leading-snug line-clamp-3">
-                “{latestDialogue.text}”
-              </p>
-            )}
-          </div>
-
-          <button
-            type="button"
-            onClick={() => fileInputRef.current?.click()}
-            className="pointer-events-auto hidden sm:inline-flex min-h-[40px] px-3 py-1.5 rounded-lg bg-white/10 hover:bg-white/18 border border-white/15 text-[#F6F3EC] text-xs font-medium items-center gap-1.5 transition-colors whitespace-nowrap shrink-0"
-          >
-            <Upload className="w-3.5 h-3.5" />
-            Upload Painting
-          </button>
+          {latestDialogue && cameraDetected && (
+            <p className="text-sm sm:text-base text-[#F6F3EC] font-serif italic leading-snug line-clamp-3">
+              “{latestDialogue.text}”
+            </p>
+          )}
         </div>
       </div>
     </div>
   );
 };
+
+function isValidQuadShape(q: unknown): q is FocalQuad {
+  if (!q || typeof q !== 'object') return false;
+  const cand = q as FocalQuad;
+  const pts = [cand.topLeft, cand.topRight, cand.bottomRight, cand.bottomLeft];
+  return pts.every(
+    (p) =>
+      p &&
+      typeof p.x === 'number' &&
+      typeof p.y === 'number' &&
+      Number.isFinite(p.x) &&
+      Number.isFinite(p.y)
+  );
+}
+
+function offsetAwayFromFocal(
+  x: number,
+  y: number,
+  fx: number,
+  fy: number
+): { x: number; y: number } {
+  const dx = x - fx;
+  const dy = y - fy;
+  const dist = Math.hypot(dx, dy);
+  if (dist >= 7) return { x, y };
+  const dirX = dx >= 0 ? 1 : -1;
+  return {
+    x: Math.max(8, Math.min(92, fx + dirX * 8)),
+    y: Math.max(8, Math.min(92, y - 3)),
+  };
+}
 
 function animateFigureInLiveVideo(
   ctx: CanvasRenderingContext2D,
@@ -1231,22 +1307,24 @@ function animateFigureInLiveVideo(
   ctx.fill();
 }
 
-function drawAmbientMotes(
+function drawAmbientMotesInQuad(
   ctx: CanvasRenderingContext2D,
   motes: DustMote[],
   cw: number,
   ch: number,
-  bx: number,
-  by: number,
-  bw: number,
-  bh: number,
+  quad: FocalQuad,
+  box: FocalBox,
   tilt: { x: number; y: number },
   speech: number,
   elapsed: number
 ) {
   ctx.save();
   ctx.beginPath();
-  ctx.rect(bx, by, bw, bh);
+  ctx.moveTo(quad.topLeft.x, quad.topLeft.y);
+  ctx.lineTo(quad.topRight.x, quad.topRight.y);
+  ctx.lineTo(quad.bottomRight.x, quad.bottomRight.y);
+  ctx.lineTo(quad.bottomLeft.x, quad.bottomLeft.y);
+  ctx.closePath();
   ctx.clip();
 
   for (const m of motes) {
@@ -1259,8 +1337,8 @@ function drawAmbientMotes(
     if (m.x < -0.02) m.x = 1.02;
     if (m.x > 1.02) m.x = -0.02;
 
-    const px = bx + m.x * bw + tilt.x * 14 * m.depth;
-    const py = by + m.y * bh + tilt.y * 10 * m.depth;
+    const px = box.x + m.x * box.width + tilt.x * 14 * m.depth;
+    const py = box.y + m.y * box.height + tilt.y * 10 * m.depth;
     if (px < 0 || px > cw || py < 0 || py > ch) continue;
 
     const shimmer = 0.65 + 0.35 * Math.sin(elapsed * 2.1 + m.phase);
@@ -1307,33 +1385,40 @@ function drawLivingVoiceAura(
   }
 }
 
-function drawOpticalFrameCorners(
+function drawOpticalQuadCorners(
   ctx: CanvasRenderingContext2D,
-  x: number,
-  y: number,
-  w: number,
-  h: number,
+  quad: FocalQuad,
   speech: number,
   elapsed: number,
   baseAlpha = 0.62
 ) {
-  const corner = Math.min(26, Math.min(w, h) * 0.13);
   const alpha = baseAlpha + speech * 0.3 + Math.sin(elapsed * 2) * 0.06;
   ctx.strokeStyle = `rgba(224, 184, 118, ${alpha})`;
   ctx.lineWidth = 1.75;
 
-  const drawCorner = (cx: number, cy: number, dx: number, dy: number) => {
+  const drawCorner = (corner: QuadCorner, nextA: QuadCorner, nextB: QuadCorner) => {
+    const lenA = Math.hypot(nextA.x - corner.x, nextA.y - corner.y);
+    const lenB = Math.hypot(nextB.x - corner.x, nextB.y - corner.y);
+    const armA = Math.min(26, lenA * 0.14);
+    const armB = Math.min(26, lenB * 0.14);
+    if (lenA < 1 || lenB < 1) return;
+
+    const pAx = corner.x + ((nextA.x - corner.x) / lenA) * armA;
+    const pAy = corner.y + ((nextA.y - corner.y) / lenA) * armA;
+    const pBx = corner.x + ((nextB.x - corner.x) / lenB) * armB;
+    const pBy = corner.y + ((nextB.y - corner.y) / lenB) * armB;
+
     ctx.beginPath();
-    ctx.moveTo(cx + dx * corner, cy);
-    ctx.lineTo(cx, cy);
-    ctx.lineTo(cx, cy + dy * corner);
+    ctx.moveTo(pAx, pAy);
+    ctx.lineTo(corner.x, corner.y);
+    ctx.lineTo(pBx, pBy);
     ctx.stroke();
   };
 
-  drawCorner(x, y, 1, 1);
-  drawCorner(x + w, y, -1, 1);
-  drawCorner(x, y + h, 1, -1);
-  drawCorner(x + w, y + h, -1, -1);
+  drawCorner(quad.topLeft, quad.topRight, quad.bottomLeft);
+  drawCorner(quad.topRight, quad.topLeft, quad.bottomRight);
+  drawCorner(quad.bottomRight, quad.topRight, quad.bottomLeft);
+  drawCorner(quad.bottomLeft, quad.topLeft, quad.bottomRight);
 }
 
 function drawCueOverlay(
@@ -1372,4 +1457,35 @@ function drawCueOverlay(
     ctx.arc(hx, hy, dw * 0.22, 0, Math.PI * 2);
     ctx.fill();
   }
+}
+
+function pickPreferredExternalCamera(devices: MediaDeviceInfo[]): MediaDeviceInfo | null {
+  if (devices.length === 0) return null;
+
+  const builtInRegex =
+    /integrated|built-in|facetime|internal|laptop|macbook|truevision|user facing|front|ir camera|infrared|depth/i;
+  const externalRegex =
+    /usb|external|logitech|elgato|razer|brio|c920|c922|c930|streamcam|hd pro|cam link|capture|avermedia|insta360|ugreen|anker|obs/i;
+  const rearMobileRegex = /back|rear|environment/i;
+
+  let best: MediaDeviceInfo | null = null;
+  let bestScore = -999;
+
+  for (const dev of devices) {
+    const label = dev.label || '';
+    let score = 0;
+
+    if (externalRegex.test(label)) score += 12;
+    if (rearMobileRegex.test(label)) score += 8;
+    if (builtInRegex.test(label)) score -= 10;
+    if (!builtInRegex.test(label) && label.length > 0) score += 4;
+    if (/virtual|obs/i.test(label)) score -= 2;
+
+    if (score > bestScore) {
+      bestScore = score;
+      best = dev;
+    }
+  }
+
+  return best;
 }

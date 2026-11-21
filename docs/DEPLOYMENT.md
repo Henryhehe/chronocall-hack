@@ -8,7 +8,7 @@ Start with the [release checklist](RELEASE_CHECKLIST.md) for the exact order, ow
 
 The checked-in `render.yaml` builds the Dockerfile with Node 24 and Bun 1.3.3. It requests a free service in Virginia, starts in fixture mode, and disables automatic deployment so a teammate's push does not restart a presentation.
 
-1. Run `bun run check` from the repository root. Commit and push **all** required code, including the contributor-layout changes, to the deployment branch. Check the branch in GitHub; the original imported commit alone does not include `server/index.ts`.
+1. Run `npm run check` from the repository root. Commit and push **all** required code, including the contributor-layout changes, to the deployment branch. Check the branch in GitHub; the original imported commit alone does not include `server/index.ts`.
 2. Sign in to [Render](https://dashboard.render.com/), connect GitHub with access to `Henryhehe/chronocall-hack`, and choose **New → Blueprint**.
 3. Select the repository and the branch containing this work. Use `render.yaml` at the root. The local export folder name is **not** a Render root directory.
 4. Review the service configuration and create it. This first deploy sets `DEMO_MODE=true`; do not add an API key yet.
@@ -85,11 +85,11 @@ The final overrides ensure local `HOST`/`PORT` settings cannot break the contain
 - Use HTTPS for camera/microphone access off localhost. A phone opening the laptop's plain HTTP LAN address cannot be assumed to have camera access.
 - Stop voice/Genie before deploying; active connections are interrupted on restarts. Do not merge/redeploy during the presentation.
 - Record the deployed commit and successful checks. Revert to the previous successful deployment in the host dashboard if a new one fails; restore the matching environment settings as needed. Keep auto-deploy disabled while investigating.
-- Keep `bun run dev:demo` and a short recording of a successful real-model run available as distinct, labeled fallbacks.
+- Keep `npm run dev:demo` and a short recording of a successful real-model run available as distinct, labeled fallbacks.
 
 ## Validation and remaining setup
 
-`bun run check` builds the frontend and launches a real production-mode Node server with fixtures on a temporary port. CI then builds the Docker image and repeats the transport check **inside the container**, catching missing files/dependencies in packaging.
+`npm run check` builds the frontend and launches a real production-mode Node server with fixtures on a temporary port. CI then builds the Docker image and repeats the transport check **inside the container**, catching missing files/dependencies in packaging.
 
 These checks are configured but require dependencies and Docker to execute. See the dated verification record in [README.md](../README.md) for what has actually run. Publishing still requires an accessible hosting account, a pushed deployment branch, and successful provider builds; no deployment URL should be claimed until the host confirms success.
 

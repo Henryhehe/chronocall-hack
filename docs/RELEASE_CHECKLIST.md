@@ -13,8 +13,8 @@ git status --short
 git diff --stat
 node --version
 bun --version
-bun install --frozen-lockfile
-bun run check
+npm install
+npm run check
 ```
 
 Required tools: Node 24 and Bun 1.3.3. `check` runs types, regression/API tests, Vite build, and a production server smoke test with paid calls disabled. A missing dependency or failed check blocks the release; do not treat an unexecuted check as a pass.

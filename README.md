@@ -10,7 +10,7 @@ A hackathon prototype for camera-based historical characters, live conversations
 
 | Screen / feature | Implemented behavior | Demo mode without a key |
 | --- | --- | --- |
-| **Discover / learning home** | Four experience entry points and guiding questions | Available without model calls |
+| **Discover / learning home** | Featured portrait, look → ask → reflect introduction, and four concise experience entry points | Available without model calls |
 | **Portrait gallery / Museum AR** | Washington portrait, animated layers, camera anchor tracking, camera/upload identification, hotspots, typed questions with optional TTS, live character voice, mobile QR | Bundled portrait/visual controls work; identification, character replies, and voice explicitly unavailable |
 | **Live Vision** | Camera selection, screen sharing, image/video upload; one-shot or timed detection; focus prompt, confidence filtering, clickable boxes, frame Q&A, annotated snapshot download | Media preview and controls work; detection returns no inferred boxes; Q&A returns a labeled placeholder |
 | **Live voice** | Microphone + sampled video over WebSocket; spoken replies, transcripts, interruption, model-triggered object highlights; standard/extended-thinking model selection | Explicitly unavailable |
@@ -29,13 +29,13 @@ A hackathon prototype for camera-based historical characters, live conversations
 
 ## Start locally
 
-Install **Node.js 24** ([download](https://nodejs.org/en/download), or `nvm install` using `.nvmrc`) and **Bun 1.3.3+** ([installation](https://bun.sh/docs/installation)). Bun manages dependencies; Node runs the server. The checked-in `bun.lock` is the team's dependency baseline.
+Install **Node.js 24** ([download](https://nodejs.org/en/download), or `nvm install` using `.nvmrc`). npm manages dependencies; Node runs the server. Use Node 24 for the TypeScript regression tests.
 
 ```bash
 git clone https://github.com/Henryhehe/chronocall-hack.git
 cd chronocall-hack
-bun run setup
-bun run dev:demo
+npm run setup
+npm run dev:demo
 ```
 
 Open **http://localhost:3000**. Setup installs locked dependencies and creates `.env.local` only if it does not exist.
@@ -60,7 +60,7 @@ DEMO_MODE=false
 PORT=3000
 ```
 
-Stop the demo server and run `bun run dev`. Restart after changing environment variables. Shell variables take precedence over `.env.local`, which takes precedence over `.env`. Keys remain on the server. Never put a secret in a `VITE_` variable or commit real credentials.
+Stop the demo server and run `npm run dev`. Restart after changing environment variables. Shell variables take precedence over `.env.local`, which takes precedence over `.env`. Keys remain on the server. Never put a secret in a `VITE_` variable or commit real credentials.
 
 Core model IDs live in [`shared/models.ts`](shared/models.ts); Museum currently declares its IDs separately in [`server/museum.ts`](server/museum.ts). The app retains the hackathon model IDs from the AI Studio export; your key must have access to those models. Museum identification/text uses Hydrogen and museum live voice uses the standard Live model.
 
@@ -84,7 +84,7 @@ These are code configuration values, not a claim that every public Gemini key ca
 | `DEMO_MODE` | `false` | Exactly `true` selects fixtures and disables voice/Genie |
 | `PORT` | `3000` | UI, HTTP API, and WebSocket share this port; hosts may inject a different value |
 | `HOST` | `0.0.0.0` | Bind address; use `127.0.0.1` for laptop-only access |
-| `NODE_ENV` | Unset | `production` serves `dist/`; `bun run start` also forces production |
+| `NODE_ENV` | Unset | `production` serves `dist/`; `npm run start` also forces production |
 | `APP_URL` | Inferred from request | Public HTTPS origin used for Museum AR QR links; leave empty locally |
 | `DISABLE_HMR` | Unset | Optional development-only setting; `true` disables Vite HMR/file watching |
 
@@ -92,20 +92,20 @@ These are code configuration values, not a claim that every public Gemini key ca
 
 | Command | Purpose |
 | --- | --- |
-| `bun run setup` | Install locked dependencies and create local configuration safely |
-| `bun run doctor` | Check Node, Bun, dependencies, and key presence; never prints the key |
-| `bun run dev:demo` | UI + API using local fixtures; no model calls |
-| `bun run dev` | Full app with frontend hot reload and backend restart |
-| `bun run typecheck` | Check client, server, shared contracts, and tests |
-| `bun run test` | Node regression tests; only Node 24 required |
-| `bun run test:api` | Express integration tests with fixtures; dependencies required |
-| `bun run check` | Typecheck, regression/API tests, frontend build, and full production-server smoke check |
-| `bun run build` | Build the browser app into `dist/` |
-| `bun run start` | Serve the built UI, HTTP API, and WebSocket together; build first |
-| `bun run test:production` | Start the built app on a temporary port, check fixtures/assets/WebSocket, and stop it; build first |
+| `npm run setup` | Install locked dependencies and create local configuration safely |
+| `npm run doctor` | Check Node, npm, dependencies, and key presence; never prints the key |
+| `npm run dev:demo` | UI + API using local fixtures; no model calls |
+| `npm run dev` | Full app with frontend hot reload and backend restart |
+| `npm run typecheck` | Check client, server, shared contracts, and tests |
+| `npm run test` | Node regression tests; only Node 24 required |
+| `npm run test:api` | Express integration tests with fixtures; dependencies required |
+| `npm run check` | Typecheck, regression/API tests, frontend build, and full production-server smoke check |
+| `npm run build` | Build the browser app into `dist/` |
+| `npm run start` | Serve the built UI, HTTP API, and WebSocket together; build first |
+| `npm run test:production` | Start the built app on a temporary port, check fixtures/assets/WebSocket, and stop it; build first |
 | `node scripts/smoke.mjs http://localhost:3000 --demo` | Check an already-running production demo server |
 
-Use `bun run test`, not `bun test`, so the Node test runner is used. `bun run preview` is an alias for the full production server; running Vite alone does not provide the API or voice bridge. Production needs installed runtime dependencies including `tsx`: install with `bun install --frozen-lockfile`, build, then start.
+Use `npm test` to run the Node regression tests. `npm run preview` is an alias for the full production server; running Vite alone does not provide the API or voice bridge. Production needs installed runtime dependencies including `tsx`: install with `npm install`, build, then start.
 
 ## Deploy
 
@@ -113,7 +113,7 @@ Follow the [release checklist](docs/RELEASE_CHECKLIST.md) to validate, publish, 
 
 The repo includes a [Dockerfile](Dockerfile), secret-excluding [.dockerignore](.dockerignore), and [Render Blueprint](render.yaml). Render is the documented target because the existing Node server needs both inbound and outbound WebSockets. A static-site upload of `dist/` alone cannot run the API or voice bridge.
 
-1. Commit/push the complete working tree, including the existing server/feature refactor and deployment files, to the branch you intend to deploy. Run `bun run check` first. Do not deploy only the new README/Dockerfile over the original export.
+1. Commit/push the complete working tree, including the existing server/feature refactor and deployment files, to the branch you intend to deploy. Run `npm run check` first. Do not deploy only the new README/Dockerfile over the original export.
 2. In [Render](https://dashboard.render.com/), create a **Blueprint**, connect `Henryhehe/chronocall-hack`, and select that branch. Use `render.yaml` from the repository root.
 3. The Blueprint requests one free Docker web service in **demo mode**, with manual deploys and `/api/health` checks. No Gemini key is required for this first deployment.
 4. Open the returned HTTPS URL, then run `node scripts/smoke.mjs https://YOUR-SERVICE.onrender.com --demo`. Warm an idle free service in the browser before running this check.
@@ -122,9 +122,9 @@ The repo includes a [Dockerfile](Dockerfile), secret-excluding [.dockerignore](.
 To rehearse production locally:
 
 ```bash
-bun run check
+npm run check
 # Separate terminal; keep this running while opening localhost:3000:
-DEMO_MODE=true bun run start
+DEMO_MODE=true npm run start
 ```
 
 Or, with Docker installed:
@@ -160,11 +160,11 @@ Read [CONTRIBUTING.md](CONTRIBUTING.md) before branching. See the [architecture 
 
 ## Troubleshooting
 
-- Start with `bun run doctor`. Missing dependencies: rerun `bun run setup`.
+- Start with `npm run doctor`. Missing dependencies: rerun `npm run setup`.
 - Registry/DNS errors: installation needs access to the public npm registry. The repo specifies that registry so a company-wide default does not affect this project. Don't change dependency versions to work around a connection failure.
 - Port in use: set `PORT=3001` in `.env.local`, restart, and open that port.
 - `ERR_MODULE_NOT_FOUND` for `tsx`: install the full lockfile, including dev dependencies. The server runs TypeScript through `tsx`; production-only dependency pruning currently removes it.
-- `Missing production build`: run `bun run build` before `bun run start` or `bun run test:production`.
+- `Missing production build`: run `npm run build` before `npm run start` or `npm run test:production`.
 - Hosted page loads but API fails: deploy the Docker **web service**, not just static `dist/`; confirm `/api/health` returns JSON. Voice also needs `/ws/live` WebSocket upgrades on the same origin.
 - Camera/microphone unavailable: use localhost or HTTPS, grant permissions, and check whether another app holds the device. A plain HTTP LAN IP is not a secure camera context.
 - 403 / missing key: check `.env.local`, shell overrides, and hackathon model access. Never paste credentials into an issue.
@@ -198,7 +198,7 @@ Dependencies are now installed. Two service-contract type errors were fixed so s
 | Docker build/run | Docker installed; daemon socket access blocked by this execution environment |
 | Browser, real-model, and hosted deployment checks | Not yet verified |
 
-Bun is installed at `~/.bun/bin/bun` but is not on this session's PATH. Once dependencies are installed, the npm script equivalents work without Bun. To run the already-built app from your normal Mac Terminal:
+Dependencies are managed with npm. To run the already-built app from your normal Mac Terminal:
 
 ```bash
 cd "/Users/Chuanheng.He/Gemini 4/gemini-live-vision-nov-21-2026-12-16-49-pm"
@@ -252,3 +252,11 @@ Without a key, demonstrate the included artwork, capture/upload UI, preset world
 ### Characters contribution
 
 Museum identification now uses a general era-aware character guide. `POST /api/research-figure` adds Google Search research, structured profiles, and Decisions API support checks (threshold 0.8). Persona helpers also support animal, object, and place speakers. The research endpoint and alternate-speaker helpers are available for frontend integration; the existing UI does not yet automatically request research or switch speakers. Research is disabled in demo mode. See [character pipeline](research/README.md).
+
+## UI references
+
+The discovery page uses [Google Arts & Culture Play](https://artsandculture.google.com/play) as a reference for a featured cultural experience and short invitations to explore, and [Brilliant](https://brilliant.org/) for guided questions and active learning. The implementation keeps Chronocall’s own artwork, colors, and components: one primary portrait action, a look → ask → reflect introduction, and compact links to all four workspaces. No external site assets or code are copied.
+
+### Latest branch integration
+
+Historical video calls are available at `/facetime` (also linked from Discover), with the camera scanner, character contacts, and hybrid video. `/museum` retains the portrait and upload view; choose **Scan painting** for perspective-tracked camera AR. Character typed replies now pass through Decisions API checks. The speech request uses the Interactions API.

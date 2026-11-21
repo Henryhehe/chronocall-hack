@@ -15,7 +15,7 @@ For an education-focused pitch, use the [museum-first alternative in the release
 ## Before going on stage
 
 - Choose one presenter and one operator. Freeze one tested commit and disable automatic redeploys.
-- Run `bun run check`; open the production app; check `/api/health`. A real presentation needs `demoMode: false` and a key with access to the feature's configured model.
+- Run `npm run check`; open the production app; check `/api/health`. A real presentation needs `demoMode: false` and a key with access to the feature's configured model.
 - Rehearse with the exact laptop, browser, microphone, output device, and network. Grant camera/microphone permissions in advance; check speaker feedback. Keep the app at a readable zoom level.
 - Put one ordinary object within reach: a mug or phone. Prepare one photo you have permission to use as the upload fallback.
 - Use one persona for the whole story, such as Roman Senator. Character Mirror and the World workspace have separate persona selectors; select the same one in both.

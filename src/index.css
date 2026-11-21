@@ -147,3 +147,22 @@ button:disabled { cursor: not-allowed; opacity: .5; }
 .note-question { color: #c7b38c; border-top: 1px solid #ffffff17; padding-top: 12px; }
 @media (max-width: 1100px) { .journey-header { flex-direction: column; align-items: flex-start; gap: 16px; } .experience-grid { grid-template-columns: repeat(2, 1fr); } .hero-copy h1 { font-size: 56px; } .learning-method { flex-wrap: wrap; } }
 @media (max-width: 700px) { .journey-header { padding: 20px 16px 12px; } .journey-header nav { flex-wrap: nowrap; overflow-x: auto; max-width: 100%; width: 100%; } .journey-header nav button { white-space: nowrap; padding: 12px 10px; } .learning-hero { grid-template-columns: 1fr; padding: 20px 4px 30px; gap: 32px; } .hero-copy h1 { font-size: 53px; letter-spacing: -2px; } .hero-art { height: 360px; border-radius: 100px 100px 8px 8px; } .experience-section { padding: 26px 4px; } .section-heading { align-items: start; flex-direction: column; } .section-heading h2 { font-size: 27px; } .experience-grid { grid-template-columns: 1fr; } .experience-card { padding: 24px; } .learning-method { margin: 0 4px 25px; padding: 22px; } .learning-guide { flex-direction: column; align-items: start; padding: 20px; } .guide-actions { flex-direction: row; flex-wrap: wrap; } .notebook-grid { grid-template-columns: 1fr; gap: 28px; } .journey-footer { flex-direction: column; padding: 24px 20px 90px; } }
+
+/* Discovery: one featured invitation, followed by compact ways to explore. */
+.discovery-steps { list-style: none; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; margin: 34px 0 0; padding: 22px 0 0; border-top: 1px solid #ffffff20; }
+.discovery-steps li { display: flex; align-items: flex-start; gap: 9px; }
+.discovery-steps li > span { color: var(--journey-gold); font: 10px var(--font-mono); padding-top: 3px; }
+.discovery-steps strong { display: block; font-size: 11px; font-weight: 600; }
+.discovery-steps p { color: #a7adb7; font-size: 11px; margin-top: 6px; line-height: 1.5; }
+.art-badge { position: absolute; top: 24px; left: 50%; transform: translateX(-50%); z-index: 1; white-space: nowrap; border: 1px solid #ffffff38; border-radius: 30px; background: #111820df; padding: 9px 14px; font-size: 9px; letter-spacing: 1.3px; color: #f4f0e7; }
+.learning-home .experience-card h3 { margin-top: 0; }
+.learning-home .experience-card .card-top { margin-bottom: 18px; }
+.learning-home .experience-card > p { margin-bottom: 20px; }
+#experiences { scroll-margin-top: 24px; }
+@media (max-width: 700px) {
+  .discovery-steps { gap: 10px; margin-top: 26px; }
+  .discovery-steps li { flex-direction: column; gap: 7px; }
+  .hero-copy h1 { font-size: clamp(40px, 10vw, 53px); }
+  .hero-actions { gap: 12px 20px; }
+  .hero-actions a { min-height: 44px; display: inline-flex; align-items: center; gap: 8px; }
+}

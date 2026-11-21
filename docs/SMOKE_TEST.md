@@ -4,7 +4,7 @@ Run on the presentation laptop after merging. Record pass/fail and the commit te
 
 ## Without a key
 
-1. Run `bun run setup`, `bun run doctor`, and `bun run dev:demo`. Open localhost. Confirm the demo banner and `/api/health` reports `demoMode: true`.
+1. Run `npm run setup`, `npm run doctor`, and `npm run dev:demo`. Open localhost. Confirm the demo banner and `/api/health` reports `demoMode: true`.
 2. Start the camera; switch devices if available. The selected feed should keep playing. Deny permission once and confirm a useful error.
 3. Upload an image and a video. Confirm previews work and detection explicitly reports demo mode.
 4. With the camera running, switch to World and capture from the active feed. Confirm a photo is captured; return to Live Vision and confirm the feed still works.
@@ -14,7 +14,7 @@ Run on the presentation laptop after merging. Record pass/fail and the commit te
 
 ## With a hackathon key
 
-1. Set the key in `.env.local`, stop the demo, and run `bun run dev`. Confirm no demo banner. Do not record or share credentials.
+1. Set the key in `.env.local`, stop the demo, and run `npm run dev`. Confirm no demo banner. Do not record or share credentials.
 2. Detect a visible object and ask about the frame. Confirm model responses and latency.
 3. Start voice and wait for readiness. Ask for an object highlight; confirm audio, transcript, and overlay.
 4. Stop/restart voice quickly; navigate to World while voice is active. Confirm the old session stops and only one microphone session remains.
@@ -25,9 +25,9 @@ Run on the presentation laptop after merging. Record pass/fail and the commit te
 
 ## Production rehearsal
 
-Run `bun run check`: it includes a production build and an isolated production-server check using fixtures. To rerun just that check after a build, use `bun run test:production`.
+Run `npm run check`: it includes a production build and an isolated production-server check using fixtures. To rerun just that check after a build, use `npm run test:production`.
 
-Stop development, then run `DEMO_MODE=true bun run start` for a fixture rehearsal, or `bun run start` with `DEMO_MODE=false` and the real key configured. Verify navigation, detection, and voice on the same port. Keep a short recording of a successful flow as a fallback.
+Stop development, then run `DEMO_MODE=true npm run start` for a fixture rehearsal, or `npm run start` with `DEMO_MODE=false` and the real key configured. Verify navigation, detection, and voice on the same port. Keep a short recording of a successful flow as a fallback.
 
 For an already-running production fixture server, run `node scripts/smoke.mjs http://localhost:3000 --demo`. Replace the URL with the hosted HTTPS origin to test the deployed container. The check verifies production HTML/assets, JSON API routing, fixture responses, and the live WebSocket demo error/closure. Without `--demo`, it skips model/voice requests. It is not a browser rendering or real-AI test.
 

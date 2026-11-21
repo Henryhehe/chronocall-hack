@@ -8,7 +8,7 @@ function check(label, ok, detail) {
   console.log(`${ok ? "OK" : "MISSING"} ${label}: ${detail}`);
   if (!ok) failed = true;
 }
-check("Node.js", Number(process.versions.node.split(".")[0]) >= 22, process.versions.node);
+check("Node.js", Number(process.versions.node.split(".")[0]) >= 24, process.versions.node);
 const npm = spawnSync("npm", ["--version"], { encoding: "utf8" });
 check("npm", !npm.error && npm.status === 0, npm.stdout?.trim() || "npm is required");
 check("Dependencies", existsSync(new URL("node_modules/tsx", root)), "run npm install if missing");
