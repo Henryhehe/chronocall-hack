@@ -22,6 +22,10 @@ import type {
   VideoEngineMode,
 } from "./types";
 
+// Shopify: offer prints of the painting after the call (src/features/shop).
+import { PrintOfferModal } from "../shop/PrintOfferModal";
+import { usePrintOffer } from "../shop/usePrintOffer";
+
 export default function FaceTimeApp() {
   const [health, setHealth] = useState<RuntimeHealth | null>(null);
   const [phase, setPhase] = useState<FaceTimePhase>("launcher");
@@ -86,6 +90,7 @@ export default function FaceTimeApp() {
   }, []);
 
   const demoMode = health?.demoMode ?? false;
+  const printOffer = usePrintOffer({ phase, profile: activeProfile });
 
   const stopRingtone = useCallback(() => {
     stopRingtoneRef.current?.();
@@ -440,6 +445,7 @@ export default function FaceTimeApp() {
           void beginCall(profile, artworkDataUrl)
         }
       />
+      <PrintOfferModal {...printOffer} />
     </>
   );
 }
