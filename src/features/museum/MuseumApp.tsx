@@ -177,7 +177,7 @@ export default function App({ onExit }: { onExit: () => void }) {
             <span>{connectionState === 'connecting' ? 'Cancel connection' : isListening ? 'End conversation' : 'Talk to portrait'}</span>
           </button>
           {isSpeaking && <button type="button" className="portrait-room-secondary" onClick={stopPlaybackQueue} aria-label="Interrupt speech"><VolumeX size={20} /><span>Interrupt</span></button>}
-          <button type="button" className="portrait-room-secondary" onClick={() => prints.offer(artwork)} disabled={lensMode === 'camera' && cameraArtworkLost} aria-label="Buy a print of this painting" title="Find prints"><ShoppingBag size={18} /><span>Prints</span></button>
+          <button type="button" className="portrait-room-secondary w-11 h-11 rounded-[10px] border border-white/15" onClick={() => prints.offer(artwork)} disabled={lensMode === 'camera' && cameraArtworkLost} aria-label="Buy a print of this painting" title="Find prints"><ShoppingBag size={18} aria-hidden="true" /></button>
           <button type="button" className="portrait-room-secondary portrait-room-conversation" onClick={() => setMobileSheetOpen(true)} aria-label="Open conversation" title="Open conversation"><MessageSquare size={18} aria-hidden="true" /></button>
         </div>
         <p className="portrait-room-hint">{isListening ? 'Listening · Ask a question or interrupt naturally' : lensMode === 'camera' ? 'Point your camera at a painting. Once identified, talk to its subject.' : 'Scan a painting with your camera, or talk to the portrait above.'}</p>
