@@ -6,12 +6,45 @@
 
 Your winning moment is a judge choosing a physical object, the character reacting to its visible details, and the answer changing when the object changes. Give that moment more time than the architecture explanation.
 
+## Round-four review: protect the live reply and the ending
+
+Reviewed against local commit **`d0abd60`** plus the working tree present during this review. After the transcript fix below, TypeScript, **76/76 unit tests**, and the production frontend build passed. Existing Vite configuration and bundle-size warnings remain. This round did not execute the HTTP integration suite, production-server smoke test or a live model call. Existing Museum edits were left untouched.
+
+**A real demo risk was found and fixed:** a camera-inspection annotation could absorb subsequent speech into its transcript row, which the reflection deliberately excludes. A spoken turn split by a tool annotation or long pause could also leave earlier rows marked unfinished. Adjacent completed turns could merge if they arrived within 4.5 seconds. The transcript now merges only open chunks, completes every open segment at turn completion, and preserves interrupted speech as interrupted so it is not offered as a completed reflection reply. Three regression tests cover these event sequences. This is software verification, not a live camera/audio result.
+
+**Latest presentation assessment:**
+
+| Priority | Finding | Decision before the panel |
+| --- | --- | --- |
+| 1 | The reflection is strongest when it shows the actual answer just heard. | In rehearsal, inspect an object, interrupt once, then allow one full answer to finish. Hang up and confirm that finished answer appears in **Choose a reply to examine**. Interrupted segments should not appear there. |
+| 2 | AR has a more prominent entry and revised camera compositing, but it remains a separate experience. | Keep `/facetime` as the timed route. If a judge requests AR, use `/museum` → **Scan artwork in AR** only after a separate rehearsal. |
+| 3 | The learning interaction is implemented, but learning gains and broader model reliability are unmeasured in the evidence reviewed. | Demonstrate the process: prediction, visual observation, actual reply, claim to check. Quote only real recorded trial counts. |
+| 4 | Feature and presentation changes are still local. | Freeze a reviewed version, verify it is the version running on the demo machine, then stop merging during presentation. |
+
+**The 60-second final check:** show an unnamed object → let one spoken turn finish → open actual model events → end call → select that reply in the reflection. If any step fails, use the relevant fallback below and adjust the pitch to what actually works. Do not begin another feature-polish pass before completing this check.
+
+### Presenter card — keep only this beside the demo
+
+| Cue | Words/action |
+| --- | --- |
+| **OPEN / INVOLVE** | “Chronocall lets you call someone inside a painting—and show them something from your world.” Ask the judge to choose an object. |
+| **PREDICT / CALL** | Record one short first guess. Scan, confirm the subject and call. Keep the prediction out of the model prompt. |
+| **OBSERVE** | Show the unnamed object. Ask: “What do you see, and what would you make of it in your time?” Let the answer finish. Change the visible view only if time permits. |
+| **EXPLAIN** | “Hydrogen gives us quick context; Neon researches in the background; Live 3.8 handles voice and camera; Decisions assesses the research and completed replies.” |
+| **PROVE** | Show one actual research result, one reply check, and the completed rehearsal report. State only the recorded counts. |
+| **REFLECT / CLOSE** | End the call. Select an actual reply under **What changed your mind?** Compare it with the first guess and name a claim to check. Name the event-built contributions, then close. |
+
+**If you are behind schedule:** keep the first visual interaction, actual model evidence, a brief reflection and close. Cut the second object and extra narration. Do not cut the character's answer to make room for a feature list.
+
+**Decide the opening during rehearsal:** use scan-to-call if it reliably fits your first 35 seconds. If it does not, start with an already-connected call and say, “I scanned this artwork and connected before the timer; what we show it next is your choice.” That proves live interaction, not live scanning. Keep the actual scan in the submission video and available for Q&A. Warm research must be labeled as such.
+
 ## 1. If you have only five minutes before presenting
 
 - [ ] Open `/facetime` on the exact laptop, browser, network and audio output you will use.
 - [ ] Complete one real call. Confirm the character **hears you and sees a changed object**, rather than merely saying hello.
 - [ ] Open the call's pipeline inspector. Find **Call evidence**. Confirm successful Hydrogen and Neon research and a real Decisions reply check. “Running” is not a successful result.
 - [ ] Download the rehearsal trace. Keep a short actual recording ready, clearly identified as an earlier run.
+- [ ] After any interruption, let a fresh answer finish. Rehearse **End call → What changed your mind? → Choose a reply to examine** using that actual completed spoken reply. Export any reflection you want to keep before another call or reload.
 - [ ] Choose one artwork you have permission to use and have already tested. Have its image ready on paper or another screen, plus a local upload copy.
 - [ ] Put two visually different objects within reach. Let the judge choose which to show first; do not name it to the model.
 - [ ] Set a silent 3-minute timer. Freeze edits, merges and deployments. Close notifications and unrelated tabs.
@@ -21,13 +54,13 @@ Your winning moment is a judge choosing a physical object, the character reactin
 
 ## 2. Judge's assessment of the current project
 
-This is a compelling interactive-art concept with a demonstrable multimodal loop. Its strongest case is Element 119. The weak point is independent evidence, especially under difficult camera/audio conditions. A polished portrait alone will not carry the score.
+This is an interactive-art encounter with an implemented multimodal loop and a new reflection flow. Its strongest case is Element 119. The product story is stronger now because the visitor can explain what they noticed and what they still need to verify. The weak point is independent evidence, especially under difficult camera/audio conditions. A polished portrait alone will not carry the score.
 
 | Criterion | Current basis in the repository | What to demonstrate |
 | --- | --- | --- |
 | Live demo — 35% | Artwork scanner, live voice, sampled camera frames and object annotations are implemented. This review did not verify them live. | Judge-selected object; changed view; one spoken interruption. |
-| Proof it works — 25% | Call trace and research/check evidence are implemented. The existing 60-reply diagnostic has important rubric limitations; external image evaluation remains pending in the docs. | An actual trace, one recorded difficult trial, and what happened after a failure. |
-| Creativity — 20% | A historical subject encounters the visitor's present-day world. | Let the character's visual observation and historical interpretation create the memorable moment. |
+| Proof it works — 25% | Call traces and an operator-entered rehearsal report are implemented. The existing 60-reply diagnostic has important rubric limitations; external image evaluation remains pending in the docs. | Actual results from fresh trials, an attached trace, and one recorded failure/repeat pair. |
+| Creativity — 20% | A historical subject encounters the visitor's world; the visitor compares a prediction with an actual reply and supporting evidence. | Show one visual surprise and one honest change in interpretation or uncertainty. |
 | Gemini 4 + Decisions — 20% | Hydrogen quick research and Neon deep research run in the background; Decisions filters research and assesses replies. | Show actual completed events and explain why the jobs differ. |
 
 I would not assign a credible live-demo score from code alone. A clean unrehearsed interaction could make this competitive; a feature tour with unsupported accuracy claims would weaken it substantially. In the final round each category is 25%, so preserve the evidence and model explanation even if you shorten the opening.
@@ -40,16 +73,16 @@ Use one presenter and, if available, one operator/timekeeper. The presenter look
 
 | Clock | Screen/action | Say this |
 | --- | --- | --- |
-| **0:00–0:15** | `/facetime` → **Scan artwork**. Hold the artwork in view. | “A painting gives you one moment in someone's life. Chronocall lets you call the person inside it—and show them something from yours. We're entering Element 119.” |
-| **0:15–0:35** | **Scan Figure** → inspect identity → **Call [name]**. | “The image sets up the encounter. This is an AI historical interpretation. The next conversation is live.” |
-| **0:35–1:10** | Show the connected call and your camera preview. Invite a judge to select an object. | To judge: “Choose something here for us to show them.” To character: **“Look at what I'm holding. Describe what you can see, then tell me what you would make of it in your time.”** Stop talking and let the answer land. |
-| **1:10–1:35** | Replace the object, or show a clearly different side. Keep it steady for several seconds. | **“And now this one—what changed?”** If it is still speaking, interrupt once: **“Wait—look at this instead.”** Let the panel see whether it updates. |
-| **1:35–2:05** | Open the call's pipeline inspector → **Call evidence**. | “Hydrogen identifies the artwork and does quick research. Neon develops deeper context in parallel. Live 3.8 handles voice and sampled camera frames. Decisions filters research claims and checks completed replies. We keep the conversation moving while research arrives.” |
-| **2:05–2:35** | Point at one real research result and the latest reply check; show a source or trace briefly. | “Here is what this call actually received: [read the observed result]. These are model assessments, not guarantees of historical truth. Our camera samples about once a second, so fast changes can be missed.” Add the measured failure/recovery statement below if you have run it. |
-| **2:35–2:50** | Return to the portrait; stop scrolling. | “During the event, our team built [confirmed contributions]. The meaningful interaction is the character responding to something the visitor chose to show, in the moment.” |
-| **2:50–3:00** | Hold the final call view. | **“You bring something from your world into theirs. That is Chronocall.”** Stop. |
+| **0:00–0:15** | Start at `/facetime`, with **See through their eyes** selected. Invite the judge to choose an object. | “Chronocall lets you call someone inside a painting—and show them something from your world. Choose an object for this encounter.” |
+| **0:15–0:40** | **Make a first guess**: enter one short, honest prediction about that object. **Scan artwork → Scan Figure → Call [name]**. | “Before calling, I think they might interpret it as [your guess]. We'll compare that with what actually happens. This is an AI historical interpretation.” |
+| **0:40–1:15** | Hold the unnamed object in the camera preview. Let the character answer. | **“Describe what you can see. What would you make of this in your time?”** Stop narrating. |
+| **1:15–1:30** | Turn the object or change its visible state. Skip this step if the first reply ran long. | **“Look again—what changed?”** Show whether the answer updates. |
+| **1:30–2:00** | Open pipeline inspector → **Call evidence**. Point to completed quick/deep research and a reply check. | “Hydrogen supplies quick context; Neon researches in the background. Live 3.8 handles voice and sampled images. Decisions filters research and checks completed replies. Here is what actually completed in this call.” Name pending/failed stages honestly. |
+| **2:00–2:15** | Show the prepared rehearsal report if available. | “We tried [actual number] fresh cases, completed [actual number], and failed on [observed case]. [Actual change] produced [observed repeat result].” If unavailable: “Broader stress testing is still pending; this trace records today's observed behavior.” |
+| **2:15–2:40** | **End call** → **What changed your mind?** → **Choose a reply to examine**. Select the reply just heard; point to **Your first guess** and **Compare with a source**. | “I predicted [X]. The character actually said [brief faithful paraphrase]. I observed [visible detail]. That historical explanation still needs checking. The reflection separates what I saw, what the AI said, and what a source supports.” Adapt this to the actual result, including an unchanged prediction or failed response. |
+| **2:40–3:00** | Leave the reflection visible. | “During the event we built [confirmed contributions]. The visitor leaves with an observation, a question and a claim to investigate. You bring something from your world into theirs. That is Chronocall.” |
 
-**Timing rules:** if the first exchange runs long, drop the second object. At 1:35 move to evidence. At 2:35 begin the close. Never spend the final minute waiting for generated video or explaining extra features.
+**Timing rules:** at 1:30 move to model evidence; at 2:15 move to reflection; at 2:40 close. Do not fill every reflection field, open several sources, or demonstrate downloading during the timed pitch. The after-call view must come from the interaction the judges just saw. If no completed reply was captured, show that honestly rather than substituting a prior reply.
 
 **If connecting takes too long:** begin the model explanation while it loads, then return to the interaction. If no usable call exists by 0:45, follow the fallback table. Do not restart the whole pitch.
 
@@ -76,6 +109,18 @@ If you have 10–15 minutes, ask a non-builder to choose five inputs before you 
 
 For each row record: chosen input, first attempt result, time to first audible response, incorrect claim, recovery attempt/result, and trace filename. Keep failed first attempts in the denominator. Ask permission before recording another person.
 
+### Record it using the app you now have
+
+1. Use the **same browser and origin** for the trials and presentation; the rehearsal data is browser-local.
+2. Download each call's trace from **Call evidence** before starting another call. After hanging up, **Last call evidence** remains available on the launcher.
+3. Expand **Demo rehearsal** below the contacts. Select the relevant **Challenge** and describe the exact input and conditions. The five suggested trials above can be mapped to these categories; state quick swaps explicitly in the two-object case. Use background speech as an additional case if useful, and retain the resulting denominator.
+4. Mark **Input chosen by a non-builder before this trial** only when true. Select the observed **Overall outcome**, **Visual reference**, and **Interruption handling**. Leave observations you did not test as **Not tested / unclear**.
+5. Explicitly tick **Attach call trace** for the matching call. A scan/connection failure can be recorded without a trace; explain it in the notes.
+6. Click **Record attempt**. For a repeat, select the original under **Fresh case or repeat**, describe the change and the actual recovery result, then record it separately.
+7. Click **Download rehearsal report**. Keep it alongside the recording. Downloading JSON does not create a polished presentation chart: rehearse exactly which counts and trial entry you will show.
+
+The visible total includes repeats, demo trials and attempts without traces. **Do not read that total as a real-mode first-attempt success rate.** Check the individual exported trials and state the fresh real-mode subset explicitly. Audio receipt timing counts each connection once, even if several challenges share it. If you also time audible playback with a stopwatch, label that separately; the UI does not measure it.
+
 Use this line **only after completing the trials**:
 
 > “A non-builder chose five cases. We passed **[X]/5 on the first attempt**. The hardest failure was **[specific failure]**. After **[actual change or recovery action]**, the same case **[observed result]**. That repeat is a recovery test, not a new unseen success.”
@@ -88,7 +133,7 @@ The repository documents slow deep research as a development failure. The implem
 
 > “Deep research was too slow to put in front of a conversation. We moved it into the background and added a quick research path, so speech can begin before that deeper context is ready.”
 
-This is supported by the implementation and team development notes. Do not quote the notes' timings as measured venue results without the corresponding trace. Also, portrait preparation still precedes the voice connection: background research does not eliminate all startup delay.
+This is supported by the implementation and team development notes. Do not quote the notes' timings as measured venue results without the corresponding trace. The latest change also removes generated portrait preparation from the voice startup dependency: the artwork preview is used while the portrait loads. Measure end-to-end startup separately before claiming a speed improvement.
 
 ### What the existing evaluation does—and does not—show
 
@@ -111,7 +156,7 @@ Hydrogen and Neon are the two qualifying Gemini 4 models. Live 3.8 is an additio
 
 **Evidence-panel details:** expand the pipeline control on the call screen, scroll to **Call evidence**, then **Sources and filtered claims** or **Latest reply check**. **Download trace** exports conversation text and event metadata, not raw audio/video. Review before sharing.
 
-The displayed “first audio received” excludes portrait preparation and does not measure audible playback. Fresh, cached/shared arrival and original research generation time are different measurements. A correction request is evidence of the request; inspect the next spoken turn to establish recovery.
+The displayed “first audio received” starts at the voice connection attempt, after scanning/profile setup and the ringing delay; it does not measure audible playback. Portrait generation now runs in the background. Fresh, cached/shared arrival and original research generation time are different measurements. A correction request is evidence of the request; inspect the next spoken turn to establish recovery. A trace contains no camera frames or recorded audio, so pair it with judge observation or a consented recording to establish what was seen and heard.
 
 ## 6. Five-minute preflight and freeze
 
@@ -125,7 +170,7 @@ git status --short
 git rev-parse HEAD
 ```
 
-At preparation time, doctor found Node 24.13.0 and a configured key; TypeScript passed. The working tree contained uncommitted feature/UI changes, including the call-evidence UI. **A commit hash alone does not identify those changes.** Have the team freeze the exact reviewed state and confirm the demo deployment includes it.
+The earlier doctor check found Node 24.13.0 and a configured key. This review checked commit `d0abd60` plus the working tree present at verification; TypeScript, 76 unit tests and the production build passed. Museum edits, the transcript fix and this documentation were uncommitted. Have the team freeze the exact reviewed state and confirm the demo deployment includes it. Recheck `git status` before presenting because teammates may still be working. Local checks do not establish that this version has been pushed or deployed.
 
 If a working server is already running, keep it. If starting a production rehearsal, build first, then start in a dedicated terminal:
 
@@ -192,7 +237,7 @@ Lead with completed stress trials and their denominator if you have them. Otherw
 
 **“Where does it break?”**
 
-“Fast visual changes are a known design limitation because frames are sampled about once a second. Research can arrive late, portrait preparation can delay startup, and historical claims can still be wrong.” Add the specific failure you actually observed.
+“We sample camera frames about once a second, which limits fast visual changes. Research can arrive late, voice connection can fail, and historical claims can still be wrong.” Add the specific failure you actually observed. Frame sampling is a design constraint, not evidence that a particular test failed.
 
 **“Is the portrait video truly live and lip-synced?”**
 
@@ -201,6 +246,18 @@ Lead with completed stress trials and their denominator if you have them. Otherw
 **“What did you build today?”**
 
 Name only confirmed event work: “[Names] built [scan-to-call flow / live object inspection / research and Decisions integration / portrait interaction]. [Any starter code or earlier work] was the starting point.” Use [SUBMISSION_CHECKLIST.md](SUBMISSION_CHECKLIST.md) to establish provenance. Import timestamps alone are insufficient.
+
+**“What does someone actually learn?”**
+
+“The activity asks them to make a prediction, observe a response, and distinguish visual evidence from a historical interpretation. They can leave with a revised explanation and a source-checking question. We have implemented that process; we haven't measured learning gains yet.”
+
+**“Could this teach convincing misinformation?”**
+
+“Yes. Character statements are labeled as AI interpretations. The reflection separates the original image, the actual reply and suggested sources, and asks what remains uncertain. Sources are not automatically matched to each spoken claim. Decisions helps assess consistency; it does not make the explanation historically authoritative.”
+
+**“Why add a reflection rather than just chat?”**
+
+“It gives the visitor a concrete task after the surprise: compare their first guess with what happened and explain what supports their conclusion. A conversation alone doesn't show that they examined the claim.”
 
 **“Who is this for?”**
 
@@ -214,12 +271,12 @@ Name only confirmed event work: “[Names] built [scan-to-call flow / live objec
 | 8–20 s | Actual scan and connection; label any shortened wait. |
 | 20–42 s | Continuous object → visible change → spoken response. Let the character be heard. |
 | 42–52 s | Actual Hydrogen, Neon and Decisions events; one short explanation. |
-| 52–60 s | One observed limitation and confirmed event-built contributions. |
+| 52–60 s | Briefly show the actual after-call reflection. Name an observed limitation and confirmed event-built contributions; do not claim measured learning gains. |
 
 Before the **5:00 PM New York time** deadline supplied in the guide: confirm the public repository opens logged out, the submitted demo link works on another device, the video is attached, all team members are listed, asset rights are documented, and the submission is actually completed. See [SUBMISSION_CHECKLIST.md](SUBMISSION_CHECKLIST.md).
 
 ## Pocket card
 
-**Painting → call → judge's object → changed view → actual evidence → close.**
+**Predict → scan → show → inspect evidence → reflect → close.**
 
 Say less during the interaction. Give the character room to surprise the judges. Show the causal connection between what they chose and what the system did.

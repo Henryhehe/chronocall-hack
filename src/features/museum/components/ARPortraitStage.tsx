@@ -95,7 +95,7 @@ export const ARPortraitStage: React.FC<ARPortraitStageProps> = ({
   const [cameraDetected, setCameraDetected] = useState(false);
   const [trackedQuad, setTrackedQuad] = useState<FocalQuad>(DEFAULT_QUAD);
   const [anchorConfidence, setAnchorConfidence] = useState<number>(0);
-  const [showHotspots, setShowHotspots] = useState(false);
+  const [showHotspots, setShowHotspots] = useState(true);
   const [availableCameras, setAvailableCameras] = useState<MediaDeviceInfo[]>([]);
   const [selectedCameraId, setSelectedCameraId] = useState<string>('');
   const [containerSize, setContainerSize] = useState({ width: 1024, height: 768 });
@@ -1033,9 +1033,11 @@ export const ARPortraitStage: React.FC<ARPortraitStageProps> = ({
               type="button"
               onClick={() => setShowHotspots((v) => !v)}
               aria-label={showHotspots ? 'Hide artwork tags' : 'Show artwork tags'}
-              className="min-h-[36px] min-w-[36px] px-2 rounded-lg bg-black/60 backdrop-blur-md border border-white/15 text-[#F6F3EC] hover:bg-black/80 transition-colors flex items-center justify-center"
+              aria-pressed={showHotspots}
+              className="min-h-[44px] min-w-[44px] px-3 rounded-lg bg-black/60 backdrop-blur-md border border-white/15 text-[#F6F3EC] hover:bg-black/80 transition-colors flex items-center justify-center gap-2 text-xs"
             >
               {showHotspots ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
+              <span>Details {showHotspots ? 'on' : 'off'}</span>
             </button>
           )}
         </div>
@@ -1210,11 +1212,13 @@ function animateFigureInLiveVideo(
   pctx.drawImage(maskCanvas, 0, 0);
   pctx.globalCompositeOperation = 'source-over';
 
-  // Subpixel motion keeps the sampled face aligned with the live painting underneath.
-  const breathScale = 1 + Math.sin(elapsed * 1.6) * speech * 0.002;
-  const angle = Math.sin(elapsed * 1.15) * speech * 0.0015;
-  const liftY = -speech * Math.min(0.6, patchH * 0.003);
-  const swayX = Math.cos(elapsed * 0.9) * speech * 0.2;
+  // Animate the live face pixels with restrained, audio-reactive nods.
+  // Keep movement bounded so the feathered patch stays close to the painting.
+  const syllable = 0.5 + 0.5 * Math.sin(elapsed * 8.5);
+  const breathScale = 1 + speech * (0.006 + syllable * 0.008);
+  const angle = Math.sin(elapsed * 2.2) * speech * 0.012;
+  const liftY = -speech * Math.min(2.5, patchH * 0.018) * (0.4 + syllable * 0.6);
+  const swayX = Math.cos(elapsed * 1.3) * speech * Math.min(1.5, patchW * 0.01);
 
   const pivotX = fx;
   const pivotY = py + patchH * 0.72;

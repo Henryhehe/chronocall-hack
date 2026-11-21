@@ -1,16 +1,20 @@
 # Chronocall: one encounter across centuries
 
+For the latest presenter card, exact speaking lines and failure playbook, use [JUDGING_RUNBOOK.md](JUDGING_RUNBOOK.md). For recording trials in the app, use [JUDGE_REHEARSAL.md](JUDGE_REHEARSAL.md).
+
 **Track: Element 119.** Start at `/facetime`. The demonstration is a live audiovisual encounter: scan an artwork, call its subject, and show them something from the visitor's world. The character is an AI interpretation, not an authoritative historical reconstruction.
 
 ## Three-minute live demo
 
 | Time | Action | What it proves |
 | --- | --- | --- |
-| 0:00–0:20 | “Chronocall lets you call someone inside a painting. Show them something from your world, and they react through the knowledge and assumptions of theirs.” Scan an artwork. | Image input determines the encounter. |
-| 0:20–1:15 | Start the call. Invite the judge to choose an object or question. | Unrehearsed voice and camera input. |
-| 1:15–1:50 | Show two objects, refer to “this one,” then change which object is visible. Interrupt a reply. | Visual reference and turn-taking that a text description would lose. Do not promise success; record what happens. |
-| 1:50–2:25 | Open model activity briefly. Explain Hydrogen identification/quick research, Neon deep research, and Decisions filtering/post-turn assessment. Show actual events, not a static model list. | Two qualifying Gemini 4 models with distinct roles and actual Decisions usage. |
-| 2:25–3:00 | Show the measured evaluation table and one failure/change. If results are still pending, state that plainly and demonstrate a difficult input instead. | Honest evidence and limits. |
+| 0:00–0:40 | Introduce the encounter, invite a judge to choose an object, record a short first guess, scan and call. | A question and prediction before the audiovisual encounter. |
+| 0:40–1:15 | Show the unnamed object; ask for a visible description and historical interpretation. Let the character answer. | Unrehearsed voice and camera input. |
+| 1:15–1:30 | Change the visible side or state and ask what changed; skip if behind schedule. | Visual context matters to the response. |
+| 1:30–2:00 | Show actual Hydrogen/Neon research events and a Decisions check. Explain Live 3.8's voice/camera role. | Two qualifying Gemini 4 models with distinct roles and actual Decisions usage. |
+| 2:00–2:15 | Show completed rehearsal results and one failure/repeat pair, or state that broader testing is pending. | Honest evidence and limits. |
+| 2:15–2:40 | End the call. Select the actual reply under **What changed your mind?** Compare it with the first guess and identify a claim to check. | Prediction, observation and reflection are implemented; learning gains are not yet measured. |
+| 2:40–3:00 | Name confirmed event-built contributions and close. | Clear provenance and a concise takeaway. |
 
 A generated sketch is optional if it naturally follows the encounter and has been tested. Leave generic detection, costumes, notebooks, selfies and world navigation out of this sequence. A short feature list is not the demo.
 
