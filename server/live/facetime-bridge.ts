@@ -70,6 +70,9 @@ const VALID_MOODS: ReadonlySet<FaceTimeReactionCue["mood"]> = new Set([
   "surprised",
 ]);
 
+// Character layer: general guide, background research, Decisions API turn checks (characterLayer.ts).
+import { createCharacterLayer } from "./characterLayer.ts";
+
 export function attachFaceTimeBridge(server: Server, demoMode = false) {
   const wss = new WebSocketServer({ noServer: true });
 
@@ -89,7 +92,9 @@ export function attachFaceTimeBridge(server: Server, demoMode = false) {
       ReturnType<ReturnType<typeof getLiveGeminiClient>["live"]["connect"]>
     > | null = null;
 
+    const character = createCharacterLayer({ clientWs, getSession: () => session, isClosed: () => closed });
     const sendSafe = (payload: FaceTimeServerEvent) => {
+      character.observe(payload);
       if (clientWs.readyState === WebSocket.OPEN) {
         clientWs.send(JSON.stringify(payload));
       }
@@ -132,6 +137,7 @@ export function attachFaceTimeBridge(server: Server, demoMode = false) {
             msg.profile,
             msg.profile?.sourceType ?? "search"
           );
+          character.prepare(profile);
           sendSafe({ type: "status", status: "connecting", model: LIVE_MODEL });
 
           const ai = getLiveGeminiClient();
@@ -241,13 +247,14 @@ export function attachFaceTimeBridge(server: Server, demoMode = false) {
                 role: "user",
                 parts: [
                   {
-                    text: `[The FaceTime video call just connected. Greet the caller naturally in 1–2 warm spoken sentences in character as ${profile.name}.]`,
+                    text: `[The call just connected: a stranger appears to you in a glowing glass. Greet them in 1–2 spoken sentences, as ${profile.name} would greet a stranger in your own time and situation.]`,
                   },
                 ],
               },
             ],
             turnComplete: true,
           });
+          character.start();
           return;
         }
 

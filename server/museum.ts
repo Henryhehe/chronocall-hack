@@ -3,17 +3,10 @@ import type { Server } from 'node:http';
 import { WebSocketServer, WebSocket } from 'ws';
 import { GoogleGenAI, type LiveServerMessage, Modality, ThinkingLevel, Type } from '@google/genai';
 import { resolvePersona } from '../src/features/museum/data/personas.ts';
-import {
-  liveResearchPrompt,
-  structurePrompt,
-  LIVE_PROFILE_SCHEMA,
-  factCheckQuestions,
-  dropFailed,
-  livePersona,
-  type LiveProfile,
-  type IdentifiedSubject,
-} from '../src/features/museum/data/liveResearch.ts';
-import { checkReply, correctionNote, type ReplyCheckResult } from './services/gemini/replyChecks.ts';
+import type { IdentifiedSubject } from '../src/features/museum/data/liveResearch.ts';
+import { researchFigure, STAGE_DEFAULTS, type ResearchStage } from './services/gemini/research.ts';
+import { checkReply, correctionNote, DECISIONS_API_VERSION, type ReplyCheckResult } from './services/gemini/replyChecks.ts';
+import { gateImage } from './services/gemini/imageGate.ts';
 function createGeminiClient(apiVersion?: string) {
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) {
@@ -84,6 +77,9 @@ export function createMuseumRouter(demoMode = false) {
 
       const ai = createGeminiClient();
       const cleanBase64 = imageBase64.replace(/^data:image\/[a-zA-Z+]+;base64,/, '');
+      // Image gate (Decisions API), run alongside identification: is there a figure to talk to, and is
+      // this an artwork or historical figure rather than an ordinary present-day person?
+      const gatePromise = gateImage(ai, { data: cleanBase64, mimeType });
 
       const response = await ai.models.generateContent({
         model: 'gemini-4-hydrogen',
@@ -203,6 +199,19 @@ If no portrait or figure is clearly visible, set detected to false and explain b
       });
 
       const parsed = JSON.parse((response.text ?? '{}').trim());
+      const gate = await gatePromise;
+      parsed.gate = gate;
+      if (!gate.allowed) {
+        // No character: say why, and never build a persona (in particular not for a living person).
+        return res.json({
+          detected: false,
+          isWashingtonAnchor: false,
+          characterName: '',
+          paintingTitle: '',
+          historicalContext: gate.reason,
+          gate,
+        });
+      }
       // Replace the persona the model improvised with the general character guide (then call
       // /api/research-figure to add live research).
       // The improvised one is kept as `generatedPersona`: it is the one-call baseline for evaluation.
@@ -229,83 +238,21 @@ If no portrait or figure is clearly visible, set detected to false and explain b
   // structure, check every fact with the Decisions API, and return a system persona built from the
   // checked profile plus the general character guide. Call it right after /api/identify-portrait;
   // the figure can start talking on the guide alone and switch to this persona when it arrives.
-  const researchCache = new Map<string, unknown>();
   app.post('/api/research-figure', async (req, res) => {
-    const t0 = Date.now();
     try {
       const s = (req.body ?? {}) as IdentifiedSubject;
       if (!s.name && !s.subject) return res.status(400).json({ error: 'name or subject is required.' });
-      const key = JSON.stringify([s.kind, s.name, s.subject, s.paintingTitle]).toLowerCase();
-      if (researchCache.has(key)) return res.json({ ...(researchCache.get(key) as object), cached: true });
-
-      const ai = createGeminiClient();
-      const timings: Record<string, number> = {};
-
-      // 1. Research with Google Search grounding (free prose, sources after each fact).
-      const research = await ai.models.generateContent({
-        model: 'gemini-4-neon',
-        contents: liveResearchPrompt(s),
-        config: { tools: [{ googleSearch: {} }] },
-      });
-      const notes = research.text ?? '';
-      const sources = (research.candidates?.[0]?.groundingMetadata?.groundingChunks ?? [])
-        .map((c) => ({ title: c.web?.title, uri: c.web?.uri }))
-        .filter((c) => c.uri);
-      timings.researchMs = Date.now() - t0;
-
-      // 2. Structure the notes (only what the notes support).
-      const structured = await ai.models.generateContent({
-        model: 'gemini-4-hydrogen',
-        contents: structurePrompt(notes, s),
-        config: {
-          thinkingConfig: { thinkingLevel: ThinkingLevel.LOW },
-          responseMimeType: 'application/json',
-          responseJsonSchema: LIVE_PROFILE_SCHEMA,
-        },
-      });
-      let profile = JSON.parse((structured.text ?? '{}').trim()) as LiveProfile;
-      profile.paintingLiberties ??= [];
-      profile.eraViews ??= [];
-      profile.sensitive ??= [];
-      timings.structureMs = Date.now() - t0 - timings.researchMs;
-
-      // 3. Check every fact against the research notes with the Decisions API (yes/no, calibrated).
-      //    Code decides: a fact stays only if P(yes) >= 0.8.
-      const checks: Record<string, number> = {};
-      const qs = factCheckQuestions(profile);
-      if (qs.length) {
-        const t2 = Date.now();
-        const decision = await ai.decisions.create({
-          model: 'models/gemini-decision-1',
-          input: `RESEARCH NOTES WITH SOURCES:\n${notes}`,
-          questions: Object.fromEntries(
-            qs.map((q) => [
-              q.id,
-              {
-                type: 'noul' as const,
-                instructions: `${q.question.replace('the attached source', 'the research notes, citing ' + q.source)} Answer true only if the notes clearly support it.`,
-              },
-            ]),
-          ),
-        });
-        for (const q of qs) {
-          const a = decision.answers?.[q.id] as { noul?: number } | undefined;
-          checks[q.id] = a?.noul ?? 0;
-        }
-        timings.checkMs = Date.now() - t2;
-      }
-      const failed = new Set(Object.entries(checks).filter(([, p]) => p < 0.8).map(([id]) => id));
-      profile = dropFailed(profile, failed);
-
-      const result = {
-        profile,
-        systemPersona: livePersona(profile, { title: s.paintingTitle, artist: s.artist }),
-        checks,
-        dropped: [...failed],
-        sources,
-        timings: { ...timings, totalMs: Date.now() - t0 },
+      const b = req.body ?? {};
+      // stage: "quick" (Hydrogen, ~20 s) or "deep" (Neon, ~30-80 s). model/thinking/depth override for benchmarks.
+      const stage: ResearchStage = b.stage === 'deep' ? 'deep' : 'quick';
+      const overrides = {
+        ...STAGE_DEFAULTS[stage],
+        ...(['gemini-4-hydrogen', 'gemini-4-neon'].includes(b.researchModel) ? { model: b.researchModel } : {}),
+        ...(['gemini-4-hydrogen', 'gemini-4-neon'].includes(b.structureModel) ? { structureModel: b.structureModel } : {}),
+        ...(b.thinking === 'LOW' || b.thinking === 'MEDIUM' ? { thinking: b.thinking } : {}),
+        ...(b.depth === 'quick' || b.depth === 'full' ? { depth: b.depth } : {}),
       };
-      researchCache.set(key, result);
+      const result = await researchFigure(createGeminiClient(), s, overrides, { noCache: !!b.noCache });
       res.json(result);
     } catch (err) {
       const { status, message } = parseApiError(err);

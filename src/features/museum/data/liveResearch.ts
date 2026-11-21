@@ -4,7 +4,7 @@
 //
 // Server-side only. Suggested pipeline (Legendry's rule: let the model read first, structure after):
 //   1. IDENTIFY  (gemini-4-hydrogen, image)       → who/what, painting, artist, years   [already in /api/identify-portrait]
-//   2. RESEARCH  (gemini-4-neon + googleSearch)   → free prose notes with sources       [liveResearchPrompt]
+//   2. RESEARCH  (gemini-4-hydrogen + googleSearch) → free prose notes with sources     [liveResearchPrompt]
 //   3. STRUCTURE (gemini-4-hydrogen, JSON schema) → LiveProfile                         [structurePrompt + LIVE_PROFILE_SCHEMA]
 //   4. CHECK     (gemini-decision-1, yes/no)      → drop facts their source doesn't support [factCheckQuestions]
 //   5. SPEAK     (gemini-3.8-live)                → livePersona(profile, artwork)
@@ -39,8 +39,19 @@ export interface IdentifiedSubject {
   year?: string; // "c. 1850 (depicting 1777)"
 }
 
+/** "quick" asks for the essentials only (about 300 words), for a short live demo; "full" covers all ten sections. */
+export type ResearchDepth = 'quick' | 'full';
+
+const QUICK_SECTIONS = `Be brief: at most about 300 words of notes in total, with a source URL after every fact. Cover only:
+1. Who they were at the moment the painting shows (loosely), and what was on their mind then.
+2. How they would treat a stranger, and how they spoke, as documented.
+3. Up to 5 key dated facts about their life up to that moment.
+4. What came after that moment, which they cannot know (one line).
+5. Where this painting departs from history, if it does.
+6. What you could not confirm.`;
+
 /** Step 2 — research with Google Search. Ask for prose with sources, not JSON. */
-export function liveResearchPrompt(s: IdentifiedSubject): string {
+export function liveResearchPrompt(s: IdentifiedSubject, depth: ResearchDepth = 'full'): string {
   const who = s.name ? `${s.name}${s.subject ? ` (${s.subject})` : ''}` : s.subject ?? 'the main figure';
   const where = s.paintingTitle
     ? ` as shown in the painting "${s.paintingTitle}"${s.artist ? ` by ${s.artist}` : ''}${s.year ? ` (${s.year})` : ''}`
@@ -49,7 +60,7 @@ export function liveResearchPrompt(s: IdentifiedSubject): string {
 
 Use Google Search. Prefer primary sources (their own letters, writings, speeches; contemporaries' accounts) and reputable museums, archives, libraries and encyclopedias. Read the passages themselves, not summaries of summaries.
 
-Write plain notes, with a source URL after every fact, covering:
+${depth === 'quick' ? QUICK_SECTIONS : `Write plain notes, with a source URL after every fact, covering:
 1. Who they were at the moment the painting shows (loosely; exact dates don't matter): station, role, place.
 2. What occupied them at that moment: worries, business, people around them.
 3. How someone of their time and station would read and address a stranger; what they would want to know first.
@@ -59,7 +70,7 @@ Write plain notes, with a source URL after every fact, covering:
 7. What happened after that moment, which they cannot know.
 8. Where this painting departs from history (place, time, dress, pose, people), if it does.
 9. Sensitive topics that need care.
-10. What you looked for and could not confirm.
+10. What you looked for and could not confirm.`}
 
 ${s.kind && s.kind !== 'person' ? `This speaker is ${s.kind === 'animal' ? 'an animal' : `a ${s.kind}`}: research what is documented about it and what its life or history in that place and time would have involved, and say plainly where the record is thin.\n\n` : ''}Never invent facts, quotes, names or dates. "Not found" is a good answer.`;
 }

@@ -114,6 +114,9 @@ Write vivid, photorealistic webcam-call visual prompts (portraitPrompt, videoMot
   );
 }
 
+// Image gate (Decisions API): see imageGate.ts.
+import { gateImage } from "./imageGate.ts";
+
 export async function identifyFigureFromImage(params: {
   imageBase64: string;
   mimeType: string;
@@ -121,6 +124,9 @@ export async function identifyFigureFromImage(params: {
   const ai = getGeminiClient();
   const clean = stripDataUrlPrefix(params.imageBase64);
   const mimeType = params.mimeType || clean.mimeType || "image/jpeg";
+  // Image gate (Decisions API), alongside identification: refuse frames with no figure to talk to,
+  // and never turn an ordinary present-day person into a character.
+  const gatePromise = gateImage(ai, { data: clean.base64, mimeType });
 
   const response = await ai.models.generateContent({
     model: VISION_MODEL,
@@ -189,6 +195,20 @@ If no historical figure, painting, portrait, or statue is clearly visible, set d
   const artworkType: ArtworkKind = validKinds.includes(parsed.artworkType as ArtworkKind)
     ? (parsed.artworkType as ArtworkKind)
     : "unknown";
+
+  const gate = await gatePromise;
+  if (!gate.allowed) {
+    return {
+      detected: false,
+      confidence: 0,
+      artworkType,
+      artworkTitle: String(parsed.artworkTitle ?? ""),
+      artist: String(parsed.artist ?? ""),
+      year: String(parsed.year ?? ""),
+      reason: gate.reason,
+      profile: null,
+    };
+  }
 
   if (!detected) {
     return {
