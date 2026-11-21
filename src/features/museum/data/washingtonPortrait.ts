@@ -12,6 +12,8 @@ export const WASHINGTON_PORTRAIT: PortraitArtwork = {
   medium: 'Oil on canvas',
   dimensions: '214.6 × 153.7 cm (84 ½ × 60 ½ in.)',
   galleryLocation: 'American Wing · Rotunda Gallery II',
+  styleMovement: 'American Romanticism · Equestrian Portraiture',
+  hasHumanSubject: true,
   imageUrl: '/assets/aistudio/washington_fd94f6dd.jpeg',
   voiceName: 'Charon',
   focalPoint: { x: 45, y: 26 },

@@ -109,3 +109,9 @@ Validation: TypeScript, 43 unit tests, production frontend build, and whitespace
 Merged characters `38d4ce6`, artwork thumbnail fix `e2e6f76`, artwork polish `617603b`, team documentation `59c07c7`, and Shopify print offers `9b35e6c`. Kept manual artwork selection, cancellation handling, redirect/size/MIME validation, current call actions, and honest unavailable evaluation states. Added contact artwork and Save to Notebook. Retained new evaluation tools/results as contributor-provided evidence. Print offers appear after calls; checkout remains on the merchant site, and demo mode performs no shopping calls. The shop HTTP tests belong to the integration suite and await server readiness.
 
 Validation: TypeScript, 57 unit tests, frontend build, and whitespace checks pass. HTTP tests and real service/browser behavior remain unverified here because localhost binding is blocked. Remote fetching is blocked by DNS; this covers all currently fetched branch tips.
+
+## Demi face overlay integration — 2026-11-21
+
+Integrated `a7087f9` into the museum feature paths. Added perspective rectification, face overlay and anchor-tracking updates, richer artwork metadata, and fenced JSON parsing. Preserved the existing artwork gate, persona checks, explicit voice start, portrait/upload view, and simplified navigation. Camera loss stops voice; camera scanning starts without a preselected artwork. `portraitAnchorTracker.ts` retains the previous tracker API for the portrait/upload component; camera AR uses the new tracker.
+
+Validation: TypeScript, 57 unit tests, build, and whitespace checks passed in an isolated worktree. Browser camera/overlay and live-service behavior remain unverified. Existing local typography and evidence edits were left untouched.

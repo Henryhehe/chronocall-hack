@@ -31,8 +31,12 @@ export interface AvatarBehaviorState {
 
 export function getPortraitRegionSpecs(
   isWashington: boolean,
-  focalPoint: { x: number; y: number }
+  focalPoint: { x: number; y: number },
+  hasHumanSubject = true
 ): FeatheredRegionSpec[] {
+  if (!hasHumanSubject) {
+    return [];
+  }
   if (isWashington) {
     return [
       {
@@ -84,26 +88,26 @@ export function getPortraitRegionSpecs(
   }
 
   const fx = Math.max(0.18, Math.min(0.82, focalPoint.x / 100));
-  const fy = Math.max(0.18, Math.min(0.75, focalPoint.y / 100));
+  const fy = Math.max(0.16, Math.min(0.75, focalPoint.y / 100));
   return [
     {
       id: 'headTorso',
       cx: fx,
       cy: fy,
-      rx: 0.18,
-      ry: 0.18,
+      rx: 0.16,
+      ry: 0.16,
       px: fx,
-      py: Math.min(0.92, fy + 0.15),
+      py: Math.min(0.92, fy + 0.14),
     },
   ];
 }
 
 export function buildFeatheredLayers(
-  img: HTMLImageElement,
+  img: HTMLImageElement | HTMLCanvasElement,
   specs: FeatheredRegionSpec[]
 ): CachedPortraitLayer[] {
-  const w = img.naturalWidth || 512;
-  const h = img.naturalHeight || 680;
+  const w = ('naturalWidth' in img ? img.naturalWidth : img.width) || 512;
+  const h = ('naturalHeight' in img ? img.naturalHeight : img.height) || 680;
 
   return specs.map((spec) => {
     const offscreen = document.createElement('canvas');
@@ -148,7 +152,7 @@ export function buildFeatheredLayers(
 
 export function drawAnimatedPaintingComposition(
   ctx: CanvasRenderingContext2D,
-  img: HTMLImageElement,
+  img: HTMLImageElement | HTMLCanvasElement,
   layers: CachedPortraitLayer[],
   dx: number,
   dy: number,
@@ -157,7 +161,8 @@ export function drawAnimatedPaintingComposition(
   elapsed: number,
   behavior: AvatarBehaviorState,
   alpha = 1,
-  featherEdges = false
+  featherEdges = false,
+  drawBase = true
 ) {
   const { speech, isSpeaking, isListening, isThinking, cue, tiltX, tiltY } = behavior;
 
@@ -165,22 +170,24 @@ export function drawAnimatedPaintingComposition(
   ctx.globalAlpha = alpha;
 
   if (featherEdges) {
-    const radius = Math.min(16, Math.min(dw, dh) * 0.035);
+    const radius = Math.min(12, Math.min(dw, dh) * 0.025);
     ctx.beginPath();
     ctx.roundRect(dx, dy, dw, dh, radius);
     ctx.clip();
   }
 
-  // 1. Base painting with subtle respiratory swell
-  const breathScale = 1 + Math.sin(elapsed * 1.45) * 0.004 + speech * 0.007;
+  // 1. Base painting with subtle respiratory swell (skipped for live-video custom artworks to avoid double-vision)
+  const breathScale = 1 + Math.sin(elapsed * 1.45) * 0.003 + speech * 0.005;
   const cx = dx + dw / 2;
   const cy = dy + dh / 2;
 
-  ctx.save();
-  ctx.translate(cx, cy);
-  ctx.scale(breathScale, breathScale);
-  ctx.drawImage(img, -dw / 2, -dh / 2, dw, dh);
-  ctx.restore();
+  if (drawBase) {
+    ctx.save();
+    ctx.translate(cx, cy);
+    ctx.scale(breathScale, breathScale);
+    ctx.drawImage(img, -dw / 2, -dh / 2, dw, dh);
+    ctx.restore();
+  }
 
   // Compute head transform first so jaw & blink track head motion exactly
   const listenLean = isListening && !isSpeaking ? 0.018 : 0;
@@ -250,9 +257,10 @@ export function drawAnimatedPaintingComposition(
       ctx.scale(headScale, headScale);
       ctx.drawImage(canvas, -spec.px * dw, -spec.py * dh, dw, dh);
 
-      // Natural periodic eye blink (~140ms every 4.2s)
+      // Natural periodic eye blink (~140ms every 4.2s) for Washington's calibrated eye position
+      const hasJawLayer = layers.some((l) => l.spec.id === 'jaw');
       const blinkCycle = elapsed % 4.2;
-      if (blinkCycle > 3.95 && blinkCycle < 4.12) {
+      if (hasJawLayer && blinkCycle > 3.95 && blinkCycle < 4.12) {
         const blinkProgress = Math.sin(((blinkCycle - 3.95) / 0.17) * Math.PI);
         const eyeX = (0.447 - spec.px) * dw;
         const eyeY = (0.244 - spec.py) * dh;

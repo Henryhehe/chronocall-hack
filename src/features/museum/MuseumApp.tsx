@@ -11,6 +11,7 @@ import { MobilePreviewModal } from './components/MobilePreviewModal';
 
 export default function App({ onExit }: { onExit: () => void }) {
   const [artwork, setArtwork] = useState<PortraitArtwork>(WASHINGTON_PORTRAIT);
+  const [cameraArtworkLost, setCameraArtworkLost] = useState(true);
   const [lensMode, setLensMode] = useState<LensMode>('portrait');
   const [activeHotspotId, setActiveHotspotId] = useState<string | null>(null);
   const [activeCue, setActiveCue] = useState<string | null>(null);
@@ -52,6 +53,7 @@ export default function App({ onExit }: { onExit: () => void }) {
     onAnimationCue: handleCue,
   });
 
+  const canSpeak = artwork.hasHumanSubject !== false && (lensMode !== 'camera' || !cameraArtworkLost);
   const isCustomArtwork = artwork.id !== WASHINGTON_PORTRAIT.id;
   const combinedError = cameraError || errorMessage;
 
@@ -72,15 +74,16 @@ export default function App({ onExit }: { onExit: () => void }) {
   const handleSelectHotspot = useCallback(
     (spot: ARHotspot) => {
       setActiveHotspotId(spot.id);
-      askCharacter(spot.prompt, spot.animationCue);
+      if (canSpeak) askCharacter(spot.prompt, spot.animationCue);
     },
-    [askCharacter]
+    [askCharacter, canSpeak]
   );
 
   const handleArtworkIdentified = useCallback(
     (identified: PortraitArtwork, source: 'camera' | 'upload') => {
       stopLiveVoice();
       setArtwork(identified);
+      setCameraArtworkLost(false);
       setActiveHotspotId(null);
       setCameraError(null);
       setErrorMessage(null);
@@ -103,7 +106,7 @@ export default function App({ onExit }: { onExit: () => void }) {
   const handleToggleVoice = () => {
     if (isListening || connectionState === 'connecting') {
       stopLiveVoice();
-    } else {
+    } else if (canSpeak) {
       startLiveVoice(true);
     }
   };
@@ -117,10 +120,10 @@ export default function App({ onExit }: { onExit: () => void }) {
       </header>
       <div className="portrait-room-stage">
                 {lensMode === 'camera' ? <ARPortraitStage
-                  artwork={artwork}
+                  artwork={cameraArtworkLost ? null : artwork}
                   speechLevelRef={speechLevelRef}
-                  isSpeaking={isSpeaking}
-                  isListening={isListening}
+                  isSpeaking={canSpeak && isSpeaking}
+                  isListening={canSpeak && isListening}
                   needsAudioGesture={needsAudioGesture}
                   connectionState={connectionState}
                   activeHotspotId={activeHotspotId}
@@ -130,11 +133,10 @@ export default function App({ onExit }: { onExit: () => void }) {
                   errorMessage={combinedError}
                   onSelectHotspot={handleSelectHotspot}
                   onArtworkIdentified={(identified) => handleArtworkIdentified(identified, 'camera')}
-                  onResetToWashington={handleResetToWashington}
-                  isCustomArtwork={isCustomArtwork}
+                  onArtworkLost={() => { stopLiveVoice(); setCameraArtworkLost(true); setActiveHotspotId(null); setActiveCue(null); }}
                   onSendCameraFrame={sendCameraFrameToLive}
                   onCameraError={setCameraError}
-                  onAvatarTap={() => askCharacter('Tell me about this painting.', 'gaze')}
+                  onAvatarTap={() => { if (canSpeak) askCharacter('Tell me about this painting.', 'gaze'); }}
                 /> : <PortraitStage
                   artwork={artwork}
                   lensMode={lensMode}
@@ -164,9 +166,9 @@ export default function App({ onExit }: { onExit: () => void }) {
       </div>
       <div className="portrait-room-dock">
         {combinedError && <p role="alert" className="portrait-room-error">{combinedError}</p>}
-        <div className="portrait-room-actions"><button type="button" className="portrait-room-secondary" onClick={() => setLensMode(lensMode === 'camera' ? 'portrait' : 'camera')}>{lensMode === 'camera' ? 'View portrait' : 'Scan painting'}</button>
+        <div className="portrait-room-actions"><button type="button" className="portrait-room-secondary" onClick={() => { stopLiveVoice(); setCameraArtworkLost(true); setLensMode(lensMode === 'camera' ? 'portrait' : 'camera'); }}>{lensMode === 'camera' ? 'View portrait' : 'Scan painting'}</button>
           <button type="button" className="portrait-room-secondary" onClick={() => setMobileSheetOpen(true)} aria-label="Open conversation"><MessageSquare size={20} /><span>Conversation</span></button>
-          <button type="button" className={`portrait-room-speak ${isListening || connectionState === 'connecting' ? 'is-active' : ''}`} onClick={handleToggleVoice}>
+          <button type="button" className={`portrait-room-speak ${isListening || connectionState === 'connecting' ? 'is-active' : ''}`} onClick={handleToggleVoice} disabled={!canSpeak && !isListening}>
             {isListening || connectionState === 'connecting' ? <MicOff size={22} /> : <Mic size={22} />}
             <span>{connectionState === 'connecting' ? 'Cancel connection' : isListening ? 'End conversation' : 'Talk to portrait'}</span>
           </button>
@@ -185,10 +187,10 @@ export default function App({ onExit }: { onExit: () => void }) {
                 isListening={isListening}
                 isSpeaking={isSpeaking}
                 errorMessage={combinedError}
-                onStartVoice={() => startLiveVoice(true)}
+                onStartVoice={() => { if (canSpeak) startLiveVoice(true); }}
                 onStopVoice={stopLiveVoice}
                 onInterruptPlayback={stopPlaybackQueue}
-                onSendMessage={(text) => askCharacter(text)}
+                onSendMessage={(text) => { if (canSpeak) askCharacter(text); }}
               />
           </div>
         </div>
