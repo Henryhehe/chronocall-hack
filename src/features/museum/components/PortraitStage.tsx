@@ -19,6 +19,7 @@ import {
   VoiceConnectionState,
 } from '../types/portrait';
 import { WASHINGTON_PORTRAIT } from '../data/washingtonPortrait';
+import { WASHINGTON_IMAGE_FALLBACK } from '../../../../shared/artworkAssets.ts';
 import {
   buildFeatheredLayers,
   CachedPortraitLayer,
@@ -179,6 +180,11 @@ export const PortraitStage: React.FC<ARPortraitStageProps> = ({
       washingtonAnchorLayersRef.current = buildFeatheredLayers(img, specs);
       setWashingtonAvatarLoaded(true);
     };
+    img.onerror = () => {
+      if (img.getAttribute('src') !== WASHINGTON_IMAGE_FALLBACK) {
+        img.src = WASHINGTON_IMAGE_FALLBACK;
+      }
+    };
     img.src = WASHINGTON_PORTRAIT.imageUrl;
   }, []);
 
@@ -200,6 +206,10 @@ export const PortraitStage: React.FC<ARPortraitStageProps> = ({
       setImgLoaded(true);
     };
     img.onerror = () => {
+      if (artwork.imageUrl === WASHINGTON_PORTRAIT.imageUrl && img.getAttribute('src') !== WASHINGTON_IMAGE_FALLBACK) {
+        img.src = WASHINGTON_IMAGE_FALLBACK;
+        return;
+      }
       setImgError(true);
     };
     img.src = artwork.imageUrl;

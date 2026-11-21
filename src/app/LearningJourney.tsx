@@ -1,4 +1,5 @@
 import { ArrowRight, ScanEye, Users, Landmark, Compass, Video } from 'lucide-react';
+import { WASHINGTON_IMAGE_SOURCE, WASHINGTON_IMAGE_FALLBACK } from '../../shared/artworkAssets.ts';
 
 export type LearningView = 'home' | 'live' | 'character' | 'museum' | 'log' | 'compare';
 export const experiences = [
@@ -41,13 +42,13 @@ export function LearningHome({ onNavigate }: { onNavigate: (view: LearningView) 
         <a className="hero-art" href="/facetime" aria-label="Start a call with a historical figure">
           {/* Public-domain John Faed painting; original 639 × 900 reproduction from Wikimedia Commons. */}
           <img
-            src="https://upload.wikimedia.org/wikipedia/commons/7/77/Portrait-of-george-washington-taking-the-salute-at-trenton-john-faed.jpg"
+            src={WASHINGTON_IMAGE_SOURCE}
             alt="Equestrian portrait of George Washington beneath a dramatic sky"
             width={639}
             height={900}
             fetchPriority="high"
             onError={event => {
-              const fallback = '/assets/aistudio/washington_fd94f6dd.jpeg';
+              const fallback = WASHINGTON_IMAGE_FALLBACK;
               if (event.currentTarget.getAttribute('src') !== fallback) {
                 event.currentTarget.src = fallback;
               }
