@@ -95,7 +95,7 @@ export const ARPortraitStage: React.FC<ARPortraitStageProps> = ({
   const [cameraDetected, setCameraDetected] = useState(false);
   const [trackedQuad, setTrackedQuad] = useState<FocalQuad>(DEFAULT_QUAD);
   const [anchorConfidence, setAnchorConfidence] = useState<number>(0);
-  const [showHotspots, setShowHotspots] = useState(false);
+  const [showHotspots, setShowHotspots] = useState(true);
   const [availableCameras, setAvailableCameras] = useState<MediaDeviceInfo[]>([]);
   const [selectedCameraId, setSelectedCameraId] = useState<string>('');
   const [containerSize, setContainerSize] = useState({ width: 1024, height: 768 });
@@ -1033,9 +1033,11 @@ export const ARPortraitStage: React.FC<ARPortraitStageProps> = ({
               type="button"
               onClick={() => setShowHotspots((v) => !v)}
               aria-label={showHotspots ? 'Hide artwork tags' : 'Show artwork tags'}
-              className="min-h-[36px] min-w-[36px] px-2 rounded-lg bg-black/60 backdrop-blur-md border border-white/15 text-[#F6F3EC] hover:bg-black/80 transition-colors flex items-center justify-center"
+              aria-pressed={showHotspots}
+              className="min-h-[44px] min-w-[44px] px-3 rounded-lg bg-black/60 backdrop-blur-md border border-white/15 text-[#F6F3EC] hover:bg-black/80 transition-colors flex items-center justify-center gap-2 text-xs"
             >
               {showHotspots ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
+              <span>Details {showHotspots ? 'on' : 'off'}</span>
             </button>
           )}
         </div>
