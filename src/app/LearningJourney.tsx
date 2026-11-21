@@ -3,7 +3,7 @@ import { WASHINGTON_IMAGE_SOURCE, WASHINGTON_IMAGE_FALLBACK } from '../../shared
 
 export type LearningView = 'home' | 'live' | 'character' | 'museum' | 'log' | 'compare';
 export const experiences = [
-  { id: 'museum', number: '01', name: 'Meet a living portrait', label: 'AR discovery', icon: ScanEye, description: 'Point your camera at a painting to bring it to life, or explore a portrait from the gallery.', goal: 'How does a portrait communicate power?', task: 'Choose a detail in the painting. Ask what it means, then compare the answer with what you can actually see.', tag: 'Art & historical perspective' },
+  { id: 'museum', number: '01', name: 'Meet a living portrait', label: 'Scan AR', icon: ScanEye, description: 'Point your camera at a painting to bring it to life, or explore a portrait from the gallery.', goal: 'How does a portrait communicate power?', task: 'Choose a detail in the painting. Ask what it means, then compare the answer with what you can actually see.', tag: 'Art & historical perspective' },
   { id: 'live', number: '02', name: 'Find stories in the everyday', label: 'Visual discovery', icon: ScanEye, description: 'Bring a photo or camera feed. Discover the stories in everyday objects.', goal: 'What can an object tell us about how people live?', task: 'Upload an image or start your camera. Ask about one visible object and identify a question you would need another source to answer.', tag: 'Observation & inquiry' },
   { id: 'character', number: '03', name: 'Try another point of view', label: 'Character studio', icon: Users, description: 'Show a modern object to a historical persona. See it through their eyes.', goal: 'How might someone from another era see our world?', task: 'Choose a persona, add a photo or camera feed, and ask how they would interpret a modern object.', tag: 'Perspective & imagination' },
 ] as const;
@@ -11,7 +11,7 @@ export const experiences = [
 export function JourneyHeader({ view, onNavigate }: { view: LearningView | 'facetime'; onNavigate?: (view: LearningView) => void }) {
   const items = [
     { id: 'home', label: 'Discover', href: '/#home' },
-    { id: 'museum', label: 'AR discovery', href: '/museum' },
+    { id: 'museum', label: 'Scan AR', href: '/museum' },
     { id: 'facetime', label: 'Video calls', href: '/facetime' },
     ...experiences.filter(e => e.id !== 'museum').map(e => ({ id: e.id, label: e.label, href: `/#${e.id}` })),
   ];
