@@ -5,6 +5,7 @@ import { IMAGE_GEN_MODEL, VISION_MODEL } from "../../../shared/models.ts";
 import {
   normalizeHistoricalProfile,
   type ArtworkKind,
+  type FaceTimeArtifactResult,
   type FaceTimeIdentifyResult,
   type FaceTimePortraitResult,
   type FaceTimeVideoJobStatus,
@@ -530,5 +531,66 @@ export async function respondToFaceTimeText(params: {
     reply: (response.text ?? "").trim(),
     latencyMs: Date.now() - startedAt,
     model: VISION_MODEL,
+  };
+}
+
+export async function generateHistoricalArtifact(params: {
+  profile: HistoricalProfile;
+  title: string;
+  description: string;
+  stylePrompt?: string;
+}): Promise<FaceTimeArtifactResult> {
+  const ai = getGeminiClient();
+  const startedAt = Date.now();
+  const { profile, title, description, stylePrompt } = params;
+
+  const styleDirective =
+    stylePrompt?.trim() ||
+    `Authentic period archival sketch or technical diagram hand-drawn by ${profile.name} (${profile.era}) on aged textured parchment paper, delicate sepia and charcoal line work, period technical notes and flourishes, museum keepsake quality.`;
+
+  const prompt = [
+    `Create a historical artifact sketch titled "${title}".`,
+    `Subject & Description: ${description}`,
+    `Creator & Era: ${profile.name}, ${profile.title} (${profile.era}, ${profile.location}).`,
+    `Visual Style: ${styleDirective}`,
+    "Framing: 4:3 parchment artifact document, realistic aged paper texture, deckled edges, intricate authentic period drawing without modern digital artifacts or watermarks.",
+  ].join(" ");
+
+  const response = await ai.models.generateContent({
+    model: IMAGE_GEN_MODEL,
+    contents: {
+      parts: [{ text: prompt }],
+    },
+    config: {
+      imageConfig: {
+        aspectRatio: "4:3",
+      },
+    },
+  });
+
+  let imageDataUrl: string | null = null;
+  let outputMime = "image/png";
+
+  for (const part of response.candidates?.[0]?.content?.parts ?? []) {
+    if (part.inlineData?.data) {
+      outputMime = part.inlineData.mimeType ?? "image/png";
+      imageDataUrl = `data:${outputMime};base64,${part.inlineData.data}`;
+      break;
+    }
+  }
+
+  if (!imageDataUrl) {
+    throw new Error(
+      `Gemini did not return an artifact sketch for "${title}".`
+    );
+  }
+
+  return {
+    title,
+    description,
+    imageDataUrl,
+    mimeType: outputMime,
+    model: IMAGE_GEN_MODEL,
+    latencyMs: Date.now() - startedAt,
   };
 }

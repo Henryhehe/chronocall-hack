@@ -108,6 +108,14 @@ test("FaceTime live-mode Veo job start, poll, and binary media stream", async ()
       model: "mock-image",
       latencyMs: 5,
     }),
+    generateHistoricalArtifact: async ({ title, description }) => ({
+      title,
+      description,
+      imageDataUrl: "data:image/png;base64,BBBB",
+      mimeType: "image/png",
+      model: "mock-image",
+      latencyMs: 6,
+    }),
     startVeoPortraitVideo: async ({ mode }) => ({
       jobId: "job-123",
       status: "running",

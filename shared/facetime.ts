@@ -91,6 +91,32 @@ export interface FaceTimeReactionCue {
   videoCue: string;
 }
 
+export interface FaceTimeCallerAnnotation {
+  label: string;
+  historicalName: string;
+  note: string;
+  ymin: number;
+  xmin: number;
+  ymax: number;
+  xmax: number;
+}
+
+export interface FaceTimeArtifactRequest {
+  title: string;
+  description: string;
+  stylePrompt: string;
+}
+
+export interface FaceTimeArtifactResult {
+  title: string;
+  description: string;
+  imageDataUrl: string;
+  mimeType: string;
+  model: string;
+  latencyMs: number;
+  demoMode?: boolean;
+}
+
 export type FaceTimeClientMessage =
   | { type: "start"; profile: HistoricalProfile }
   | { type: "audio" | "video"; data: string }
@@ -109,6 +135,8 @@ export type FaceTimeServerEvent =
     }
   | { type: "interrupted" | "turnComplete" }
   | { type: "reaction"; cue: FaceTimeReactionCue }
+  | { type: "callerAnnotation"; annotation: FaceTimeCallerAnnotation }
+  | { type: "artifactRequest"; artifact: FaceTimeArtifactRequest }
   | { type: "error"; message: string };
 
 const VALID_VOICES: ReadonlySet<FaceTimeVoiceName> = new Set([
@@ -251,4 +279,50 @@ export function resolveActiveVideoLayer(params: {
   if (veoReady) return "veo";
   if (genieHasFrame) return "genie";
   return "portrait";
+}
+
+/**
+ * Pure helper to validate and clamp 2D bounding boxes to 0..1000 range.
+ * Ensures coordinates are valid numbers and ymin <= ymax, xmin <= xmax.
+ */
+export function clampAnnotationBox(box: {
+  ymin?: number;
+  xmin?: number;
+  ymax?: number;
+  xmax?: number;
+}): { ymin: number; xmin: number; ymax: number; xmax: number } {
+  const sanitize = (val: unknown, fallback: number): number => {
+    if (typeof val !== "number" || Number.isNaN(val) || !Number.isFinite(val)) {
+      return fallback;
+    }
+    return Math.max(0, Math.min(1000, Math.round(val)));
+  };
+
+  let ymin = sanitize(box.ymin, 150);
+  let xmin = sanitize(box.xmin, 150);
+  let ymax = sanitize(box.ymax, 850);
+  let xmax = sanitize(box.xmax, 850);
+
+  if (ymin > ymax) {
+    const t = ymin;
+    ymin = ymax;
+    ymax = t;
+  }
+  if (xmin > xmax) {
+    const t = xmin;
+    xmin = xmax;
+    xmax = t;
+  }
+
+  // Ensure non-zero minimum dimensions
+  if (ymax - ymin < 10) {
+    if (ymax <= 990) ymax = Math.min(1000, ymin + 10);
+    else ymin = Math.max(0, ymax - 10);
+  }
+  if (xmax - xmin < 10) {
+    if (xmax <= 990) xmax = Math.min(1000, xmin + 10);
+    else xmin = Math.max(0, xmax - 10);
+  }
+
+  return { ymin, xmin, ymax, xmax };
 }

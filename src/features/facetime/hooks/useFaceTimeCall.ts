@@ -3,6 +3,9 @@ import { downsampleAndEncodePcm16 } from "../../../utils/audio";
 import { captureMediaFrame } from "../../../utils/canvas";
 import type {
   CallTranscriptMessage,
+  FaceTimeArtifactRequest,
+  FaceTimeArtifactResult,
+  FaceTimeCallerAnnotation,
   FaceTimeReactionCue,
   HistoricalProfile,
 } from "../types";
@@ -99,6 +102,14 @@ export function useFaceTimeCall(options: UseFaceTimeCallOptions) {
   const [lastReaction, setLastReaction] = useState<FaceTimeReactionCue | null>(
     null
   );
+
+  // Show & Tell (Camera object inspection) & Keepsake Artifact states
+  const [callerAnnotation, setCallerAnnotation] =
+    useState<FaceTimeCallerAnnotation | null>(null);
+  const [activeArtifact, setActiveArtifact] =
+    useState<FaceTimeArtifactResult | null>(null);
+  const [isGeneratingArtifact, setIsGeneratingArtifact] = useState(false);
+  const [artifactLoadingTitle, setArtifactLoadingTitle] = useState("");
 
   // 60fps vocal energy loop driving the remote avatar's mouth/head/expression
   useEffect(() => {
@@ -236,6 +247,133 @@ export function useFaceTimeCall(options: UseFaceTimeCallOptions) {
     }
   }, [facingMode, startUserCamera]);
 
+  const triggerDemoInspection = useCallback((label = "Smartphone") => {
+    const profile = profileRef.current;
+    const figure = profile?.name || "Historical Figure";
+    const isLeonardo = figure.toLowerCase().includes("leonardo");
+    const isWashington = figure.toLowerCase().includes("washington");
+    const isCurie = figure.toLowerCase().includes("curie");
+
+    const annotation: FaceTimeCallerAnnotation = {
+      label,
+      historicalName: isLeonardo
+        ? "Luminescent Glass Scrying Slate"
+        : isWashington
+          ? "Portable Optical Glass"
+          : isCurie
+            ? "Radiant Electroluminescent Crystal"
+            : "Luminous Pocket Relic",
+      note: isLeonardo
+        ? "A polished obsidian tablet that casts cold sunlight from within without wick, spark, or lamp oil!"
+        : isWashington
+          ? "A remarkable pocket device of polished glass and metal, bearing neither flint nor candle."
+          : isCurie
+            ? "A remarkable phosphor-screened emitter exhibiting instantaneous solid-state luminescence."
+            : "A wondrous artifact of the caller's modern era that illuminates at the touch of a finger.",
+      ymin: 220,
+      xmin: 280,
+      ymax: 780,
+      xmax: 740,
+    };
+    setCallerAnnotation(annotation);
+  }, []);
+
+  const requestArtifact = useCallback(
+    async (artifactReq: FaceTimeArtifactRequest) => {
+      const profile = profileRef.current;
+      if (!profile) return;
+      setIsGeneratingArtifact(true);
+      setArtifactLoadingTitle(artifactReq.title);
+      try {
+        const res = await fetch("/api/facetime/artifact", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            profile,
+            title: artifactReq.title,
+            description: artifactReq.description,
+            stylePrompt: artifactReq.stylePrompt,
+          }),
+        });
+        if (!res.ok) {
+          const errData = (await res.json().catch(() => ({}))) as {
+            error?: string;
+          };
+          throw new Error(
+            errData.error || "Could not generate keepsake sketch."
+          );
+        }
+        const data = (await res.json()) as FaceTimeArtifactResult;
+        setActiveArtifact(data);
+        appendTranscript(
+          "figure",
+          `I have sketched "${data.title}" for you to keep: "${data.description}"`,
+          false
+        );
+      } catch (err) {
+        optionsRef.current.onError?.(
+          err instanceof Error
+            ? err.message
+            : "Could not complete keepsake sketch."
+        );
+      } finally {
+        setIsGeneratingArtifact(false);
+      }
+    },
+    [appendTranscript]
+  );
+
+  const askForSketch = useCallback(
+    async (customPrompt?: string) => {
+      const profile = profileRef.current;
+      if (!profile) return;
+
+      appendTranscript(
+        "user",
+        "Could you sketch something from your era for me to keep?",
+        false
+      );
+
+      // Select an authentic subject based on the historical figure
+      let defaultTitle = `${profile.name}'s Archival Study`;
+      let defaultDesc = `A period-authentic study drawn from the workshop of ${profile.name}.`;
+
+      const normName = profile.name.toLowerCase();
+      if (normName.includes("leonardo") || normName.includes("vinci")) {
+        defaultTitle = "Study of an Aerial Screw & Wing Mechanism";
+        defaultDesc =
+          "Technical blueprint investigating continuous spiral lift and avian aerodynamics.";
+      } else if (normName.includes("washington")) {
+        defaultTitle = "Valley Forge Encampment & Fortification Survey";
+        defaultDesc =
+          "Hand-drafted military field survey of Continental Army positions during the winter of 1777.";
+      } else if (normName.includes("curie")) {
+        defaultTitle = "Radium Crystallization & Luminescence Log";
+        defaultDesc =
+          "Laboratory diagram noting fractional crystallization stages of pitchblende and glowing salts.";
+      } else if (normName.includes("cleopatra")) {
+        defaultTitle = "Royal Decree & Alexandrian Harbor Cartography";
+        defaultDesc =
+          "Papyrus cartographic inscription of the Great Harbor and Pharos lighthouse of Alexandria.";
+      } else if (normName.includes("tesla")) {
+        defaultTitle = "Wireless Resonant Transformer Blueprint";
+        defaultDesc =
+          "Drafting of oscillating circuits designed for the Wardenclyffe atmospheric transmission tower.";
+      } else if (customPrompt) {
+        defaultTitle = customPrompt;
+        defaultDesc = `Keepsake sketch drawn by ${profile.name} depicting ${customPrompt}.`;
+      }
+
+      await requestArtifact({
+        title: defaultTitle,
+        description: defaultDesc,
+        stylePrompt:
+          "Aged parchment sketch with authentic handwriting, architectural diagrams, and period sepia ink.",
+      });
+    },
+    [appendTranscript, requestArtifact]
+  );
+
   const stopCall = useCallback(() => {
     const s = sessionRef.current;
     sessionRef.current = null; // Synchronous detach prevents stale callbacks
@@ -245,6 +383,10 @@ export function useFaceTimeCall(options: UseFaceTimeCallOptions) {
     setIsSpeaking(false);
     setLiveCaption("");
     setLastReaction(null);
+    setCallerAnnotation(null);
+    setActiveArtifact(null);
+    setIsGeneratingArtifact(false);
+    setArtifactLoadingTitle("");
     stopUserCamera();
 
     if (!s) return;
@@ -449,6 +591,15 @@ export function useFaceTimeCall(options: UseFaceTimeCallOptions) {
             } else if (msg.type === "reaction") {
               setLastReaction(msg.cue);
               optionsRef.current.onReaction?.(msg.cue);
+            } else if (msg.type === "callerAnnotation") {
+              setCallerAnnotation(msg.annotation);
+              appendTranscript(
+                "figure",
+                `[Inspecting your camera]: "I behold the ${msg.annotation.historicalName}—${msg.annotation.note}"`,
+                false
+              );
+            } else if (msg.type === "artifactRequest") {
+              void requestArtifact(msg.artifact);
             } else if (msg.type === "error") {
               optionsRef.current.onError?.(msg.message);
               if (!readyReceived) {
@@ -523,6 +674,15 @@ export function useFaceTimeCall(options: UseFaceTimeCallOptions) {
 
       // Demo Mode or text-only fallback via HTTP /api/facetime/respond
       appendTranscript("user", text, false);
+
+      // In demo mode or text mode, detect Show & Tell object prompts and sketch requests
+      if (/camera|holding|look|see|show|what is this|inspect/i.test(text)) {
+        triggerDemoInspection();
+      }
+      if (/sketch|draw|artifact|keepsake|blueprint/i.test(text)) {
+        void askForSketch();
+      }
+
       setIsSendingText(true);
       try {
         const historyPayload = transcripts
@@ -555,10 +715,25 @@ export function useFaceTimeCall(options: UseFaceTimeCallOptions) {
         setIsSendingText(false);
       }
     },
-    [appendTranscript, transcripts, voiceStatus]
+    [
+      appendTranscript,
+      askForSketch,
+      transcripts,
+      triggerDemoInspection,
+      voiceStatus,
+    ]
   );
 
   useEffect(() => stopCall, [stopCall]);
+
+  const dismissAnnotation = useCallback(() => {
+    setCallerAnnotation(null);
+  }, []);
+
+  const dismissArtifact = useCallback(() => {
+    setActiveArtifact(null);
+    setIsGeneratingArtifact(false);
+  }, []);
 
   return {
     voiceStatus,
@@ -580,5 +755,17 @@ export function useFaceTimeCall(options: UseFaceTimeCallOptions) {
     startCall,
     stopCall,
     sendMessage,
+    // Show & Tell (Camera object inspection)
+    callerAnnotation,
+    setCallerAnnotation,
+    dismissAnnotation,
+    triggerDemoInspection,
+    // Live Artifact / Keepsake Card
+    activeArtifact,
+    isGeneratingArtifact,
+    artifactLoadingTitle,
+    requestArtifact,
+    askForSketch,
+    dismissArtifact,
   };
 }

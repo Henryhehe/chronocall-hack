@@ -1,5 +1,8 @@
 import type {
   ActiveVideoLayer,
+  FaceTimeArtifactRequest,
+  FaceTimeArtifactResult,
+  FaceTimeCallerAnnotation,
   FaceTimeIdentifyResult,
   FaceTimePortraitResult,
   FaceTimeReactionCue,
@@ -11,6 +14,9 @@ import type {
 
 export type {
   ActiveVideoLayer,
+  FaceTimeArtifactRequest,
+  FaceTimeArtifactResult,
+  FaceTimeCallerAnnotation,
   FaceTimeIdentifyResult,
   FaceTimePortraitResult,
   FaceTimeReactionCue,

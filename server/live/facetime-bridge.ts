@@ -10,7 +10,10 @@ import { getLiveGeminiClient } from "../services/gemini/client.ts";
 import { formatGeminiError } from "../services/gemini/errors.ts";
 import { LIVE_MODEL } from "../../shared/models.ts";
 import {
+  clampAnnotationBox,
   normalizeHistoricalProfile,
+  type FaceTimeArtifactRequest,
+  type FaceTimeCallerAnnotation,
   type FaceTimeClientMessage,
   type FaceTimeReactionCue,
   type FaceTimeServerEvent,
@@ -44,6 +47,84 @@ const expressReactionTool: FunctionDeclaration = {
   },
 };
 
+const inspectCallerObjectTool: FunctionDeclaration = {
+  name: "inspect_caller_object",
+  description:
+    "Call this whenever the caller holds an object up to their camera or asks you to look at something they are showing you. Identifies the object, provides your authentic historical era name/reaction, and localizes it with a bounding box (ymin, xmin, ymax, xmax clamped 0..1000).",
+  parameters: {
+    type: Type.OBJECT,
+    properties: {
+      label: {
+        type: Type.STRING,
+        description:
+          "Common modern name for the object, e.g. 'Smartphone', 'Wristwatch', 'Mug', 'Notebook'.",
+      },
+      historicalName: {
+        type: Type.STRING,
+        description:
+          "How you (in your era) understand or refer to this object, e.g. 'Luminescent Glass Scrying Slate', 'Pocket Chronometer', 'Ceramic Goblet'.",
+      },
+      note: {
+        type: Type.STRING,
+        description:
+          "Your vivid first-person observation or curiosity about the object from your era's worldview.",
+      },
+      ymin: {
+        type: Type.INTEGER,
+        description: "Top boundary of the object in the camera frame (0..1000).",
+      },
+      xmin: {
+        type: Type.INTEGER,
+        description: "Left boundary of the object in the camera frame (0..1000).",
+      },
+      ymax: {
+        type: Type.INTEGER,
+        description: "Bottom boundary of the object in the camera frame (0..1000).",
+      },
+      xmax: {
+        type: Type.INTEGER,
+        description: "Right boundary of the object in the camera frame (0..1000).",
+      },
+    },
+    required: [
+      "label",
+      "historicalName",
+      "note",
+      "ymin",
+      "xmin",
+      "ymax",
+      "xmax",
+    ],
+  },
+};
+
+const shareArtifactTool: FunctionDeclaration = {
+  name: "share_artifact",
+  description:
+    "Shares or sketches a period-authentic artifact, blueprint, map, invention sketch, or keepsake with the caller mid-call. Use this when the caller asks for a drawing/keepsake or when sharing a signature creation of yours.",
+  parameters: {
+    type: Type.OBJECT,
+    properties: {
+      title: {
+        type: Type.STRING,
+        description:
+          "Short evocative title of the sketch or artifact, e.g. 'Study of the Vitruvian Man', 'Camp Map of Valley Forge', 'Design for the Wardenclyffe Tower'.",
+      },
+      description: {
+        type: Type.STRING,
+        description:
+          "Engaging 1–2 sentence description of what you are drawing or sharing and why it matters.",
+      },
+      stylePrompt: {
+        type: Type.STRING,
+        description:
+          "Visual styling directive for the sketch, e.g. 'Sepia ink and wash on aged vellum with anatomical annotations in mirrored script'.",
+      },
+    },
+    required: ["title", "description"],
+  },
+};
+
 function buildFaceTimeSystemInstruction(profile: HistoricalProfile): string {
   const artworkLine = profile.artworkTitle
     ? `The caller reached you by scanning "${profile.artworkTitle}"${profile.artist ? ` (${profile.artist})` : ""}. You may acknowledge stepping out of that portrait or statue into this live conversation if natural.`
@@ -56,6 +137,8 @@ function buildFaceTimeSystemInstruction(profile: HistoricalProfile): string {
     "Setting: You are LIVE on a FaceTime video call with a modern-day person. You can hear their voice and see live video frames from their camera.",
     "Style: Speak naturally, warmly, and vividly in first person as if talking face-to-face. Keep spoken turns concise (1–3 sentences) so the conversation flows briskly like a real video call. React genuinely if they hold an object up to the camera or ask about your era. Never break character or mention being an AI.",
     "Call express_reaction occasionally when your emotional reaction or posture shifts so your live video reflects your expression.",
+    "Show & Tell (Live Object Inspection): If the caller holds up an object, shows something to the camera, or asks what you think of an item: call inspect_caller_object to identify it, name it from your historical perspective, and provide its coordinates (ymin, xmin, ymax, xmax clamped 0..1000).",
+    "Live Keepsake (Artifact Sketch): If you want to sketch, illustrate, or share a keepsake artifact, diagram, invention blueprint, or document with the caller (or if they ask for a sketch): call share_artifact with a title, description, and period stylePrompt.",
   ]
     .filter(Boolean)
     .join("\n\n");
@@ -148,7 +231,15 @@ export function attachFaceTimeBridge(server: Server, demoMode = false) {
               },
               inputAudioTranscription: {},
               outputAudioTranscription: {},
-              tools: [{ functionDeclarations: [expressReactionTool] }],
+              tools: [
+                {
+                  functionDeclarations: [
+                    expressReactionTool,
+                    inspectCallerObjectTool,
+                    shareArtifactTool,
+                  ],
+                },
+              ],
               systemInstruction: buildFaceTimeSystemInstruction(profile),
             },
             callbacks: {
@@ -205,6 +296,55 @@ export function attachFaceTimeBridge(server: Server, demoMode = false) {
                           name: call.name,
                           response: {
                             result: "Expression reflected on the FaceTime video feed.",
+                          },
+                        },
+                      ],
+                    });
+                  } else if (call.name === "inspect_caller_object") {
+                    const box = clampAnnotationBox({
+                      ymin: Number(call.args?.ymin),
+                      xmin: Number(call.args?.xmin),
+                      ymax: Number(call.args?.ymax),
+                      xmax: Number(call.args?.xmax),
+                    });
+                    const annotation: FaceTimeCallerAnnotation = {
+                      label: String(call.args?.label ?? "Object"),
+                      historicalName: String(
+                        call.args?.historicalName ?? "Historical Item"
+                      ),
+                      note: String(call.args?.note ?? ""),
+                      ...box,
+                    };
+                    sendSafe({ type: "callerAnnotation", annotation });
+                    connectedSession.sendToolResponse({
+                      functionResponses: [
+                        {
+                          id: call.id,
+                          name: call.name,
+                          response: {
+                            result: `Object "${annotation.label}" inspected and annotated on video feed.`,
+                          },
+                        },
+                      ],
+                    });
+                  } else if (call.name === "share_artifact") {
+                    const artifact: FaceTimeArtifactRequest = {
+                      title: String(
+                        call.args?.title ?? `${profile.name}'s Keepsake`
+                      ),
+                      description: String(
+                        call.args?.description ?? "Historical keepsake sketch."
+                      ),
+                      stylePrompt: String(call.args?.stylePrompt ?? ""),
+                    };
+                    sendSafe({ type: "artifactRequest", artifact });
+                    connectedSession.sendToolResponse({
+                      functionResponses: [
+                        {
+                          id: call.id,
+                          name: call.name,
+                          response: {
+                            result: `Keepsake sketch request for "${artifact.title}" dispatched to caller.`,
                           },
                         },
                       ],
