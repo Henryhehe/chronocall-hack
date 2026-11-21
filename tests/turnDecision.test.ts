@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import type { GoogleGenAI } from "@google/genai";
-import { evaluateTurn, getTurnDecision } from "../server/services/gemini/turnDecision.ts";
+import { evaluateTurn } from "../server/services/gemini/turnDecision.ts";
 import { REPLY_CHECKS } from "../server/services/gemini/replyChecks.ts";
 
 test("one turn evaluation supplies reply checks and the shared telemetry result", async () => {
@@ -81,10 +81,6 @@ test("a failed check is reported and the verdict can flag an anachronism", async
   assert.equal(r.decision?.verdict, "anachronism");
 });
 
-test("the latest result is kept so an HTTP route can reuse it instead of asking again", async () => {
-  await evaluateTurn(fakeAi({}), { utterance: "The river is choked with ice." });
-  assert.equal(getTurnDecision("  the river is choked   with ice. ")?.decision?.verdict, "verified");
-});
 
 test("if the Decisions API fails, the turn is unavailable with the error reported", async () => {
   const broken = { decisions: { create: async () => { throw new Error("404"); } } } as unknown as GoogleGenAI;

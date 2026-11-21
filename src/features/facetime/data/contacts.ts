@@ -1,5 +1,8 @@
 import type { HistoricalProfile } from "../types";
 
+const proxyMuseumUrl = (url: string) =>
+  `/api/facetime/artwork-proxy?url=${encodeURIComponent(url)}`;
+
 export const CURATED_HISTORICAL_CONTACTS: HistoricalProfile[] = [
   {
     id: "leonardo-da-vinci",
@@ -23,6 +26,9 @@ export const CURATED_HISTORICAL_CONTACTS: HistoricalProfile[] = [
     gradientFrom: "#451A03",
     gradientTo: "#0B0F19",
     initials: "LV",
+    previewImageUrl: proxyMuseumUrl(
+      "https://upload.wikimedia.org/wikipedia/commons/thumb/c/cb/Francesco_Melzi_-_Portrait_of_Leonardo.png/440px-Francesco_Melzi_-_Portrait_of_Leonardo.png"
+    ),
     starterQuestions: [
       "What are you sketching on your workbench today?",
       "Look at my phone—how would you explain it in 1505?",
@@ -53,6 +59,9 @@ export const CURATED_HISTORICAL_CONTACTS: HistoricalProfile[] = [
     gradientFrom: "#422006",
     gradientTo: "#090D16",
     initials: "CV",
+    previewImageUrl: proxyMuseumUrl(
+      "https://upload.wikimedia.org/wikipedia/commons/thumb/3/3e/Kleopatra-VII.-Altes-Museum-Berlin1.jpg/440px-Kleopatra-VII.-Altes-Museum-Berlin1.jpg"
+    ),
     starterQuestions: [
       "What is daily life like inside Alexandria right now?",
       "How many languages do you speak at court?",
@@ -83,6 +92,9 @@ export const CURATED_HISTORICAL_CONTACTS: HistoricalProfile[] = [
     gradientFrom: "#0C4A6E",
     gradientTo: "#080C15",
     initials: "MC",
+    previewImageUrl: proxyMuseumUrl(
+      "https://upload.wikimedia.org/wikipedia/commons/thumb/c/c8/Marie_Curie_c._1920s.jpg/440px-Marie_Curie_c._1920s.jpg"
+    ),
     starterQuestions: [
       "What does radium look like in a dark room?",
       "What kept you going through years of refining pitchblende?",
@@ -144,6 +156,9 @@ export const CURATED_HISTORICAL_CONTACTS: HistoricalProfile[] = [
     gradientFrom: "#2E1065",
     gradientTo: "#090D16",
     initials: "AE",
+    previewImageUrl: proxyMuseumUrl(
+      "https://upload.wikimedia.org/wikipedia/commons/thumb/3/3e/Einstein_1921_by_F_Schmutzer_-_restoration.jpg/440px-Einstein_1921_by_F_Schmutzer_-_restoration.jpg"
+    ),
     starterQuestions: [
       "Can you explain relativity like we are on a train?",
       "Did we ever detect gravitational waves?",
@@ -174,6 +189,9 @@ export const CURATED_HISTORICAL_CONTACTS: HistoricalProfile[] = [
     gradientFrom: "#064E3B",
     gradientTo: "#090D16",
     initials: "AL",
+    previewImageUrl: proxyMuseumUrl(
+      "https://upload.wikimedia.org/wikipedia/commons/thumb/a/a4/Ada_Lovelace_portrait.jpg/440px-Ada_Lovelace_portrait.jpg"
+    ),
     starterQuestions: [
       "What did you mean by 'poetical science'?",
       "You predicted machines could compose music—want to hear what they do now?",
@@ -204,6 +222,9 @@ export const CURATED_HISTORICAL_CONTACTS: HistoricalProfile[] = [
     gradientFrom: "#4C0519",
     gradientTo: "#090D16",
     initials: "MA",
+    previewImageUrl: proxyMuseumUrl(
+      "https://upload.wikimedia.org/wikipedia/commons/thumb/9/9b/Marcus_Aurelius_Glyptothek_Munich.jpg/440px-Marcus_Aurelius_Glyptothek_Munich.jpg"
+    ),
     starterQuestions: [
       "How do you stay calm when everything feels chaotic?",
       "Did you ever intend anyone else to read your Meditations?",
@@ -234,6 +255,9 @@ export const CURATED_HISTORICAL_CONTACTS: HistoricalProfile[] = [
     gradientFrom: "#500724",
     gradientTo: "#090D16",
     initials: "FK",
+    previewImageUrl: proxyMuseumUrl(
+      "https://upload.wikimedia.org/wikipedia/commons/thumb/0/06/Frida_Kahlo%2C_by_Guillermo_Kahlo.jpg/440px-Frida_Kahlo%2C_by_Guillermo_Kahlo.jpg"
+    ),
     starterQuestions: [
       "What are you painting in the courtyard today?",
       "Why do you paint yourself so often?",
