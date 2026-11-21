@@ -68,3 +68,11 @@ References: [Live SDK implementation](https://github.com/googleapis/js-genai/blo
 ## Museum contribution
 
 Demi’s portrait experience is mounted at `/museum`, with its components, data, hooks, types and utilities under `src/features/museum/`. `server/museum.ts` preserves its portrait identification and character response handlers (`POST /api/identify-portrait`, `POST /api/character/respond`), mobile URL lookup (`GET /api/app-url`), and separate `/ws/museum` voice protocol. It shares the same server, key configuration and lifecycle. Demo mode rejects museum model requests with 503 and closes voice with an explanatory error. Museum voice still has its own lifecycle hook; its protocol differs from the original shared voice hook.
+
+## FaceTime historical call experience
+
+The primary FaceTime experience is mounted at `/` (with the original workbench preserved at `/workspaces` and Museum AR at `/museum`). Frontend components, call lifecycle hooks, Web Audio chimes, and the hybrid full-motion video stage live under `src/features/facetime/`.
+
+- **HTTP routes** (`server/routes/facetime.ts`, backed by `server/services/gemini/facetime.ts`): `POST /api/facetime/resolve`, `POST /api/facetime/identify`, `POST /api/facetime/portrait`, `POST /api/facetime/video`, `GET /api/facetime/video/:jobId`, `GET /api/facetime/video/:jobId/media`, and `POST /api/facetime/respond`.
+- **WebSocket bridge** (`server/live/facetime-bridge.ts`): Mounted at `/ws/facetime`, connecting to `gemini-3.8-live` with dynamic historical personas, matched prebuilt voices, live caller camera frames, and an `express_reaction` tool that steers full-motion video expressions.
+- **Hybrid video stage** (`HistoricalVideoStage.tsx`): Renders an instant 60fps audio-reactive photorealistic portrait (Tier 1) and progressively crossfades into real-time Genie 4 WebRTC video (Tier 2A) and/or Veo image-to-video full-motion loops (Tier 2B) using only `GEMINI_API_KEY`. Demo mode runs cleanly on Tier 1 with local fixtures.

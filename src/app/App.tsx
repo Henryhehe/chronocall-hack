@@ -387,6 +387,7 @@ export default function App() {
           aria-label="Workspace Views"
           className="flex items-center gap-6 text-sm font-medium"
         >
+          <a href="/" className="text-emerald-300 hover:text-emerald-200 whitespace-nowrap">← FaceTime</a>
           <a href="/museum" className="text-cyan-300 whitespace-nowrap">Museum AR</a>
           {(
             [
