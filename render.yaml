@@ -1,0 +1,19 @@
+# First deployment uses fixtures and needs no Gemini key.
+# Select the branch containing this file when creating the Blueprint.
+services:
+  - type: web
+    name: chronocall-hack
+    runtime: docker
+    plan: free
+    region: virginia
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    healthCheckPath: /api/health
+    autoDeployTrigger: "off"
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: HOST
+        value: 0.0.0.0
+      - key: DEMO_MODE
+        value: "true"

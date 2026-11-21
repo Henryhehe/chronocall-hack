@@ -1,0 +1,15 @@
+.git
+.github
+.aistudio
+.agents
+.codex
+node_modules
+dist
+build
+coverage
+.DS_Store
+*.log
+**/.env*
+!/.env.example
+**/*.pem
+**/*.key

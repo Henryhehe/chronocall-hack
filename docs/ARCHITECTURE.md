@@ -6,11 +6,14 @@
 
 `server/app.ts` exposes a testable app without opening a port. `server/config.ts` owns environment precedence and port validation. Configuration loads relative to the repository, not the shell's current directory.
 
+The [Dockerfile](../Dockerfile) builds with Bun/Node, then runs the same production entry point as an unprivileged Node process. The final image contains `dist/`, `server/`, `shared/`, configuration, and installed dependencies including `tsx`. Environment files are excluded from the image. [render.yaml](../render.yaml) describes one Docker web service with an HTTP health check and fixture mode enabled initially. See [Deployment](DEPLOYMENT.md).
+
 ## Frontend ownership
 
 | Module | Responsibility |
 | --- | --- |
 | `src/app/App.tsx` | Navigation, detection/Q&A state, connecting workspaces |
+| `src/app/LearningJourney.tsx` | Learning home, experience navigation, guiding questions, locally stored notebook |
 | `src/features/vision/useMediaSource.ts` | Permissions, tracks, uploads, capture elements |
 | `src/features/vision/components/` | Viewport, controls, filters, inspector, logs |
 | `src/features/character/components/HistoricalOverlay.tsx` | Persona options and costume overlays |
@@ -32,6 +35,9 @@ POST bodies are JSON. Images use raw base64 or data URLs in `imageBase64`; `mime
 | Route | Required input | Success output / owner |
 | --- | --- | --- |
 | `GET /api/health` | None | `ok`, `demoMode`, `apiKeyConfigured`; never secret values |
+| `GET /api/app-url` | None | `appUrl` ending in `/museum`; `APP_URL` overrides inferred host/protocol |
+| `POST /api/identify-portrait` | `imageBase64` | Model-inferred portrait metadata, hotspots, focal region; museum module; 503 in demo |
+| `POST /api/character/respond` | `message` | `replyText`, nullable `audioBase64`, nullable `mimeType`; museum module; 503 in demo |
 | `POST /api/detect` | `imageBase64` | `summary`, `objects`, timing/model; vision service |
 | `POST /api/ask` | `imageBase64`, `question` | `answer`, timing/model; vision service |
 | `POST /api/character-world/transform` | `imageBase64` | `imageDataUrl`, `mimeType`, optional `note`, timing/model |
@@ -61,7 +67,7 @@ Optional vision inputs include `model`, `focusPrompt` (detection), and `characte
 
 ## Checks
 
-`tests/*.test.ts` uses Node 24's TypeScript support and test runner for config, voice lifecycle, and fixtures. Integration tests exercise actual Express routes using fixtures. `bun run check` adds TypeScript and Vite checks. CI needs no Gemini secrets.
+`tests/*.test.ts` uses Node 24's TypeScript support and test runner for config, voice lifecycle, and fixtures. Integration tests exercise actual Express routes using fixtures. `bun run check` adds TypeScript/Vite checks and `scripts/test-production.mjs`, which launches the built production entry point with fixtures and an empty key on a temporary port. `scripts/smoke.mjs` verifies static assets, HTTP contracts, and the demo WebSocket lifecycle against that process or an already-running deployment. CI also runs it against the Docker image to validate packaging. CI needs no Gemini secrets.
 
 References: [Live SDK implementation](https://github.com/googleapis/js-genai/blob/main/src/live.ts), [Bun frozen installs](https://bun.sh/docs/pm/cli/install).
 

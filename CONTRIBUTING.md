@@ -55,3 +55,5 @@ If main has moved, merge `origin/main` into your feature branch, resolve conflic
 Agree on one demo story and keep it working on `main`. Check in every 30–60 minutes, communicate interface changes immediately, and reserve the final hour before submission for integration and rehearsal.
 
 Follow [SMOKE_TEST.md](docs/SMOKE_TEST.md) on the presentation laptop. CI uses fixtures and does not verify paid model access, browser permissions, audio playback, or WebRTC connectivity.
+
+For merging contribution branches, see [BRANCH_INTEGRATION.md](docs/BRANCH_INTEGRATION.md), including the Demi-to-Museum file mappings and validation workflow.
