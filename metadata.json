@@ -1,0 +1,6 @@
+{
+  "name": "Gemini Live Vision",
+  "description": "Real-time multimodal camera object detection and interactive Gemini Live voice and video workbench.",
+  "requestFramePermissions": ["camera", "microphone"],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
