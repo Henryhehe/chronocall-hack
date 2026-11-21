@@ -25,7 +25,7 @@ import {
   drawAnimatedPaintingComposition,
   getPortraitRegionSpecs,
 } from '../utils/livingPortraitLayers';
-import { WashingtonAnchorTracker } from '../utils/washingtonAnchorTracker';
+import { WashingtonAnchorTracker } from '../utils/portraitAnchorTracker';
 
 interface ARPortraitStageProps {
   artwork: PortraitArtwork;
@@ -442,6 +442,7 @@ export const PortraitStage: React.FC<ARPortraitStageProps> = ({
 
         const identified: PortraitArtwork = {
           id: `${source}-${Date.now()}`,
+          hasHumanSubject: data.hasHumanSubject !== false,
           accessionNumber: source === 'camera' ? 'LIVE AR ANCHOR' : 'UPLOADED PORTRAIT',
           title: data.paintingTitle || 'Identified Historical Portrait',
           characterName: data.characterName || 'Historical Figure',

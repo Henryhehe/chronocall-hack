@@ -1,150 +1,189 @@
 import { FocalBox, FocalQuad, QuadCorner } from '../types/portrait';
 import {
+  applySimilarityToQuad,
   boxToQuad,
   computeSquareToQuadHomography,
-  isConvexQuad,
+  detectPaintingQuadFromGray,
+  fitSimilarityRANSAC,
+  isPlausiblePerspectiveQuad,
+  orderQuadCorners,
+  Point2DPair,
+  projectScreenToQuadUv,
+  projectUvWithHomography,
   quadToBoundingBox,
 } from './perspectiveWarp';
 
 export interface AnchorTrackResult {
   detected: boolean;
   confidence: number;
+  mode: 'washington' | 'custom';
   /** Axis-aligned bounding box in 0..100 percentages */
   box: FocalBox;
   /** Exact 4 perspective corners in 0..100 percentages */
   quad: FocalQuad;
 }
 
-interface TemplateData {
-  cols: number;
-  rows: number;
-  aspect: number;
-  grayNorm: Float32Array;
-  rMean: Float32Array;
-  gMean: Float32Array;
-  bMean: Float32Array;
-  uCoords: Float32Array;
-  vCoords: Float32Array;
+interface FeatureAnchor {
+  u: number;
+  v: number;
+  refPatchNorm: Float32Array;
 }
 
-const TEMPLATE_COLS = 18;
-const TEMPLATE_ROWS = 25;
+const PATCH_RADIUS = 4; // 9x9 patch
+const PATCH_SIDE = PATCH_RADIUS * 2 + 1;
+const PATCH_LEN = PATCH_SIDE * PATCH_SIDE;
+
+const THUMB_COLS = 16;
+const THUMB_ROWS = 16;
+const THUMB_LEN = THUMB_COLS * THUMB_ROWS;
 
 export class WashingtonAnchorTracker {
-  private template: TemplateData | null = null;
-  private loadingPromise: Promise<void> | null = null;
   private workCanvas: HTMLCanvasElement;
   private workCtx: CanvasRenderingContext2D | null;
 
+  private analysisW = 320;
+  private analysisH = 240;
+  private prevGray: Float32Array | null = null;
+  private currGray: Float32Array | null = null;
+  private blurBuf: Float32Array | null = null;
+
+  private anchors: FeatureAnchor[] = [];
+  private refThumbRaw: Float32Array | null = null;
+  private refThumbValid: Uint8Array | null = null;
+  private refThumbU: Float32Array;
+  private refThumbV: Float32Array;
+  private tmplAspect = 1;
+
   private locked = false;
+  private mode: 'washington' | 'custom' = 'custom';
   private missCount = 0;
+  private tickCount = 0;
   private smoothQuad: FocalQuad | null = null;
 
-  constructor(private readonly anchorUrl: string) {
+  constructor(_anchorUrl?: string) {
     this.workCanvas = document.createElement('canvas');
     this.workCtx = this.workCanvas.getContext('2d', { willReadFrequently: true });
+
+    this.refThumbU = new Float32Array(THUMB_LEN);
+    this.refThumbV = new Float32Array(THUMB_LEN);
+    for (let r = 0; r < THUMB_ROWS; r++) {
+      for (let c = 0; c < THUMB_COLS; c++) {
+        const i = r * THUMB_COLS + c;
+        this.refThumbU[i] = 0.06 + ((c + 0.5) / THUMB_COLS) * 0.88;
+        this.refThumbV[i] = 0.06 + ((r + 0.5) / THUMB_ROWS) * 0.88;
+      }
+    }
   }
 
   public async ensureLoaded(): Promise<void> {
-    if (this.template) return;
-    if (this.loadingPromise) return this.loadingPromise;
-
-    this.loadingPromise = new Promise<void>((resolve) => {
-      const img = new Image();
-      img.crossOrigin = 'anonymous';
-      img.onload = () => {
-        const c = document.createElement('canvas');
-        c.width = TEMPLATE_COLS;
-        c.height = TEMPLATE_ROWS;
-        const ctx = c.getContext('2d');
-        if (ctx) {
-          ctx.drawImage(img, 0, 0, TEMPLATE_COLS, TEMPLATE_ROWS);
-          const data = ctx.getImageData(0, 0, TEMPLATE_COLS, TEMPLATE_ROWS).data;
-          const n = TEMPLATE_COLS * TEMPLATE_ROWS;
-          const gray = new Float32Array(n);
-          const rArr = new Float32Array(n);
-          const gArr = new Float32Array(n);
-          const bArr = new Float32Array(n);
-          const uCoords = new Float32Array(n);
-          const vCoords = new Float32Array(n);
-
-          let sum = 0;
-          for (let r = 0; r < TEMPLATE_ROWS; r++) {
-            for (let col = 0; col < TEMPLATE_COLS; col++) {
-              const i = r * TEMPLATE_COLS + col;
-              const pr = data[i * 4];
-              const pg = data[i * 4 + 1];
-              const pb = data[i * 4 + 2];
-              const lum = 0.299 * pr + 0.587 * pg + 0.114 * pb;
-              gray[i] = lum;
-              rArr[i] = pr;
-              gArr[i] = pg;
-              bArr[i] = pb;
-              uCoords[i] = (col + 0.5) / TEMPLATE_COLS;
-              vCoords[i] = (r + 0.5) / TEMPLATE_ROWS;
-              sum += lum;
-            }
-          }
-
-          const mean = sum / n;
-          let sqSum = 0;
-          for (let i = 0; i < n; i++) {
-            const d = gray[i] - mean;
-            gray[i] = d;
-            sqSum += d * d;
-          }
-          const std = Math.sqrt(sqSum) || 1;
-          for (let i = 0; i < n; i++) {
-            gray[i] /= std;
-          }
-
-          this.template = {
-            cols: TEMPLATE_COLS,
-            rows: TEMPLATE_ROWS,
-            aspect: img.naturalWidth / Math.max(1, img.naturalHeight),
-            grayNorm: gray,
-            rMean: rArr,
-            gMean: gArr,
-            bMean: bArr,
-            uCoords,
-            vCoords,
-          };
-        }
-        resolve();
-      };
-      img.onerror = () => resolve();
-      img.src = this.anchorUrl;
-    });
-
-    return this.loadingPromise;
-  }
-
-  public seedLock(box: FocalBox) {
-    this.seedQuad(boxToQuad(box));
-  }
-
-  public seedQuad(quad: FocalQuad) {
-    this.locked = true;
-    this.missCount = 0;
-    this.smoothQuad = cloneQuad(quad);
+    return Promise.resolve();
   }
 
   public clearLock() {
     this.locked = false;
     this.missCount = 0;
+    this.tickCount = 0;
     this.smoothQuad = null;
+    this.anchors = [];
+    this.refThumbRaw = null;
+    this.refThumbValid = null;
+    this.prevGray = null;
   }
 
   /**
-   * Matches the uploaded Washington anchor painting inside the live camera <video>
-   * frame and tracks its 4 perspective corners using projective homography refinement.
+   * Seeds the warp-proof 4-corner anchor tracker on the exact T0 scan canvas.
+   * Uses blurred Sobel directional edge accumulation to snap the 4 straight borders
+   * right onto the painting canvas edges, then extracts 25 high-contrast interior patches.
+   */
+  public seedFromFrameCanvas(
+    frameCanvas: HTMLCanvasElement,
+    rawQuadPct: FocalQuad,
+    mode: 'washington' | 'custom'
+  ): FocalQuad {
+    const fw = Math.max(1, frameCanvas.width);
+    const fh = Math.max(1, frameCanvas.height);
+
+    this.analysisW = 320;
+    this.analysisH = Math.max(120, Math.round((this.analysisW * fh) / fw));
+    if (this.workCanvas.width !== this.analysisW || this.workCanvas.height !== this.analysisH) {
+      this.workCanvas.width = this.analysisW;
+      this.workCanvas.height = this.analysisH;
+    }
+
+    const orderedRaw = orderQuadCorners(rawQuadPct);
+    if (!this.workCtx) {
+      return orderedRaw;
+    }
+
+    this.workCtx.drawImage(frameCanvas, 0, 0, this.analysisW, this.analysisH);
+    const pixels = this.workCtx.getImageData(0, 0, this.analysisW, this.analysisH).data;
+    const nPix = this.analysisW * this.analysisH;
+    const rawGray = new Float32Array(nPix);
+    fillGrayFromRgba(pixels, rawGray, nPix);
+
+    const refGray = new Float32Array(nPix);
+    gaussianBlur3x3(rawGray, refGray, this.analysisW, this.analysisH);
+
+    const rawQuadPx = pctQuadToPx(orderedRaw, this.analysisW, this.analysisH);
+    const detectedQuadPx = detectPaintingQuadFromGray(
+      refGray,
+      this.analysisW,
+      this.analysisH,
+      rawQuadPx,
+      {
+        searchFraction: 0.12,
+        maxSearchPx: 22,
+        maxTiltDeg: 12,
+        minEdgeScore: 13,
+      }
+    );
+
+    const topLen = dist(detectedQuadPx.topLeft, detectedQuadPx.topRight);
+    const botLen = dist(detectedQuadPx.bottomLeft, detectedQuadPx.bottomRight);
+    const leftLen = dist(detectedQuadPx.topLeft, detectedQuadPx.bottomLeft);
+    const rightLen = dist(detectedQuadPx.topRight, detectedQuadPx.bottomRight);
+    this.tmplAspect = ((topLen + botLen) * 0.5) / Math.max(1, (leftLen + rightLen) * 0.5);
+
+    this.anchors = this.extractGridAnchors(refGray, this.analysisW, this.analysisH, detectedQuadPx);
+    const thumb = this.sampleThumbPixels(refGray, this.analysisW, this.analysisH, detectedQuadPx);
+    this.refThumbRaw = thumb?.values ?? null;
+    this.refThumbValid = thumb?.valid ?? null;
+
+    this.prevGray = refGray;
+    this.currGray = new Float32Array(nPix);
+    this.blurBuf = new Float32Array(nPix);
+    this.mode = mode;
+    this.locked = true;
+    this.missCount = 0;
+    this.tickCount = 0;
+
+    const detectedPct = pxQuadToPct(detectedQuadPx, this.analysisW, this.analysisH);
+    this.smoothQuad = cloneQuad(detectedPct);
+    return detectedPct;
+  }
+
+  /**
+   * Warp-proof real-time 4-corner tracking:
+   * 1) Forward-backward ZNCC feature matching inside the painting
+   * 2) Rigid 4-DOF Similarity RANSAC (translation + scale + rotation) -> ZERO keystone explosion!
+   * 3) Drift-free T0 reference micro-sync (4-DOF)
+   * 4) Periodic gentle Sobel border micro-lock to follow gradual perspective tilt smoothly
    */
   public trackFrame(
     video: HTMLVideoElement,
     viewW: number,
-    viewH: number
+    viewH: number,
+    isCatchUp = false
   ): AnchorTrackResult | null {
-    if (!this.template || !this.workCtx || video.readyState < 2 || viewW <= 0 || viewH <= 0) {
+    if (
+      !this.locked ||
+      !this.smoothQuad ||
+      !this.prevGray ||
+      !this.workCtx ||
+      video.readyState < 2 ||
+      viewW <= 0 ||
+      viewH <= 0
+    ) {
       return null;
     }
 
@@ -152,11 +191,9 @@ export class WashingtonAnchorTracker {
     const vh = video.videoHeight;
     if (!vw || !vh) return null;
 
-    const analysisW = 180;
-    const analysisH = Math.max(100, Math.round((analysisW * viewH) / viewW));
-    if (this.workCanvas.width !== analysisW || this.workCanvas.height !== analysisH) {
-      this.workCanvas.width = analysisW;
-      this.workCanvas.height = analysisH;
+    if (this.workCanvas.width !== this.analysisW || this.workCanvas.height !== this.analysisH) {
+      this.workCanvas.width = this.analysisW;
+      this.workCanvas.height = this.analysisH;
     }
 
     const coverScale = Math.max(viewW / vw, viewH / vh);
@@ -165,414 +202,509 @@ export class WashingtonAnchorTracker {
     const srcX = (vw - srcW) / 2;
     const srcY = (vh - srcH) / 2;
 
-    this.workCtx.drawImage(video, srcX, srcY, srcW, srcH, 0, 0, analysisW, analysisH);
-    const pixels = this.workCtx.getImageData(0, 0, analysisW, analysisH).data;
-
-    const len = analysisW * analysisH;
-    const frameGray = new Float32Array(len);
-    for (let i = 0; i < len; i++) {
-      const idx = i * 4;
-      frameGray[i] = 0.299 * pixels[idx] + 0.587 * pixels[idx + 1] + 0.114 * pixels[idx + 2];
+    this.workCtx.drawImage(video, srcX, srcY, srcW, srcH, 0, 0, this.analysisW, this.analysisH);
+    const pixels = this.workCtx.getImageData(0, 0, this.analysisW, this.analysisH).data;
+    const nPix = this.analysisW * this.analysisH;
+    if (!this.currGray || this.currGray.length !== nPix) {
+      this.currGray = new Float32Array(nPix);
     }
-
-    // Fast gradient magnitude map to help quad edges snap onto painting/frame borders
-    const edgeMag = new Float32Array(len);
-    for (let y = 1; y < analysisH - 1; y++) {
-      const row = y * analysisW;
-      for (let x = 1; x < analysisW - 1; x++) {
-        const i = row + x;
-        const gx = Math.abs(frameGray[i + 1] - frameGray[i - 1]);
-        const gy = Math.abs(frameGray[i + analysisW] - frameGray[i - analysisW]);
-        edgeMag[i] = Math.min(255, gx + gy);
-      }
+    if (!this.blurBuf || this.blurBuf.length !== nPix) {
+      this.blurBuf = new Float32Array(nPix);
     }
+    fillGrayFromRgba(pixels, this.blurBuf, nPix);
+    gaussianBlur3x3(this.blurBuf, this.currGray, this.analysisW, this.analysisH);
 
-    const tmpl = this.template;
-    let bestScore = -1;
-    let bestQuadPx: FocalQuad = boxToQuad({ x: 24, y: 14, width: 52, height: 72 });
+    // Quick frame-to-frame motion measurement
+    let diffSum = 0;
+    let diffCount = 0;
+    for (let i = 0; i < nPix; i += 19) {
+      diffSum += Math.abs(this.currGray[i] - this.prevGray[i]);
+      diffCount++;
+    }
+    const frameDiff = diffCount > 0 ? diffSum / diffCount : 99;
 
-    if (this.locked && this.smoothQuad) {
-      const initQuadPx = pctQuadToPx(this.smoothQuad, analysisW, analysisH);
-      const refined = this.refineQuadPerspective(
-        initQuadPx,
-        frameGray,
-        pixels,
-        edgeMag,
-        analysisW,
-        analysisH
+    const prevQuadPx = pctQuadToPx(this.smoothQuad, this.analysisW, this.analysisH);
+    const Hprev = computeSquareToQuadHomography(prevQuadPx);
+
+    // Step 1: Forward-Backward ZNCC matching on 25 interior anchors
+    const pairs: Point2DPair[] = [];
+    const patchBuf = new Float32Array(PATCH_LEN);
+    const backPatchBuf = new Float32Array(PATCH_LEN);
+    const searchRadius = isCatchUp ? 26 : 15;
+    const coarseStep = isCatchUp ? 4 : 2;
+
+    for (const anchor of this.anchors) {
+      const pred = projectUvWithHomography(Hprev, anchor.u, anchor.v, prevQuadPx);
+      const px = Math.round(pred.x);
+      const py = Math.round(pred.y);
+
+      const hasPrevPatch = extractNormalizedPatch(
+        this.prevGray,
+        this.analysisW,
+        this.analysisH,
+        px,
+        py,
+        patchBuf
       );
-      bestScore = refined.score;
-      bestQuadPx = refined.quad;
-    } else {
-      // Global multi-scale + multi-aspect scan across the camera viewport
-      let coarseScore = -1;
-      let coarseBox = { x: 0, y: 0, w: 0, h: 0 };
-      const heightFractions = [0.28, 0.38, 0.5, 0.63, 0.76, 0.88];
-      const aspectMultipliers = [0.82, 1.0, 1.18];
+      if (!hasPrevPatch) continue;
 
-      for (const frac of heightFractions) {
-        const candH = analysisH * frac;
-        for (const am of aspectMultipliers) {
-          const candW = candH * tmpl.aspect * am;
-          if (candW < 24 || candW >= analysisW - 2 || candH >= analysisH - 2) continue;
+      const fwd = findBestPatchMatch(
+        this.currGray,
+        this.analysisW,
+        this.analysisH,
+        px,
+        py,
+        patchBuf,
+        searchRadius,
+        coarseStep
+      );
+      if (!fwd || fwd.score < 0.58) continue;
 
-          const strideX = Math.max(4, Math.round(candW * 0.1));
-          const strideY = Math.max(4, Math.round(candH * 0.1));
-
-          for (let y = 0; y <= analysisH - candH; y += strideY) {
-            for (let x = 0; x <= analysisW - candW; x += strideX) {
-              const score = this.evaluateRectCandidate(
-                frameGray,
-                pixels,
-                analysisW,
-                x,
-                y,
-                candW,
-                candH
-              );
-              if (score > coarseScore) {
-                coarseScore = score;
-                coarseBox = { x, y, w: candW, h: candH };
-              }
-            }
-          }
+      // Forward-backward check kills outliers/glare/moiré instantly
+      if (
+        extractNormalizedPatch(this.currGray, this.analysisW, this.analysisH, fwd.x, fwd.y, backPatchBuf)
+      ) {
+        const bwd = findBestPatchMatch(
+          this.prevGray,
+          this.analysisW,
+          this.analysisH,
+          px,
+          py,
+          backPatchBuf,
+          4,
+          1
+        );
+        if (!bwd || Math.hypot(bwd.x - px, bwd.y - py) > 1.8) {
+          continue;
         }
       }
 
-      if (coarseScore >= 0.56) {
-        const seedPx = boxToQuad({
-          x: coarseBox.x,
-          y: coarseBox.y,
-          width: coarseBox.w,
-          height: coarseBox.h,
-        });
-        const refined = this.refineQuadPerspective(
-          seedPx,
-          frameGray,
-          pixels,
-          edgeMag,
-          analysisW,
-          analysisH
-        );
-        bestScore = refined.score;
-        bestQuadPx = refined.quad;
-      } else {
-        bestScore = coarseScore;
+      pairs.push({ x0: pred.x, y0: pred.y, x1: fwd.x, y1: fwd.y });
+    }
+
+    // Step 2: Fit rigid 4-DOF Similarity transform (cannot introduce wild warping!)
+    let candQuadPx: FocalQuad = prevQuadPx;
+    if (pairs.length >= 4) {
+      const sim = fitSimilarityRANSAC(pairs, 2.0);
+      if (sim && sim.inliers >= 4) {
+        const moved = applySimilarityToQuad(prevQuadPx, sim);
+        if (isValidTrackedQuad(moved, this.analysisW, this.analysisH, this.tmplAspect)) {
+          candQuadPx = moved;
+        }
       }
     }
 
-    const enterThreshold = 0.64;
-    const holdThreshold = 0.50;
-    const fallbackBox: FocalBox = { x: 24, y: 14, width: 52, height: 72 };
-    const fallbackQuad = boxToQuad(fallbackBox);
-
-    if (!this.locked) {
-      if (bestScore >= enterThreshold && isValidTrackedQuad(bestQuadPx, analysisW, analysisH, tmpl.aspect)) {
-        this.locked = true;
-        this.missCount = 0;
-        const pctQuad = pxQuadToPct(bestQuadPx, analysisW, analysisH);
-        this.smoothQuad = pctQuad;
-        return {
-          detected: true,
-          confidence: bestScore,
-          box: quadToBoundingBox(pctQuad),
-          quad: pctQuad,
-        };
+    // Step 3: Drift-free T0 reference micro-sync (still rigid 4-DOF!)
+    const Hcand = computeSquareToQuadHomography(candQuadPx);
+    const refPairs: Point2DPair[] = [];
+    for (const anchor of this.anchors) {
+      const pred = projectUvWithHomography(Hcand, anchor.u, anchor.v, candQuadPx);
+      const match = findBestPatchMatch(
+        this.currGray,
+        this.analysisW,
+        this.analysisH,
+        Math.round(pred.x),
+        Math.round(pred.y),
+        anchor.refPatchNorm,
+        3,
+        1
+      );
+      if (match && match.score >= 0.64) {
+        refPairs.push({ x0: pred.x, y0: pred.y, x1: match.x, y1: match.y });
       }
-      return {
-        detected: false,
-        confidence: Math.max(0, bestScore),
-        box: fallbackBox,
-        quad: fallbackQuad,
-      };
+    }
+    if (refPairs.length >= 6) {
+      const refSim = fitSimilarityRANSAC(refPairs, 1.8);
+      if (refSim && refSim.inliers >= 6) {
+        const synced = applySimilarityToQuad(candQuadPx, refSim);
+        if (isValidTrackedQuad(synced, this.analysisW, this.analysisH, this.tmplAspect)) {
+          candQuadPx = synced;
+        }
+      }
     }
 
+    // Step 4: Periodic gentle Sobel border micro-refinement to adapt smoothly to viewing angle changes
+    this.tickCount += 1;
+    if (!isCatchUp && this.tickCount % 6 === 0 && frameDiff < 10) {
+      const edgeRefined = detectPaintingQuadFromGray(
+        this.currGray,
+        this.analysisW,
+        this.analysisH,
+        candQuadPx,
+        {
+          searchFraction: 0.04,
+          maxSearchPx: 5,
+          maxTiltDeg: 4,
+          minEdgeScore: 16,
+        }
+      );
+      if (isValidTrackedQuad(edgeRefined, this.analysisW, this.analysisH, this.tmplAspect)) {
+        candQuadPx = blendQuad(candQuadPx, edgeRefined, 0.2);
+      }
+    }
+
+    // Step 5: Verify artwork presence inside candQuadPx
+    let globalScore = this.evaluateGlobalThumb(
+      this.currGray,
+      this.analysisW,
+      this.analysisH,
+      candQuadPx
+    );
+    const prevScore = this.evaluateGlobalThumb(
+      this.currGray,
+      this.analysisW,
+      this.analysisH,
+      prevQuadPx
+    );
+    if (prevScore > globalScore + 0.04) {
+      globalScore = prevScore;
+      candQuadPx = prevQuadPx;
+    }
+
+    // Swap frame buffers cleanly
+    const tmp = this.prevGray;
+    this.prevGray = this.currGray;
+    this.currGray = tmp;
+
+    const holdThreshold = frameDiff < 3.5 ? 0.24 : 0.32;
     if (
-      bestScore >= holdThreshold &&
-      this.smoothQuad &&
-      isValidTrackedQuad(bestQuadPx, analysisW, analysisH, tmpl.aspect)
+      globalScore >= holdThreshold &&
+      isValidTrackedQuad(candQuadPx, this.analysisW, this.analysisH, this.tmplAspect)
     ) {
       this.missCount = 0;
-      const targetQuad = pxQuadToPct(bestQuadPx, analysisW, analysisH);
-      this.smoothQuad = smoothQuadCorners(this.smoothQuad, targetQuad, 0.36, 0.14);
+      const targetPct = pxQuadToPct(candQuadPx, this.analysisW, this.analysisH);
+      this.smoothQuad = isCatchUp
+        ? cloneQuad(targetPct)
+        : smoothQuadVelocityAware(this.smoothQuad, targetPct);
       return {
         detected: true,
-        confidence: bestScore,
+        confidence: Math.min(1, Math.max(0, globalScore)),
+        mode: this.mode,
         box: quadToBoundingBox(this.smoothQuad),
         quad: this.smoothQuad,
       };
     }
 
     this.missCount += 1;
-    if (this.missCount > 12) {
-      this.locked = false;
-      this.smoothQuad = null;
+    if (this.missCount > 35) {
+      const fallbackBox: FocalBox = { x: 24, y: 14, width: 52, height: 72 };
+      this.clearLock();
       return {
         detected: false,
-        confidence: Math.max(0, bestScore),
+        confidence: Math.max(0, globalScore),
+        mode: this.mode,
         box: fallbackBox,
-        quad: fallbackQuad,
+        quad: boxToQuad(fallbackBox),
       };
     }
 
-    const activeQuad = this.smoothQuad || fallbackQuad;
     return {
       detected: true,
-      confidence: Math.max(0, bestScore),
-      box: quadToBoundingBox(activeQuad),
-      quad: activeQuad,
+      confidence: Math.max(0, globalScore),
+      mode: this.mode,
+      box: quadToBoundingBox(this.smoothQuad),
+      quad: this.smoothQuad,
     };
   }
 
-  /**
-   * 2-phase perspective refinement:
-   * 1) Global shift, scale, roll, and horizontal/vertical keystone taper
-   * 2) Individual 4-corner projective coordinate descent
-   */
-  private refineQuadPerspective(
-    initQuad: FocalQuad,
-    frameGray: Float32Array,
-    pixels: Uint8ClampedArray,
-    edgeMag: Float32Array,
-    frameW: number,
-    frameH: number
-  ): { quad: FocalQuad; score: number } {
-    const tmpl = this.template!;
-    let current = cloneQuad(initQuad);
-    let currentScore = this.evaluateQuadCandidate(
-      current,
-      frameGray,
-      pixels,
-      edgeMag,
-      frameW,
-      frameH
-    );
+  private extractGridAnchors(
+    gray: Float32Array,
+    w: number,
+    h: number,
+    quadPx: FocalQuad
+  ): FeatureAnchor[] {
+    const H = computeSquareToQuadHomography(quadPx);
+    const out: FeatureAnchor[] = [];
+    const cells = 5;
 
-    const tryCandidate = (cand: FocalQuad) => {
-      if (!isValidTrackedQuad(cand, frameW, frameH, tmpl.aspect)) return;
-      const s = this.evaluateQuadCandidate(cand, frameGray, pixels, edgeMag, frameW, frameH);
-      if (s > currentScore) {
-        currentScore = s;
-        current = cand;
-      }
-    };
+    for (let cy = 0; cy < cells; cy++) {
+      for (let cx = 0; cx < cells; cx++) {
+        const uMin = 0.08 + (cx / cells) * 0.84;
+        const uMax = 0.08 + ((cx + 1) / cells) * 0.84;
+        const vMin = 0.08 + (cy / cells) * 0.84;
+        const vMax = 0.08 + ((cy + 1) / cells) * 0.84;
 
-    // Phase 1: Translation + Scale + Roll + Perspective Keystone
-    const box = quadToBoundingBox(current);
-    const shiftSteps = [Math.max(3, box.width * 0.08), Math.max(1.5, box.width * 0.03)];
-    for (const step of shiftSteps) {
-      for (const [dx, dy] of [
-        [-step, 0],
-        [step, 0],
-        [0, -step],
-        [0, step],
-      ]) {
-        tryCandidate(translateQuad(current, dx, dy));
-      }
-      // Uniform scale
-      tryCandidate(scaleQuadAroundCenter(current, 1.05, 1.05));
-      tryCandidate(scaleQuadAroundCenter(current, 0.95, 0.95));
-      // Aspect foreshortening
-      tryCandidate(scaleQuadAroundCenter(current, 1.05, 1.0));
-      tryCandidate(scaleQuadAroundCenter(current, 0.95, 1.0));
-      // In-plane tilt / roll
-      tryCandidate(rotateQuadAroundCenter(current, 0.04));
-      tryCandidate(rotateQuadAroundCenter(current, -0.04));
-      // Horizontal perspective taper (left edge taller vs right edge taller)
-      tryCandidate(taperQuadHorizontal(current, step * 0.85));
-      tryCandidate(taperQuadHorizontal(current, -step * 0.85));
-      // Vertical perspective taper (top edge wider vs bottom edge wider)
-      tryCandidate(taperQuadVertical(current, step * 0.85));
-      tryCandidate(taperQuadVertical(current, -step * 0.85));
-    }
+        let bestX = 0;
+        let bestY = 0;
+        let bestEnergy = -1;
 
-    // Phase 2: Independent 4-corner refinement to hug perspective skew tightly
-    const cornerSteps = [Math.max(2.2, box.width * 0.045), 1.0];
-    const cornerKeys: (keyof FocalQuad)[] = ['topLeft', 'topRight', 'bottomRight', 'bottomLeft'];
-    const dirs = [
-      [-1, 0],
-      [1, 0],
-      [0, -1],
-      [0, 1],
-      [-1, -1],
-      [1, -1],
-      [1, 1],
-      [-1, 1],
-    ];
+        for (let sv = 0; sv < 4; sv++) {
+          const v = vMin + ((sv + 0.5) / 4) * (vMax - vMin);
+          for (let su = 0; su < 4; su++) {
+            const u = uMin + ((su + 0.5) / 4) * (uMax - uMin);
+            const pt = projectUvWithHomography(H, u, v, quadPx);
+            const ix = Math.round(pt.x);
+            const iy = Math.round(pt.y);
+            if (ix <= PATCH_RADIUS + 1 || ix >= w - PATCH_RADIUS - 2) continue;
+            if (iy <= PATCH_RADIUS + 1 || iy >= h - PATCH_RADIUS - 2) continue;
 
-    for (const step of cornerSteps) {
-      for (const key of cornerKeys) {
-        const baseCorner = current[key];
-        let bestLocal = current;
-        let bestLocalScore = currentScore;
-
-        for (const [ux, uy] of dirs) {
-          const cand = cloneQuad(current);
-          cand[key] = {
-            x: baseCorner.x + ux * step,
-            y: baseCorner.y + uy * step,
-          };
-          if (!isValidTrackedQuad(cand, frameW, frameH, tmpl.aspect)) continue;
-          const s = this.evaluateQuadCandidate(cand, frameGray, pixels, edgeMag, frameW, frameH);
-          if (s > bestLocalScore) {
-            bestLocalScore = s;
-            bestLocal = cand;
+            // Harris-like cornerness (min directional gradient energy) for strong 2D lock
+            let ixx = 0;
+            let iyy = 0;
+            let ixy = 0;
+            for (let dy = -2; dy <= 2; dy++) {
+              const row = (iy + dy) * w + ix;
+              for (let dx = -2; dx <= 2; dx++) {
+                const idx = row + dx;
+                const gx = gray[idx + 1] - gray[idx - 1];
+                const gy = gray[idx + w] - gray[idx - w];
+                ixx += gx * gx;
+                iyy += gy * gy;
+                ixy += gx * gy;
+              }
+            }
+            const trace = ixx + iyy;
+            const det = ixx * iyy - ixy * ixy;
+            const cornerScore = det - 0.04 * trace * trace;
+            if (cornerScore > bestEnergy) {
+              bestEnergy = cornerScore;
+              bestX = ix;
+              bestY = iy;
+            }
           }
         }
-        current = bestLocal;
-        currentScore = bestLocalScore;
+
+        if (bestEnergy > 0) {
+          const patch = new Float32Array(PATCH_LEN);
+          if (extractNormalizedPatch(gray, w, h, bestX, bestY, patch)) {
+            const uv = projectScreenToQuadUv(quadPx, bestX, bestY);
+            out.push({ u: uv.u, v: uv.v, refPatchNorm: patch });
+          }
+        }
       }
     }
 
-    return { quad: current, score: currentScore };
+    return out;
   }
 
-  private evaluateQuadCandidate(
-    quad: FocalQuad,
-    frameGray: Float32Array,
-    pixels: Uint8ClampedArray,
-    edgeMag: Float32Array,
-    frameW: number,
-    frameH: number
-  ): number {
-    const H = computeSquareToQuadHomography(quad);
-    if (!H.valid) return -1;
+  private sampleThumbPixels(
+    gray: Float32Array,
+    w: number,
+    h: number,
+    quadPx: FocalQuad
+  ): { values: Float32Array; valid: Uint8Array; count: number } | null {
+    const H = computeSquareToQuadHomography(quadPx);
+    const values = new Float32Array(THUMB_LEN);
+    const valid = new Uint8Array(THUMB_LEN);
+    const maxX = w - 1.001;
+    const maxY = h - 1.001;
+    let count = 0;
 
-    const tmpl = this.template!;
-    const n = tmpl.uCoords.length;
-    const samples = new Float32Array(n);
-    let sum = 0;
-    let colorDiffSum = 0;
-
-    const maxX = frameW - 1.001;
-    const maxY = frameH - 1.001;
-
-    for (let i = 0; i < n; i++) {
-      const u = tmpl.uCoords[i];
-      const v = tmpl.vCoords[i];
+    for (let i = 0; i < THUMB_LEN; i++) {
+      const u = this.refThumbU[i];
+      const v = this.refThumbV[i];
       const denom = H.g * u + H.h * v + 1;
-      if (denom <= 0.05) return -1;
-
+      if (denom <= 0.05) continue;
       const px = (H.a * u + H.b * v + H.c) / denom;
       const py = (H.d * u + H.e * v + H.f) / denom;
-      if (px < 0 || px >= maxX || py < 0 || py >= maxY) return -1;
+      if (px < 0 || px >= maxX || py < 0 || py >= maxY) continue;
 
-      // Bilinear grayscale sampling for smooth sub-pixel homography gradient
       const x0 = px | 0;
       const y0 = py | 0;
       const fx = px - x0;
       const fy = py - y0;
-      const idx00 = y0 * frameW + x0;
-      const idx10 = idx00 + 1;
-      const idx01 = idx00 + frameW;
-      const idx11 = idx01 + 1;
-
-      const g0 = frameGray[idx00] + (frameGray[idx10] - frameGray[idx00]) * fx;
-      const g1 = frameGray[idx01] + (frameGray[idx11] - frameGray[idx01]) * fx;
-      const g = g0 + (g1 - g0) * fy;
-      samples[i] = g;
-      sum += g;
-
-      const pIdx = idx00 * 4;
-      const dr = Math.abs(pixels[pIdx] - tmpl.rMean[i]);
-      const dg = Math.abs(pixels[pIdx + 1] - tmpl.gMean[i]);
-      const db = Math.abs(pixels[pIdx + 2] - tmpl.bMean[i]);
-      colorDiffSum += (dr + dg + db) / 765;
+      const idx = y0 * w + x0;
+      const g0 = gray[idx] + (gray[idx + 1] - gray[idx]) * fx;
+      const g1 = gray[idx + w] + (gray[idx + w + 1] - gray[idx + w]) * fx;
+      values[i] = g0 + (g1 - g0) * fy;
+      valid[i] = 1;
+      count++;
     }
 
-    const mean = sum / n;
-    let sqSum = 0;
+    if (count < THUMB_LEN * 0.45) return null;
+    return { values, valid, count };
+  }
+
+  private evaluateGlobalThumb(
+    gray: Float32Array,
+    w: number,
+    h: number,
+    quadPx: FocalQuad
+  ): number {
+    if (!this.refThumbRaw || !this.refThumbValid) return -1;
+    const curr = this.sampleThumbPixels(gray, w, h, quadPx);
+    if (!curr) return -1;
+
+    let sumA = 0;
+    let sumB = 0;
+    let count = 0;
+    for (let i = 0; i < THUMB_LEN; i++) {
+      if (this.refThumbValid[i] && curr.valid[i]) {
+        sumA += this.refThumbRaw[i];
+        sumB += curr.values[i];
+        count++;
+      }
+    }
+    if (count < THUMB_LEN * 0.4) return -1;
+
+    const meanA = sumA / count;
+    const meanB = sumB / count;
+    let sqA = 0;
+    let sqB = 0;
     let dot = 0;
-    for (let i = 0; i < n; i++) {
-      const d = samples[i] - mean;
-      sqSum += d * d;
-      dot += d * tmpl.grayNorm[i];
+    for (let i = 0; i < THUMB_LEN; i++) {
+      if (this.refThumbValid[i] && curr.valid[i]) {
+        const da = this.refThumbRaw[i] - meanA;
+        const db = curr.values[i] - meanB;
+        sqA += da * da;
+        sqB += db * db;
+        dot += da * db;
+      }
     }
+    const denom = Math.sqrt(sqA * sqB);
+    if (denom < 1e-3) return -1;
+    return dot / denom;
+  }
+}
 
-    const std = Math.sqrt(sqSum);
-    if (std < 210) return -1;
+function fillGrayFromRgba(pixels: Uint8ClampedArray, out: Float32Array, len: number) {
+  for (let i = 0; i < len; i++) {
+    const idx = i * 4;
+    out[i] = 0.299 * pixels[idx] + 0.587 * pixels[idx + 1] + 0.114 * pixels[idx + 2];
+  }
+}
 
-    const ncc = dot / std;
-    const colorMatch = Math.max(0, 1 - colorDiffSum / n);
+function gaussianBlur3x3(src: Float32Array, dst: Float32Array, w: number, h: number) {
+  for (let x = 0; x < w; x++) {
+    dst[x] = src[x];
+    dst[(h - 1) * w + x] = src[(h - 1) * w + x];
+  }
+  for (let y = 1; y < h - 1; y++) {
+    const row = y * w;
+    dst[row] = src[row];
+    dst[row + w - 1] = src[row + w - 1];
+    for (let x = 1; x < w - 1; x++) {
+      const i = row + x;
+      dst[i] =
+        (src[i - w - 1] +
+          2 * src[i - w] +
+          src[i - w + 1] +
+          2 * src[i - 1] +
+          4 * src[i] +
+          2 * src[i + 1] +
+          src[i + w - 1] +
+          2 * src[i + w] +
+          src[i + w + 1]) *
+        0.0625;
+    }
+  }
+}
 
-    // Subtle perimeter edge energy along the 4 edges to snap corners onto painted/framed borders
-    let edgeSum = 0;
-    let edgeCount = 0;
-    const edges: [QuadCorner, QuadCorner][] = [
-      [quad.topLeft, quad.topRight],
-      [quad.topRight, quad.bottomRight],
-      [quad.bottomRight, quad.bottomLeft],
-      [quad.bottomLeft, quad.topLeft],
-    ];
-    for (const [a, b] of edges) {
-      for (let k = 1; k <= 5; k++) {
-        const t = k / 6;
-        const ex = Math.round(a.x + (b.x - a.x) * t);
-        const ey = Math.round(a.y + (b.y - a.y) * t);
-        if (ex >= 1 && ex < frameW - 1 && ey >= 1 && ey < frameH - 1) {
-          edgeSum += edgeMag[ey * frameW + ex];
-          edgeCount++;
+function extractNormalizedPatch(
+  gray: Float32Array,
+  w: number,
+  h: number,
+  cx: number,
+  cy: number,
+  out: Float32Array
+): boolean {
+  if (cx < PATCH_RADIUS || cx >= w - PATCH_RADIUS || cy < PATCH_RADIUS || cy >= h - PATCH_RADIUS) {
+    return false;
+  }
+
+  let k = 0;
+  let sum = 0;
+  for (let dy = -PATCH_RADIUS; dy <= PATCH_RADIUS; dy++) {
+    const row = (cy + dy) * w + cx;
+    for (let dx = -PATCH_RADIUS; dx <= PATCH_RADIUS; dx++) {
+      const v = gray[row + dx];
+      out[k++] = v;
+      sum += v;
+    }
+  }
+
+  const mean = sum / PATCH_LEN;
+  let sq = 0;
+  for (let i = 0; i < PATCH_LEN; i++) {
+    const d = out[i] - mean;
+    out[i] = d;
+    sq += d * d;
+  }
+
+  const std = Math.sqrt(sq);
+  if (std < 10) return false;
+  for (let i = 0; i < PATCH_LEN; i++) {
+    out[i] /= std;
+  }
+  return true;
+}
+
+function scorePatchAt(
+  gray: Float32Array,
+  w: number,
+  cx: number,
+  cy: number,
+  tmplNorm: Float32Array
+): number {
+  let sum = 0;
+  let sq = 0;
+  let dot = 0;
+  let k = 0;
+
+  for (let dy = -PATCH_RADIUS; dy <= PATCH_RADIUS; dy++) {
+    const row = (cy + dy) * w + cx;
+    for (let dx = -PATCH_RADIUS; dx <= PATCH_RADIUS; dx++) {
+      const v = gray[row + dx];
+      sum += v;
+      sq += v * v;
+      dot += v * tmplNorm[k++];
+    }
+  }
+
+  const varSum = sq - (sum * sum) / PATCH_LEN;
+  if (varSum <= 14) return -1;
+  return dot / Math.sqrt(varSum);
+}
+
+function findBestPatchMatch(
+  gray: Float32Array,
+  w: number,
+  h: number,
+  predX: number,
+  predY: number,
+  tmplNorm: Float32Array,
+  searchRadius: number,
+  coarseStep: number
+): { x: number; y: number; score: number } | null {
+  const minX = Math.max(PATCH_RADIUS, predX - searchRadius);
+  const maxX = Math.min(w - PATCH_RADIUS - 1, predX + searchRadius);
+  const minY = Math.max(PATCH_RADIUS, predY - searchRadius);
+  const maxY = Math.min(h - PATCH_RADIUS - 1, predY + searchRadius);
+  if (minX > maxX || minY > maxY) return null;
+
+  let bestX = predX;
+  let bestY = predY;
+  let bestScore = -1;
+
+  for (let y = minY; y <= maxY; y += coarseStep) {
+    for (let x = minX; x <= maxX; x += coarseStep) {
+      const s = scorePatchAt(gray, w, x, y, tmplNorm);
+      if (s > bestScore) {
+        bestScore = s;
+        bestX = x;
+        bestY = y;
+      }
+    }
+  }
+
+  if (coarseStep > 1) {
+    const fx0 = Math.max(PATCH_RADIUS, bestX - coarseStep);
+    const fx1 = Math.min(w - PATCH_RADIUS - 1, bestX + coarseStep);
+    const fy0 = Math.max(PATCH_RADIUS, bestY - coarseStep);
+    const fy1 = Math.min(h - PATCH_RADIUS - 1, bestY + coarseStep);
+    for (let y = fy0; y <= fy1; y++) {
+      for (let x = fx0; x <= fx1; x++) {
+        const s = scorePatchAt(gray, w, x, y, tmplNorm);
+        if (s > bestScore) {
+          bestScore = s;
+          bestX = x;
+          bestY = y;
         }
       }
     }
-    const edgeBonus = edgeCount > 0 ? Math.min(1, edgeSum / (edgeCount * 110)) : 0;
-
-    return ncc * 0.74 + colorMatch * 0.2 + edgeBonus * 0.06;
   }
 
-  private evaluateRectCandidate(
-    frameGray: Float32Array,
-    pixels: Uint8ClampedArray,
-    frameW: number,
-    bx: number,
-    by: number,
-    bw: number,
-    bh: number
-  ): number {
-    const tmpl = this.template!;
-    const cols = tmpl.cols;
-    const rows = tmpl.rows;
-    const n = cols * rows;
-
-    const samples = new Float32Array(n);
-    let sum = 0;
-    let colorDiffSum = 0;
-
-    for (let r = 0; r < rows; r++) {
-      const sy = Math.min(Math.floor(by + ((r + 0.5) / rows) * bh), Math.floor(by + bh - 1));
-      const rowOff = sy * frameW;
-      for (let c = 0; c < cols; c++) {
-        const sx = Math.min(Math.floor(bx + ((c + 0.5) / cols) * bw), Math.floor(bx + bw - 1));
-        const idx = rowOff + sx;
-        const g = frameGray[idx];
-        const i = r * cols + c;
-        samples[i] = g;
-        sum += g;
-
-        const pIdx = idx * 4;
-        const dr = Math.abs(pixels[pIdx] - tmpl.rMean[i]);
-        const dg = Math.abs(pixels[pIdx + 1] - tmpl.gMean[i]);
-        const db = Math.abs(pixels[pIdx + 2] - tmpl.bMean[i]);
-        colorDiffSum += (dr + dg + db) / 765;
-      }
-    }
-
-    const mean = sum / n;
-    let sqSum = 0;
-    let dot = 0;
-    for (let i = 0; i < n; i++) {
-      const d = samples[i] - mean;
-      sqSum += d * d;
-      dot += d * tmpl.grayNorm[i];
-    }
-
-    const std = Math.sqrt(sqSum);
-    if (std < 210) return -1;
-
-    const ncc = dot / std;
-    const colorMatch = Math.max(0, 1 - colorDiffSum / n);
-    return ncc * 0.78 + colorMatch * 0.22;
-  }
+  return bestScore > -1 ? { x: bestX, y: bestY, score: bestScore } : null;
 }
 
 function cloneQuad(q: FocalQuad): FocalQuad {
@@ -581,6 +713,19 @@ function cloneQuad(q: FocalQuad): FocalQuad {
     topRight: { ...q.topRight },
     bottomRight: { ...q.bottomRight },
     bottomLeft: { ...q.bottomLeft },
+  };
+}
+
+function blendQuad(a: FocalQuad, b: FocalQuad, alpha: number): FocalQuad {
+  const lerp = (p: QuadCorner, q: QuadCorner): QuadCorner => ({
+    x: p.x + (q.x - p.x) * alpha,
+    y: p.y + (q.y - p.y) * alpha,
+  });
+  return {
+    topLeft: lerp(a.topLeft, b.topLeft),
+    topRight: lerp(a.topRight, b.topRight),
+    bottomRight: lerp(a.bottomRight, b.bottomRight),
+    bottomLeft: lerp(a.bottomLeft, b.bottomLeft),
   };
 }
 
@@ -602,26 +747,17 @@ function pxQuadToPct(q: FocalQuad, w: number, h: number): FocalQuad {
   };
 }
 
-function smoothQuadCorners(
-  prev: FocalQuad,
-  target: FocalQuad,
-  alpha: number,
-  deadbandPct: number
-): FocalQuad {
-  const lerpPt = (a: QuadCorner, b: QuadCorner): QuadCorner => {
-    const dx = b.x - a.x;
-    const dy = b.y - a.y;
-    return {
-      x: Math.abs(dx) < deadbandPct ? a.x : a.x + dx * alpha,
-      y: Math.abs(dy) < deadbandPct ? a.y : a.y + dy * alpha,
-    };
-  };
-  return {
-    topLeft: lerpPt(prev.topLeft, target.topLeft),
-    topRight: lerpPt(prev.topRight, target.topRight),
-    bottomRight: lerpPt(prev.bottomRight, target.bottomRight),
-    bottomLeft: lerpPt(prev.bottomLeft, target.bottomLeft),
-  };
+function smoothQuadVelocityAware(prev: FocalQuad, target: FocalQuad): FocalQuad {
+  const keys: (keyof FocalQuad)[] = ['topLeft', 'topRight', 'bottomRight', 'bottomLeft'];
+  let maxMove = 0;
+  for (const k of keys) {
+    maxMove = Math.max(maxMove, Math.hypot(target[k].x - prev[k].x, target[k].y - prev[k].y));
+  }
+
+  // Crisp deadband eliminates micro-jitter when holding steady
+  if (maxMove < 0.18) return prev;
+  const alpha = maxMove > 1.8 ? 0.72 : maxMove > 0.6 ? 0.52 : 0.32;
+  return blendQuad(prev, target, alpha);
 }
 
 function dist(a: QuadCorner, b: QuadCorner): number {
@@ -636,93 +772,29 @@ function isValidTrackedQuad(
 ): boolean {
   const pts = [q.topLeft, q.topRight, q.bottomRight, q.bottomLeft];
   for (const p of pts) {
-    if (p.x < -frameW * 0.1 || p.x > frameW * 1.1 || p.y < -frameH * 0.1 || p.y > frameH * 1.1) {
+    if (
+      !Number.isFinite(p.x) ||
+      !Number.isFinite(p.y) ||
+      p.x < -frameW * 0.25 ||
+      p.x > frameW * 1.25 ||
+      p.y < -frameH * 0.25 ||
+      p.y > frameH * 1.25
+    ) {
       return false;
     }
   }
-  if (!isConvexQuad(q)) return false;
+  if (!isPlausiblePerspectiveQuad(q, 1.4, 58, 122)) return false;
 
   const topLen = dist(q.topLeft, q.topRight);
   const botLen = dist(q.bottomLeft, q.bottomRight);
   const leftLen = dist(q.topLeft, q.bottomLeft);
   const rightLen = dist(q.topRight, q.bottomRight);
-
-  if (Math.min(topLen, botLen, leftLen, rightLen) < 18) return false;
-  if (Math.max(topLen / botLen, botLen / topLen) > 1.85) return false;
-  if (Math.max(leftLen / rightLen, rightLen / leftLen) > 1.85) return false;
+  if (Math.min(topLen, botLen, leftLen, rightLen) < 22) return false;
 
   const avgW = (topLen + botLen) * 0.5;
   const avgH = (leftLen + rightLen) * 0.5;
   const aspect = avgW / Math.max(1, avgH);
-  if (aspect < tmplAspect * 0.42 || aspect > tmplAspect * 2.15) return false;
+  if (aspect < tmplAspect * 0.65 || aspect > tmplAspect * 1.55) return false;
 
   return true;
-}
-
-function translateQuad(q: FocalQuad, dx: number, dy: number): FocalQuad {
-  return {
-    topLeft: { x: q.topLeft.x + dx, y: q.topLeft.y + dy },
-    topRight: { x: q.topRight.x + dx, y: q.topRight.y + dy },
-    bottomRight: { x: q.bottomRight.x + dx, y: q.bottomRight.y + dy },
-    bottomLeft: { x: q.bottomLeft.x + dx, y: q.bottomLeft.y + dy },
-  };
-}
-
-function quadCenter(q: FocalQuad): QuadCorner {
-  return {
-    x: (q.topLeft.x + q.topRight.x + q.bottomRight.x + q.bottomLeft.x) * 0.25,
-    y: (q.topLeft.y + q.topRight.y + q.bottomRight.y + q.bottomLeft.y) * 0.25,
-  };
-}
-
-function scaleQuadAroundCenter(q: FocalQuad, sx: number, sy: number): FocalQuad {
-  const c = quadCenter(q);
-  const scalePt = (p: QuadCorner): QuadCorner => ({
-    x: c.x + (p.x - c.x) * sx,
-    y: c.y + (p.y - c.y) * sy,
-  });
-  return {
-    topLeft: scalePt(q.topLeft),
-    topRight: scalePt(q.topRight),
-    bottomRight: scalePt(q.bottomRight),
-    bottomLeft: scalePt(q.bottomLeft),
-  };
-}
-
-function rotateQuadAroundCenter(q: FocalQuad, rad: number): FocalQuad {
-  const c = quadCenter(q);
-  const cos = Math.cos(rad);
-  const sin = Math.sin(rad);
-  const rotPt = (p: QuadCorner): QuadCorner => {
-    const dx = p.x - c.x;
-    const dy = p.y - c.y;
-    return {
-      x: c.x + dx * cos - dy * sin,
-      y: c.y + dx * sin + dy * cos,
-    };
-  };
-  return {
-    topLeft: rotPt(q.topLeft),
-    topRight: rotPt(q.topRight),
-    bottomRight: rotPt(q.bottomRight),
-    bottomLeft: rotPt(q.bottomLeft),
-  };
-}
-
-function taperQuadHorizontal(q: FocalQuad, deltaY: number): FocalQuad {
-  return {
-    topLeft: { x: q.topLeft.x, y: q.topLeft.y - deltaY },
-    bottomLeft: { x: q.bottomLeft.x, y: q.bottomLeft.y + deltaY },
-    topRight: { x: q.topRight.x, y: q.topRight.y + deltaY },
-    bottomRight: { x: q.bottomRight.x, y: q.bottomRight.y - deltaY },
-  };
-}
-
-function taperQuadVertical(q: FocalQuad, deltaX: number): FocalQuad {
-  return {
-    topLeft: { x: q.topLeft.x - deltaX, y: q.topLeft.y },
-    topRight: { x: q.topRight.x + deltaX, y: q.topRight.y },
-    bottomLeft: { x: q.bottomLeft.x + deltaX, y: q.bottomLeft.y },
-    bottomRight: { x: q.bottomRight.x - deltaX, y: q.bottomRight.y },
-  };
 }
