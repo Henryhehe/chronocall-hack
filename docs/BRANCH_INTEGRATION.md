@@ -71,3 +71,9 @@ Before advancing main, fetch again. If origin/main advanced, merge it into the c
 ## Current validation limits
 
 The first local integration passed eight Node regression tests and offline frontend/server import-graph checks. Full type checking, HTTP integration tests, production build, browser AR/voice, and real-model behavior still require validation with installed dependencies and appropriate access. An import-graph check is not a production build.
+
+## Characters integration — 2026-11-21
+
+Integrated `origin/characters` at `0a1d3bf`. Its `server.ts` changes live in `server/museum.ts`; its three new `src/data/` modules live under `src/features/museum/data/`. The Washington fixture uses the general persona guide. Keep `/api/research-figure` behind the museum demo guard. Docker must include the museum data modules imported by the server. Research and alternate-speaker helpers require frontend wiring before claiming automatic end-to-end behavior.
+
+Validation: TypeScript, eight Node regression tests, production frontend build, and Git whitespace checks passed. HTTP integration tests could not bind localhost (`EPERM`) in the agent environment, so production HTTP/WebSocket checks and real-model behavior remain unverified. Run `npm run check` in a normal terminal before deployment.

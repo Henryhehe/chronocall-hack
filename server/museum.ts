@@ -2,6 +2,8 @@ import express from 'express';
 import type { Server } from 'node:http';
 import { WebSocketServer, WebSocket } from 'ws';
 import { GoogleGenAI, type LiveServerMessage, Modality, ThinkingLevel, Type } from '@google/genai';
+import { resolvePersona } from '../src/features/museum/data/personas';
+import { liveResearchPrompt, structurePrompt, LIVE_PROFILE_SCHEMA, factCheckQuestions, dropFailed, livePersona, type LiveProfile, type IdentifiedSubject } from '../src/features/museum/data/liveResearch';
 function createGeminiClient(apiVersion?: string) {
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) {
@@ -48,7 +50,7 @@ function parseApiError(err: unknown): { status: number; message: string } {
 
 export function createMuseumRouter(demoMode = false) {
  const app = express.Router();
- app.use((req, res, next) => { if (demoMode && req.method === "POST" && ["/api/identify-portrait", "/api/character/respond"].includes(req.path)) { res.status(503).json({ error: "Museum AI requires a Gemini API key; unavailable in demo mode." }); return; } next(); });
+ app.use((req, res, next) => { if (demoMode && req.method === "POST" && ["/api/identify-portrait", "/api/character/respond", "/api/research-figure"].includes(req.path)) { res.status(503).json({ error: "Museum AI requires a Gemini API key; unavailable in demo mode." }); return; } next(); });
   app.get('/api/app-url', (req, res) => {
     const envUrl = process.env.APP_URL;
     const isPlaceholder = !envUrl || envUrl === 'MY_APP_URL';
@@ -159,6 +161,20 @@ If no portrait or figure is clearly visible, set detected to false and explain b
       });
 
       const parsed = JSON.parse((response.text ?? '{}').trim());
+      // Replace the persona the model improvised with the general character guide (then call
+      // /api/research-figure to add live research).
+      // The improvised one is kept as `generatedPersona`: it is the one-call baseline for evaluation.
+      if (parsed.detected && parsed.characterName) {
+        const resolved = resolvePersona({
+          characterName: parsed.characterName,
+          title: parsed.paintingTitle,
+          artist: parsed.artist,
+          year: parsed.year,
+        });
+        parsed.generatedPersona = parsed.systemPersona;
+        parsed.systemPersona = resolved.systemPersona;
+        parsed.personaSource = resolved.source;
+      }
       res.json(parsed);
     } catch (err) {
       const { status, message } = parseApiError(err);
@@ -167,6 +183,94 @@ If no portrait or figure is clearly visible, set detected to false and explain b
   });
 
   // Text / Hotspot query endpoint with spoken WAV TTS synthesis
+  // Live research for any identified figure (or part of a painting): research with Google Search,
+  // structure, check every fact with the Decisions API, and return a system persona built from the
+  // checked profile plus the general character guide. Call it right after /api/identify-portrait;
+  // the figure can start talking on the guide alone and switch to this persona when it arrives.
+  const researchCache = new Map<string, unknown>();
+  app.post('/api/research-figure', async (req, res) => {
+    const t0 = Date.now();
+    try {
+      const s = (req.body ?? {}) as IdentifiedSubject;
+      if (!s.name && !s.subject) return res.status(400).json({ error: 'name or subject is required.' });
+      const key = JSON.stringify([s.kind, s.name, s.subject, s.paintingTitle]).toLowerCase();
+      if (researchCache.has(key)) return res.json({ ...(researchCache.get(key) as object), cached: true });
+
+      const ai = createGeminiClient();
+      const timings: Record<string, number> = {};
+
+      // 1. Research with Google Search grounding (free prose, sources after each fact).
+      const research = await ai.models.generateContent({
+        model: 'gemini-4-neon',
+        contents: liveResearchPrompt(s),
+        config: { tools: [{ googleSearch: {} }] },
+      });
+      const notes = research.text ?? '';
+      const sources = (research.candidates?.[0]?.groundingMetadata?.groundingChunks ?? [])
+        .map((c) => ({ title: c.web?.title, uri: c.web?.uri }))
+        .filter((c) => c.uri);
+      timings.researchMs = Date.now() - t0;
+
+      // 2. Structure the notes (only what the notes support).
+      const structured = await ai.models.generateContent({
+        model: 'gemini-4-hydrogen',
+        contents: structurePrompt(notes, s),
+        config: {
+          thinkingConfig: { thinkingLevel: ThinkingLevel.LOW },
+          responseMimeType: 'application/json',
+          responseJsonSchema: LIVE_PROFILE_SCHEMA,
+        },
+      });
+      let profile = JSON.parse((structured.text ?? '{}').trim()) as LiveProfile;
+      profile.paintingLiberties ??= [];
+      profile.eraViews ??= [];
+      profile.sensitive ??= [];
+      timings.structureMs = Date.now() - t0 - timings.researchMs;
+
+      // 3. Check every fact against the research notes with the Decisions API (yes/no, calibrated).
+      //    Code decides: a fact stays only if P(yes) >= 0.8.
+      const checks: Record<string, number> = {};
+      const qs = factCheckQuestions(profile);
+      if (qs.length) {
+        const t2 = Date.now();
+        const decision = await ai.decisions.create({
+          model: 'models/gemini-decision-1',
+          input: `RESEARCH NOTES WITH SOURCES:\n${notes}`,
+          questions: Object.fromEntries(
+            qs.map((q) => [
+              q.id,
+              {
+                type: 'noul' as const,
+                instructions: `${q.question.replace('the attached source', 'the research notes, citing ' + q.source)} Answer true only if the notes clearly support it.`,
+              },
+            ]),
+          ),
+        });
+        for (const q of qs) {
+          const a = decision.answers?.[q.id] as { noul?: number } | undefined;
+          checks[q.id] = a?.noul ?? 0;
+        }
+        timings.checkMs = Date.now() - t2;
+      }
+      const failed = new Set(Object.entries(checks).filter(([, p]) => p < 0.8).map(([id]) => id));
+      profile = dropFailed(profile, failed);
+
+      const result = {
+        profile,
+        systemPersona: livePersona(profile, { title: s.paintingTitle, artist: s.artist }),
+        checks,
+        dropped: [...failed],
+        sources,
+        timings: { ...timings, totalMs: Date.now() - t0 },
+      };
+      researchCache.set(key, result);
+      res.json(result);
+    } catch (err) {
+      const { status, message } = parseApiError(err);
+      res.status(status).json({ error: message });
+    }
+  });
+
   app.post('/api/character/respond', async (req, res) => {
     try {
       const {

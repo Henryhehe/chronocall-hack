@@ -248,3 +248,7 @@ Without a key, demonstrate the included artwork, capture/upload UI, preset world
 - Start capture/live voice and leave for the notebook or gallery; confirm the previous media session stops.
 - Save a reflection, reload, and export it; verify that blank observations cannot be saved.
 - Check portrait and world interactions with real provider access separately from demo-mode UI checks.
+
+### Characters contribution
+
+Museum identification now uses a general era-aware character guide. `POST /api/research-figure` adds Google Search research, structured profiles, and Decisions API support checks (threshold 0.8). Persona helpers also support animal, object, and place speakers. The research endpoint and alternate-speaker helpers are available for frontend integration; the existing UI does not yet automatically request research or switch speakers. Research is disabled in demo mode. See [character pipeline](research/README.md).

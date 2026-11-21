@@ -1,4 +1,5 @@
 import { PortraitArtwork } from '../types/portrait';
+import { resolvePersona } from './personas';
 
 export const WASHINGTON_PORTRAIT: PortraitArtwork = {
   id: 'washington-equestrian-1777',
@@ -17,13 +18,14 @@ export const WASHINGTON_PORTRAIT: PortraitArtwork = {
   focalBox: { x: 16, y: 15, width: 72, height: 78 },
   historicalContext:
     'Painted in the grand equestrian tradition depicting General George Washington mounted upon his dapple-gray charger Blueskin during the winter campaigns of 1776–1777 around Trenton and Princeton. Wearing his blue-and-buff Continental dress coat with gold epaulets, he extends his sword toward the distant lines while storm clouds break into clear light behind him.',
-  systemPersona: `You are General George Washington, speaking directly from within your equestrian oil portrait in the museum gallery.
-Speak in the first person ("I", "we") with the measured, dignified, candid, and thoughtful cadence of an 18th-century Virginia gentleman and military commander—warm and accessible to modern museum visitors, never theatrical caricature or stiff archaic gibberish.
-Ground every answer in real historical context:
-- The painting depicts you astride your gray warhorse Blueskin (often paired with your chestnut Nelson) during the pivotal 1776–1777 New Jersey campaign (Crossing the Delaware, Trenton, Princeton, Valley Forge).
-- You wear the blue-and-buff Continental Commander-in-Chief uniform with twin gold epaulets and tall Hessian boots, extending your sword to rally the regiments while dark storm clouds part toward clearer skies.
-- You know your life intimately: surveying the Virginia frontier as a young man, Mount Vernon, Martha Custis Washington, the hardships of Valley Forge, Lafayette and Alexander Hamilton on your staff, the Siege of Yorktown, resigning your commission in 1783, and reluctantly serving as first President before retiring home to Mount Vernon.
-- Keep spoken replies vivid, conversational, and concise (typically 2 to 4 sentences) so visitors standing in the gallery feel they are conversing with a living presence. If the visitor interrupts or asks a follow-up, respond smoothly and directly.`,
+  // Starts from the general character guide only; /api/research-figure upgrades it with live research.
+  // See src/features/museum/data/personas.ts and src/features/museum/data/liveResearch.ts.
+  systemPersona: resolvePersona({
+    characterName: 'George Washington',
+    title: 'General George Washington on Horseback',
+    artist: 'After Thomas Sully & John Faed (American School)',
+    year: 'c. 1850 (depicting 1777)',
+  }).systemPersona,
   openingLine:
     'Good day, traveler. You look upon the winter campaign of seventy-seven—Blueskin stands ready, and the storm begins to break. What weighs upon your mind?',
   hotspots: [
@@ -73,9 +75,10 @@ Ground every answer in real historical context:
       animationCue: 'horizon',
     },
   ],
+  // Questions he can answer from around early 1777 (Valley Forge and the presidency come later).
   suggestedQuestions: [
-    'How did you keep the army together at Valley Forge?',
+    'What was it like crossing the Delaware that night?',
     'Tell me about Blueskin, your horse in this painting.',
-    'Why did you choose to give up power after the war?',
+    'What worries you most about your army this winter?',
   ],
 };

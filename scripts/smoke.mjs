@@ -130,7 +130,7 @@ export async function runSmoke(baseUrl, { expectDemo = false, log = console.log 
     const genie = await post("/api/genie/session", {});
     assert.equal(genie.status, 503);
     assert.match((await genie.json()).error, /demo mode/i);
-    for (const path of ["/api/identify-portrait", "/api/character/respond"]) {
+    for (const path of ["/api/identify-portrait", "/api/character/respond", "/api/research-figure"]) {
       const response = await post(path, {});
       assert.equal(response.status, 503, path);
       assert.match((await response.json()).error, /demo mode/i);
