@@ -67,7 +67,7 @@ Optional vision inputs include `model`, `focusPrompt` (detection), and `characte
 
 ## Checks
 
-`tests/*.test.ts` uses Node 24's TypeScript support and test runner for config, voice lifecycle, and fixtures. Integration tests exercise actual Express routes using fixtures. `bun run check` adds TypeScript/Vite checks and `scripts/test-production.mjs`, which launches the built production entry point with fixtures and an empty key on a temporary port. `scripts/smoke.mjs` verifies static assets, HTTP contracts, and the demo WebSocket lifecycle against that process or an already-running deployment. CI also runs it against the Docker image to validate packaging. CI needs no Gemini secrets.
+`tests/*.test.ts` uses Node 24's TypeScript support and test runner for config, voice lifecycle, and fixtures. Integration tests exercise actual Express routes using fixtures. `npm run check` adds TypeScript/Vite checks and `scripts/test-production.mjs`, which launches the built production entry point with fixtures and an empty key on a temporary port. `scripts/smoke.mjs` verifies static assets, HTTP contracts, and the demo WebSocket lifecycle against that process or an already-running deployment. CI also runs it against the Docker image to validate packaging. CI needs no Gemini secrets.
 
 References: [Live SDK implementation](https://github.com/googleapis/js-genai/blob/main/src/live.ts), [Bun frozen installs](https://bun.sh/docs/pm/cli/install).
 
@@ -77,7 +77,7 @@ Demi’s portrait experience is mounted at `/museum`, with its components, data,
 
 ## FaceTime historical call experience
 
-The primary FaceTime experience is mounted at `/` (with the original workbench preserved at `/workspaces` and Museum AR at `/museum`). Frontend components, call lifecycle hooks, Web Audio chimes, and the hybrid full-motion video stage live under `src/features/facetime/`.
+The FaceTime experience is mounted at `/facetime`; discovery remains at `/`, the workbench is available at `/workspaces`, and Museum AR is at `/museum`. Frontend components, call lifecycle hooks, Web Audio chimes, and the hybrid full-motion video stage live under `src/features/facetime/`.
 
 - **HTTP routes** (`server/routes/facetime.ts`, backed by `server/services/gemini/facetime.ts`): `POST /api/facetime/resolve`, `POST /api/facetime/identify`, `POST /api/facetime/portrait`, `POST /api/facetime/video`, `GET /api/facetime/video/:jobId`, `GET /api/facetime/video/:jobId/media`, and `POST /api/facetime/respond`.
 - **WebSocket bridge** (`server/live/facetime-bridge.ts`): Mounted at `/ws/facetime`, connecting to `gemini-3.8-live` with dynamic historical personas, matched prebuilt voices, live caller camera frames, and an `express_reaction` tool that steers full-motion video expressions.

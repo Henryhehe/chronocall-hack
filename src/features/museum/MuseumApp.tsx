@@ -4,6 +4,7 @@ import { Mic, MicOff, MessageSquare, X, ArrowLeft, Smartphone, VolumeX } from 'l
 import { WASHINGTON_PORTRAIT } from './data/washingtonPortrait';
 import { useMuseumVoice } from './hooks/useMuseumVoice';
 import { ARHotspot, LensMode, PortraitArtwork } from './types/portrait';
+import { PortraitStage } from './components/PortraitStage';
 import { ARPortraitStage } from './components/ARPortraitStage';
 import { CuratorialPanel } from './components/CuratorialPanel';
 import { MobilePreviewModal } from './components/MobilePreviewModal';
@@ -36,6 +37,7 @@ export default function App({ onExit }: { onExit: () => void }) {
     connectionState,
     isSpeaking,
     isListening,
+    needsAudioGesture,
     errorMessage,
     setErrorMessage,
     transcript,
@@ -102,7 +104,7 @@ export default function App({ onExit }: { onExit: () => void }) {
     if (isListening || connectionState === 'connecting') {
       stopLiveVoice();
     } else {
-      startLiveVoice();
+      startLiveVoice(true);
     }
   };
 
@@ -114,7 +116,26 @@ export default function App({ onExit }: { onExit: () => void }) {
         <button type="button" onClick={() => setMobileQrOpen(true)} aria-label="Open on phone"><Smartphone size={18} /></button>
       </header>
       <div className="portrait-room-stage">
-                <ARPortraitStage
+                {lensMode === 'camera' ? <ARPortraitStage
+                  artwork={artwork}
+                  speechLevelRef={speechLevelRef}
+                  isSpeaking={isSpeaking}
+                  isListening={isListening}
+                  needsAudioGesture={needsAudioGesture}
+                  connectionState={connectionState}
+                  activeHotspotId={activeHotspotId}
+                  activeCue={activeCue}
+                  latestDialogue={latestCharacterLine}
+                  latestVisitorLine={latestVisitorLine}
+                  errorMessage={combinedError}
+                  onSelectHotspot={handleSelectHotspot}
+                  onArtworkIdentified={(identified) => handleArtworkIdentified(identified, 'camera')}
+                  onResetToWashington={handleResetToWashington}
+                  isCustomArtwork={isCustomArtwork}
+                  onSendCameraFrame={sendCameraFrameToLive}
+                  onCameraError={setCameraError}
+                  onAvatarTap={() => askCharacter('Tell me about this painting.', 'gaze')}
+                /> : <PortraitStage
                   artwork={artwork}
                   lensMode={lensMode}
                   onChangeLensMode={setLensMode}
@@ -139,11 +160,11 @@ export default function App({ onExit }: { onExit: () => void }) {
                       'gaze'
                     )
                   }
-                />
+                />}
       </div>
       <div className="portrait-room-dock">
         {combinedError && <p role="alert" className="portrait-room-error">{combinedError}</p>}
-        <div className="portrait-room-actions">
+        <div className="portrait-room-actions"><button type="button" className="portrait-room-secondary" onClick={() => setLensMode(lensMode === 'camera' ? 'portrait' : 'camera')}>{lensMode === 'camera' ? 'View portrait' : 'Scan painting'}</button>
           <button type="button" className="portrait-room-secondary" onClick={() => setMobileSheetOpen(true)} aria-label="Open dialogue and notes"><MessageSquare size={20} /><span>Dialogue & notes</span></button>
           <button type="button" className={`portrait-room-speak ${isListening || connectionState === 'connecting' ? 'is-active' : ''}`} onClick={handleToggleVoice}>
             {isListening || connectionState === 'connecting' ? <MicOff size={22} /> : <Mic size={22} />}
@@ -164,7 +185,7 @@ export default function App({ onExit }: { onExit: () => void }) {
                 isListening={isListening}
                 isSpeaking={isSpeaking}
                 errorMessage={combinedError}
-                onStartVoice={startLiveVoice}
+                onStartVoice={() => startLiveVoice(true)}
                 onStopVoice={stopLiveVoice}
                 onInterruptPlayback={stopPlaybackQueue}
                 onSendMessage={(text) => askCharacter(text)}

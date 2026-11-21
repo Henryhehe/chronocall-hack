@@ -32,7 +32,7 @@ git switch main
 git pull --ff-only origin main
 git switch -c feat/museum-next-change
 # Edit src/features/museum/ and server/museum.ts as needed.
-bun run check
+npm run check
 git add <changed-files>
 git commit -m "Describe the change"
 git push -u origin HEAD
@@ -53,11 +53,11 @@ git merge --no-ff --no-commit origin/demi
 
 Resolve conflicts by comparing intended behavior on both sides. For updates still using Demi's old paths, compare its new commits against the already integrated Demi commit (`git diff 70cb42e..origin/demi -- <path>` for the first follow-up), then apply those changes to the mapped paths. Use the newest integrated Demi commit as the comparison baseline on subsequent merges. Do not resurrect obsolete root app/server files or drop existing workspaces to make the merge pass. Do not use a blanket `ours`/`theirs` resolution: it can silently discard new work.
 
-If dependencies changed, combine package requirements and run `bun install` to regenerate the single Bun lockfile. Otherwise use a frozen install. Avoid hand-editing dependency versions to work around connectivity failures.
+If dependencies changed, combine package requirements and run `npm install` to regenerate the single Bun lockfile. Otherwise use a frozen install. Avoid hand-editing dependency versions to work around connectivity failures.
 
 ```bash
-bun install --frozen-lockfile
-bun run check
+npm install
+npm run check
 git diff --check
 # Perform the relevant browser checks in docs/SMOKE_TEST.md.
 git add <resolved-and-documented-files>
@@ -77,3 +77,9 @@ The first local integration passed eight Node regression tests and offline front
 Integrated `origin/characters` at `0a1d3bf`. Its `server.ts` changes live in `server/museum.ts`; its three new `src/data/` modules live under `src/features/museum/data/`. The Washington fixture uses the general persona guide. Keep `/api/research-figure` behind the museum demo guard. Docker must include the museum data modules imported by the server. Research and alternate-speaker helpers require frontend wiring before claiming automatic end-to-end behavior.
 
 Validation: TypeScript, eight Node regression tests, production frontend build, and Git whitespace checks passed. HTTP integration tests could not bind localhost (`EPERM`) in the agent environment, so production HTTP/WebSocket checks and real-model behavior remain unverified. Run `npm run check` in a normal terminal before deployment.
+
+## Follow-up integration — 2026-11-21
+
+Merged main `ce14671`, characters `48f1c77`, FaceTime `ff06f36`, and Demi `fa46fdc`. Demi perspective tracking is in the museum feature; `PortraitStage.tsx` retains portrait/upload mode and `ARPortraitStage.tsx` provides the new camera mode. Voice remains at `/ws/museum`; QR links retain `/museum`. FaceTime is at `/facetime`, preserving the discovery root. npm setup, CI, and Docker are aligned; Node 24 remains the tested runtime. Removed the unused direct esbuild 0.25 dependency, which conflicted with Vite 8’s optional peer range.
+
+Validation: TypeScript, all 16 regression tests, and production build pass. Generated the npm lockfile from installed dependencies. HTTP/WebSocket checks remain blocked by the sandbox localhost restriction; camera, audio, and live models still need browser rehearsal.

@@ -19,7 +19,7 @@ async function availablePort() {
 
 async function main() {
   if (!existsSync(new URL("../dist/index.html", import.meta.url))) {
-    throw new Error("Missing production build. Run bun run build, then bun run test:production.");
+    throw new Error("Missing production build. Run npm run build, then npm run test:production.");
   }
   const port = await availablePort();
   const child = spawn(process.execPath, ["--import", "tsx", "server/index.ts", "--production"], {

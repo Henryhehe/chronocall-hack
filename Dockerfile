@@ -1,12 +1,10 @@
-# Bun installs the checked-in lockfile; Node runs both Vite and the API server.
-FROM oven/bun:1.3.3 AS bun
+# npm installs dependencies; Node runs both Vite and the API server.
 FROM node:24-bookworm-slim AS build
-COPY --from=bun /usr/local/bin/bun /usr/local/bin/bun
 WORKDIR /app
-COPY package.json bun.lock bunfig.toml .npmrc ./
-RUN bun install --frozen-lockfile
+COPY package*.json .npmrc ./
+RUN npm ci
 COPY . .
-RUN bun run build
+RUN npm run build
 
 FROM node:24-bookworm-slim AS runtime
 WORKDIR /app

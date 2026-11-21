@@ -28,7 +28,7 @@ Use `fix/` for bugs and `chore/` for setup/refactors. Merge working increments f
 Before review:
 
 ```bash
-bun run check
+npm run check
 git diff --check
 git add <the-files-for-your-task>
 git commit -m "Describe the user-visible change"
@@ -47,7 +47,7 @@ If main has moved, merge `origin/main` into your feature branch, resolve conflic
 - Put input validation in `server/routes/`; put prompts/SDK calls in `server/services/gemini/`. Routes accept `AiServices`, so tests can use fixtures without keys.
 - Coordinate changes to `shared/` or `src/types/` with consumers. Preserve endpoint paths unless clients change in the same PR.
 - Keep keys on the server. The Genie client receives an ephemeral token, never the long-lived Gemini key.
-- Use Bun for dependency changes and commit `package.json` plus `bun.lock` together. Do not add another lockfile. CI uses frozen installs.
+- Use npm for dependency changes and commit `package.json` plus `package-lock.json` together. CI and Docker use npm ci.
 - Test failure cases such as denied permission, disconnects, and stale requests, as well as the happy path.
 
 ## Integration rhythm

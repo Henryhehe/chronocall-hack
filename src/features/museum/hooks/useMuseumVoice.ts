@@ -12,10 +12,19 @@ interface UseMuseumVoiceOptions {
   onAnimationCue?: (cue: string | null) => void;
 }
 
+function createInputAudioContext(): AudioContext {
+  try {
+    return new AudioContext({ sampleRate: 16000 });
+  } catch {
+    return new AudioContext();
+  }
+}
+
 export function useMuseumVoice({ artwork, onAnimationCue }: UseMuseumVoiceOptions) {
   const [connectionState, setConnectionState] = useState<VoiceConnectionState>('idle');
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [isListening, setIsListening] = useState(false);
+  const [needsAudioGesture, setNeedsAudioGesture] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [transcript, setTranscript] = useState<DialogueEntry[]>([
     {
@@ -33,11 +42,15 @@ export function useMuseumVoice({ artwork, onAnimationCue }: UseMuseumVoiceOption
   const analyserRef = useRef<AnalyserNode | null>(null);
   const micStreamRef = useRef<MediaStream | null>(null);
   const processorRef = useRef<ScriptProcessorNode | null>(null);
+  const gainNodeRef = useRef<GainNode | null>(null);
   const activeSourcesRef = useRef<Set<AudioBufferSourceNode>>(new Set());
   const nextStartTimeRef = useRef<number>(0);
   const rafRef = useRef<number | null>(null);
+  const autoStartTimerRef = useRef<number | null>(null);
   const artworkRef = useRef<PortraitArtwork>(artwork);
   const transcriptRef = useRef<DialogueEntry[]>(transcript);
+  const sessionTokenRef = useRef<number>(0);
+  const connectingRef = useRef<boolean>(false);
 
   useEffect(() => {
     artworkRef.current = artwork;
@@ -61,7 +74,12 @@ export function useMuseumVoice({ artwork, onAnimationCue }: UseMuseumVoiceOption
 
   const ensureOutputAudio = useCallback(() => {
     if (!outputCtxRef.current || outputCtxRef.current.state === 'closed') {
-      const ctx = new AudioContext({ sampleRate: 24000 });
+      let ctx: AudioContext;
+      try {
+        ctx = new AudioContext({ sampleRate: 24000 });
+      } catch {
+        ctx = new AudioContext();
+      }
       const analyser = ctx.createAnalyser();
       analyser.fftSize = 256;
       analyser.smoothingTimeConstant = 0.72;
@@ -154,6 +172,9 @@ export function useMuseumVoice({ artwork, onAnimationCue }: UseMuseumVoiceOption
   const schedulePcmChunk = useCallback(
     (base64Pcm: string) => {
       const { ctx, analyser } = ensureOutputAudio();
+      if (ctx.state === 'suspended') {
+        setNeedsAudioGesture(true);
+      }
       const buffer = pcm24kBase64ToAudioBuffer(ctx, base64Pcm);
       const source = ctx.createBufferSource();
       source.buffer = buffer;
@@ -195,6 +216,14 @@ export function useMuseumVoice({ artwork, onAnimationCue }: UseMuseumVoiceOption
   );
 
   const cleanupVoiceResources = useCallback(() => {
+    sessionTokenRef.current += 1;
+    connectingRef.current = false;
+
+    if (autoStartTimerRef.current !== null) {
+      window.clearTimeout(autoStartTimerRef.current);
+      autoStartTimerRef.current = null;
+    }
+
     if (processorRef.current) {
       try {
         processorRef.current.disconnect();
@@ -203,6 +232,14 @@ export function useMuseumVoice({ artwork, onAnimationCue }: UseMuseumVoiceOption
       }
       processorRef.current.onaudioprocess = null;
       processorRef.current = null;
+    }
+    if (gainNodeRef.current) {
+      try {
+        gainNodeRef.current.disconnect();
+      } catch {
+        // ignore
+      }
+      gainNodeRef.current = null;
     }
     if (micStreamRef.current) {
       micStreamRef.current.getTracks().forEach((t) => t.stop());
@@ -214,6 +251,10 @@ export function useMuseumVoice({ artwork, onAnimationCue }: UseMuseumVoiceOption
     }
     if (wsRef.current) {
       try {
+        wsRef.current.onopen = null;
+        wsRef.current.onmessage = null;
+        wsRef.current.onerror = null;
+        wsRef.current.onclose = null;
         wsRef.current.close();
       } catch {
         // ignore
@@ -230,133 +271,225 @@ export function useMuseumVoice({ artwork, onAnimationCue }: UseMuseumVoiceOption
     setConnectionState('idle');
   }, [cleanupVoiceResources]);
 
-  const startLiveVoice = useCallback(async () => {
-    setErrorMessage(null);
-    if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
-      return;
-    }
-    setConnectionState('connecting');
-
-    let hadError = false;
-
-    try {
-      ensureOutputAudio();
-
-      // Create and resume input AudioContext inside the user tap gesture
-      const inputCtx = new AudioContext({ sampleRate: 16000 });
-      if (inputCtx.state === 'suspended') {
-        await inputCtx.resume().catch(() => {});
+  const unlockAudioContexts = useCallback(async () => {
+    let anySuspended = false;
+    if (outputCtxRef.current && outputCtxRef.current.state === 'suspended') {
+      try {
+        await outputCtxRef.current.resume();
+      } catch {
+        anySuspended = true;
       }
-      inputCtxRef.current = inputCtx;
+    }
+    if (inputCtxRef.current && inputCtxRef.current.state === 'suspended') {
+      try {
+        await inputCtxRef.current.resume();
+      } catch {
+        anySuspended = true;
+      }
+    }
+    if (!anySuspended) {
+      setNeedsAudioGesture(false);
+    }
+  }, []);
 
-      const stream = await navigator.mediaDevices.getUserMedia({
-        audio: {
-          echoCancellation: true,
-          noiseSuppression: true,
-          autoGainControl: true,
-        },
-      });
-      micStreamRef.current = stream;
+  const startLiveVoice = useCallback(
+    async (fromUserGesture = false) => {
+      if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+        await unlockAudioContexts();
+        return;
+      }
 
-      const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-      const ws = new WebSocket(`${protocol}//${window.location.host}/ws/museum`);
-      wsRef.current = ws;
+      if (connectingRef.current) {
+        if (!fromUserGesture) return;
+        // User tapped while a background auto-start attempt stalled (common on mobile browsers)
+        cleanupVoiceResources();
+      }
 
-      ws.onopen = () => {
-        const current = artworkRef.current;
-        ws.send(
-          JSON.stringify({
-            type: 'start',
-            characterName: current.characterName,
-            paintingTitle: current.title,
-            historicalContext: current.historicalContext,
-            voiceName: current.voiceName,
-            systemPersona: current.systemPersona,
-          })
-        );
-      };
+      setErrorMessage(null);
+      connectingRef.current = true;
+      const token = ++sessionTokenRef.current;
+      setConnectionState('connecting');
 
-      ws.onmessage = (event) => {
-        const msg = JSON.parse(event.data);
-        if (msg.type === 'ready') {
-          setConnectionState('live');
-          setIsListening(true);
+      let hadError = false;
 
-          if (!processorRef.current && inputCtxRef.current) {
-            if (inputCtxRef.current.state === 'suspended') {
-              inputCtxRef.current.resume().catch(() => {});
-            }
-            const source = inputCtxRef.current.createMediaStreamSource(stream);
-            const processor = inputCtxRef.current.createScriptProcessor(4096, 1, 1);
-            processorRef.current = processor;
-
-            source.connect(processor);
-            processor.connect(inputCtxRef.current.destination);
-
-            processor.onaudioprocess = (e) => {
-              if (ws.readyState !== WebSocket.OPEN) return;
-              const base64 = float32ToPcm16Base64(e.inputBuffer.getChannelData(0));
-              ws.send(JSON.stringify({ type: 'audio', data: base64 }));
-            };
-          }
-        } else if (msg.type === 'audio' && msg.data) {
-          schedulePcmChunk(msg.data);
-        } else if (msg.type === 'inputTranscript' && msg.text) {
-          upsertStreamingEntry('visitor', msg.text);
-        } else if (msg.type === 'outputTranscript' && msg.text) {
-          upsertStreamingEntry('character', msg.text);
-        } else if (msg.type === 'interrupted') {
-          stopPlaybackQueue();
-          finalizeStreamingEntries();
-        } else if (msg.type === 'turnComplete') {
-          finalizeStreamingEntries();
-        } else if (msg.type === 'error') {
-          hadError = true;
-          setErrorMessage(msg.message || 'Voice session encountered an error.');
-          setConnectionState('error');
-        } else if (msg.type === 'closed') {
-          if (msg.reason && !hadError) {
-            hadError = true;
-            setErrorMessage(`Voice connection closed: ${msg.reason}`);
-            setConnectionState('error');
-          }
-          cleanupVoiceResources();
-          if (!hadError) {
+      // Guard against non-gesture mobile auto-start stalling on getUserMedia/AudioContext
+      if (!fromUserGesture) {
+        autoStartTimerRef.current = window.setTimeout(() => {
+          if (token === sessionTokenRef.current && connectingRef.current) {
+            cleanupVoiceResources();
+            setNeedsAudioGesture(true);
             setConnectionState('idle');
           }
-        }
-      };
+        }, 3500);
+      }
 
-      ws.onerror = () => {
+      try {
+        // Call getUserMedia IMMEDIATELY while user activation gesture is still fresh on mobile!
+        const micPromise = navigator.mediaDevices.getUserMedia({
+          audio: {
+            echoCancellation: true,
+            noiseSuppression: true,
+            autoGainControl: true,
+          },
+        });
+
+        // Initialize AudioContexts synchronously inside the gesture without awaiting resume first
+        const { ctx: outCtx } = ensureOutputAudio();
+        const inputCtx = createInputAudioContext();
+        if (inputCtx.state === 'suspended') {
+          inputCtx.resume().catch(() => {});
+        }
+        inputCtxRef.current = inputCtx;
+
+        const stream = await micPromise;
+
+        if (token !== sessionTokenRef.current) {
+          stream.getTracks().forEach((t) => t.stop());
+          return;
+        }
+        micStreamRef.current = stream;
+
+        if (inputCtx.state === 'suspended') {
+          await inputCtx.resume().catch(() => {});
+        }
+        if (inputCtx.state === 'suspended' || outCtx.state === 'suspended') {
+          setNeedsAudioGesture(true);
+        } else {
+          setNeedsAudioGesture(false);
+        }
+
+        const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+        const ws = new WebSocket(`${protocol}//${window.location.host}/ws/museum`);
+        wsRef.current = ws;
+
+        ws.onopen = () => {
+          if (token !== sessionTokenRef.current) {
+            ws.close();
+            return;
+          }
+          const current = artworkRef.current;
+          ws.send(
+            JSON.stringify({
+              type: 'start',
+              characterName: current.characterName,
+              paintingTitle: current.title,
+              historicalContext: current.historicalContext,
+              voiceName: current.voiceName,
+              systemPersona: current.systemPersona,
+            })
+          );
+        };
+
+        ws.onmessage = (event) => {
+          if (token !== sessionTokenRef.current) return;
+          const msg = JSON.parse(event.data);
+          if (msg.type === 'ready') {
+            connectingRef.current = false;
+            if (autoStartTimerRef.current !== null) {
+              window.clearTimeout(autoStartTimerRef.current);
+              autoStartTimerRef.current = null;
+            }
+            setConnectionState('live');
+            setIsListening(true);
+
+            if (!processorRef.current && inputCtxRef.current) {
+              const ctx = inputCtxRef.current;
+              if (ctx.state === 'suspended') {
+                ctx.resume().catch(() => {});
+                if (ctx.state === 'suspended') {
+                  setNeedsAudioGesture(true);
+                }
+              }
+              const source = ctx.createMediaStreamSource(stream);
+              const processor = ctx.createScriptProcessor(4096, 1, 1);
+              const silentGain = ctx.createGain();
+              silentGain.gain.value = 0;
+
+              processorRef.current = processor;
+              gainNodeRef.current = silentGain;
+
+              source.connect(processor);
+              processor.connect(silentGain);
+              silentGain.connect(ctx.destination);
+
+              processor.onaudioprocess = (e) => {
+                if (ws.readyState !== WebSocket.OPEN) return;
+                const base64 = float32ToPcm16Base64(
+                  e.inputBuffer.getChannelData(0),
+                  ctx.sampleRate
+                );
+                ws.send(JSON.stringify({ type: 'audio', data: base64 }));
+              };
+            }
+          } else if (msg.type === 'audio' && msg.data) {
+            schedulePcmChunk(msg.data);
+          } else if (msg.type === 'inputTranscript' && msg.text) {
+            upsertStreamingEntry('visitor', msg.text);
+          } else if (msg.type === 'outputTranscript' && msg.text) {
+            upsertStreamingEntry('character', msg.text);
+          } else if (msg.type === 'interrupted') {
+            stopPlaybackQueue();
+            finalizeStreamingEntries();
+          } else if (msg.type === 'turnComplete') {
+            finalizeStreamingEntries();
+          } else if (msg.type === 'error') {
+            hadError = true;
+            connectingRef.current = false;
+            setErrorMessage(msg.message || 'Voice session encountered an error.');
+            setConnectionState('error');
+          } else if (msg.type === 'closed') {
+            if (msg.reason && !hadError) {
+              hadError = true;
+              setErrorMessage(`Voice connection closed: ${msg.reason}`);
+              setConnectionState('error');
+            }
+            cleanupVoiceResources();
+            if (!hadError) {
+              setConnectionState('idle');
+            }
+          }
+        };
+
+        ws.onerror = () => {
+          if (token !== sessionTokenRef.current) return;
+          hadError = true;
+          connectingRef.current = false;
+          setErrorMessage('Unable to maintain real-time voice connection.');
+          setConnectionState('error');
+        };
+
+        ws.onclose = () => {
+          if (token !== sessionTokenRef.current) return;
+          cleanupVoiceResources();
+          if (!hadError) {
+            setConnectionState((prev) => (prev === 'error' ? 'error' : 'idle'));
+          }
+        };
+      } catch (err) {
+        if (token !== sessionTokenRef.current) return;
         hadError = true;
-        setErrorMessage('Unable to maintain real-time voice connection.');
-        setConnectionState('error');
-      };
-
-      ws.onclose = () => {
-        cleanupVoiceResources();
-        if (!hadError) {
-          setConnectionState((prev) => (prev === 'error' ? 'error' : 'idle'));
+        connectingRef.current = false;
+        const rawMsg = err instanceof Error ? err.message : 'Microphone access unavailable.';
+        if (!fromUserGesture) {
+          setNeedsAudioGesture(true);
+          setConnectionState('idle');
+        } else {
+          setErrorMessage(rawMsg);
+          setConnectionState('error');
         }
-      };
-    } catch (err) {
-      hadError = true;
-      const msg =
-        err instanceof Error
-          ? err.message
-          : 'Microphone access was denied. You can still tap hotspots or type below.';
-      setErrorMessage(msg);
-      setConnectionState('error');
-      cleanupVoiceResources();
-    }
-  }, [
-    cleanupVoiceResources,
-    ensureOutputAudio,
-    finalizeStreamingEntries,
-    schedulePcmChunk,
-    stopPlaybackQueue,
-    upsertStreamingEntry,
-  ]);
+        cleanupVoiceResources();
+      }
+    },
+    [
+      cleanupVoiceResources,
+      ensureOutputAudio,
+      finalizeStreamingEntries,
+      schedulePcmChunk,
+      stopPlaybackQueue,
+      unlockAudioContexts,
+      upsertStreamingEntry,
+    ]
+  );
 
   const sendCameraFrameToLive = useCallback((jpegBase64: string) => {
     if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
@@ -370,12 +503,12 @@ export function useMuseumVoice({ artwork, onAnimationCue }: UseMuseumVoiceOption
       const trimmed = promptText.trim();
       if (!trimmed) return;
       setErrorMessage(null);
+      await unlockAudioContexts();
 
       if (animationCue && onAnimationCue) {
         onAnimationCue(animationCue);
       }
 
-      // If Live WebSocket is already active, inject the prompt directly into the Live stream
       if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
         finalizeStreamingEntries();
         setTranscript((prev) => [
@@ -391,7 +524,6 @@ export function useMuseumVoice({ artwork, onAnimationCue }: UseMuseumVoiceOption
         return;
       }
 
-      // Otherwise use fast Gemini text + spoken WAV synthesis
       const userEntry: DialogueEntry = {
         id: `visitor-${Date.now()}`,
         speaker: 'visitor',
@@ -439,25 +571,27 @@ export function useMuseumVoice({ artwork, onAnimationCue }: UseMuseumVoiceOption
         setConnectionState('error');
       }
     },
-    [finalizeStreamingEntries, onAnimationCue, playWavBase64]
+    [finalizeStreamingEntries, onAnimationCue, playWavBase64, unlockAudioContexts]
   );
 
   useEffect(() => {
     return () => {
-      stopLiveVoice();
+      cleanupVoiceResources();
     };
-  }, [stopLiveVoice]);
+  }, [cleanupVoiceResources]);
 
   return {
     connectionState,
     isSpeaking,
     isListening,
+    needsAudioGesture,
     errorMessage,
     setErrorMessage,
     transcript,
     speechLevelRef,
     startLiveVoice,
     stopLiveVoice,
+    unlockAudioContexts,
     askCharacter,
     sendCameraFrameToLive,
     stopPlaybackQueue,

@@ -67,8 +67,11 @@ export function createMuseumRouter(demoMode = false) {
     const hostHeader = req.get('host');
     const proto = req.get('x-forwarded-proto') || req.protocol || 'https';
     const inferredUrl = hostHeader ? `${proto}://${hostHeader}` : '';
-    const appUrl = !isPlaceholder ? envUrl : inferredUrl;
-    res.json({ appUrl: appUrl ? new URL("/museum", appUrl).href : appUrl });
+    const devUrl = !isPlaceholder ? envUrl : inferredUrl;
+    const sharedUrl = devUrl.includes('ais-dev-')
+      ? devUrl.replace('ais-dev-', 'ais-pre-')
+      : devUrl;
+    res.json({ appUrl: sharedUrl ? new URL("/museum", sharedUrl).href : sharedUrl, sharedUrl, devUrl });
   });
 
   // Identify a painting or historical portrait from a smartphone camera frame or uploaded image
@@ -96,7 +99,10 @@ export function createMuseumRouter(demoMode = false) {
               text: `Analyze this camera frame from a museum visitor's phone.
 Determine if a historical portrait, equestrian painting, sculpture, or artwork depicting a historical or notable figure is visible (including paintings shown on walls, prints, books, or screens).
 Set isWashingtonAnchor to true specifically if the visible painting is an equestrian portrait of George Washington on a white/gray horse (e.g., wearing a blue-and-buff Continental uniform with sword extended).
-If a portrait is visible, identify the subject, artwork title, artist (or probable school), historical era, and return 3 to 4 interactive AR hotspot coordinates (x, y percentages 0-100 on the full frame) for notable details plus the portrait's approximate bounding box (focalBox x, y, width, height in 0-100 percentages).
+If a portrait is visible:
+1. Identify the subject, artwork title, artist (or probable school), and historical era.
+2. Detect the exact four corners of the painting canvas in the camera image as focalQuad (topLeft, topRight, bottomRight, bottomLeft in 0-100 percentages), accurately reflecting any perspective skew or tilt of the canvas. Also provide the bounding focalBox (x, y, width, height in 0-100 percentages).
+3. Return 3 to 4 interactive AR hotspot coordinates (x, y percentages 0-100 on the full frame) for notable details, positioned slightly offset next to each feature (never directly covering the subject's eyes or face).
 If no portrait or figure is clearly visible, set detected to false and explain briefly in historicalContext.`,
             },
           ],
@@ -143,6 +149,32 @@ If no portrait or figure is clearly visible, set detected to false and explain b
                   height: { type: Type.NUMBER },
                 },
                 required: ['x', 'y', 'width', 'height'],
+              },
+              focalQuad: {
+                type: Type.OBJECT,
+                properties: {
+                  topLeft: {
+                    type: Type.OBJECT,
+                    properties: { x: { type: Type.NUMBER }, y: { type: Type.NUMBER } },
+                    required: ['x', 'y'],
+                  },
+                  topRight: {
+                    type: Type.OBJECT,
+                    properties: { x: { type: Type.NUMBER }, y: { type: Type.NUMBER } },
+                    required: ['x', 'y'],
+                  },
+                  bottomRight: {
+                    type: Type.OBJECT,
+                    properties: { x: { type: Type.NUMBER }, y: { type: Type.NUMBER } },
+                    required: ['x', 'y'],
+                  },
+                  bottomLeft: {
+                    type: Type.OBJECT,
+                    properties: { x: { type: Type.NUMBER }, y: { type: Type.NUMBER } },
+                    required: ['x', 'y'],
+                  },
+                },
+                required: ['topLeft', 'topRight', 'bottomRight', 'bottomLeft'],
               },
               hotspots: {
                 type: Type.ARRAY,
