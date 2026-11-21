@@ -273,6 +273,10 @@ export const ArtworkScannerModal: React.FC<ArtworkScannerModalProps> = ({
               <p className="text-sm font-medium text-white">
                 Identifying historical figure…
               </p>
+              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/10 border border-white/15 text-[11px] font-mono text-sky-200">
+                <span className="w-1.5 h-1.5 rounded-full bg-sky-400 animate-pulse" />
+                gemini-4-hydrogen · Multimodal Vision
+              </span>
             </div>
           )}
         </div>

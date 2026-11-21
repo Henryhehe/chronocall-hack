@@ -102,7 +102,10 @@ export const CallLauncher: React.FC<CallLauncherProps> = ({
               )}
             </div>
             <p className="text-xs text-slate-400">
-              FaceTime across centuries
+              FaceTime across centuries ·{" "}
+              <span className="font-mono text-slate-500">
+                Gemini 4 · Live · Genie 4 · Decisions API
+              </span>
             </p>
           </div>
         </div>

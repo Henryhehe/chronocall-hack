@@ -17,11 +17,18 @@ import {
   X,
 } from "lucide-react";
 import { HistoricalVideoStage } from "./HistoricalVideoStage";
+import { GeminiTelemetryHud } from "./GeminiTelemetryHud";
+import {
+  formatConfidencePercent,
+  formatDecisionVerdictLabel,
+} from "../../../../shared/facetime.ts";
 import type {
   ActiveVideoLayer,
   CallTranscriptMessage,
+  FaceTimeDecisionResult,
   FaceTimePhase,
   FaceTimeReactionCue,
+  GeminiPipelineEvent,
   HistoricalProfile,
   PiPCorner,
   VideoEngineMode,
@@ -51,6 +58,9 @@ interface CallStageProps {
   onSendMessage: (text: string) => void;
   videoEngineMode: VideoEngineMode;
   onChangeVideoEngineMode: (mode: VideoEngineMode) => void;
+  pipelineEvents: GeminiPipelineEvent[];
+  latestDecision: FaceTimeDecisionResult | null;
+  verifyingDecision: boolean;
   errorMessage: string | null;
   onDismissError: () => void;
   onEndCall: () => void;
@@ -102,6 +112,9 @@ export const CallStage: React.FC<CallStageProps> = ({
   onSendMessage,
   videoEngineMode,
   onChangeVideoEngineMode,
+  pipelineEvents,
+  latestDecision,
+  verifyingDecision,
   errorMessage,
   onDismissError,
   onEndCall,
@@ -281,16 +294,27 @@ export const CallStage: React.FC<CallStageProps> = ({
               </div>
             </div>
 
-            {/* Video Engine Selector Pill */}
-            <div className="pointer-events-auto relative">
-              <button
-                type="button"
-                onClick={() => setEngineMenuOpen((v) => !v)}
-                className="inline-flex items-center gap-2 px-3.5 py-2 rounded-full bg-black/45 hover:bg-black/60 border border-white/15 backdrop-blur-2xl text-xs font-medium text-slate-200 cursor-pointer shadow-xl"
-              >
-                <SlidersHorizontal className="w-3.5 h-3.5 text-emerald-300" />
-                <span className="hidden sm:inline">Video Engine</span>
-              </button>
+            {/* Gemini 4 Live Telemetry + Video Engine Controls */}
+            <div className="pointer-events-auto flex items-center gap-2">
+              <GeminiTelemetryHud
+                events={pipelineEvents}
+                latestDecision={latestDecision}
+                verifyingDecision={verifyingDecision}
+                voiceStatus={voiceStatus}
+                activeVideoLayer={videoTelemetry.activeLayer}
+                videoUpgrading={videoTelemetry.upgrading}
+                demoMode={demoMode}
+              />
+
+              <div className="relative">
+                <button
+                  type="button"
+                  onClick={() => setEngineMenuOpen((v) => !v)}
+                  className="inline-flex items-center gap-2 px-3.5 py-2 rounded-full bg-black/45 hover:bg-black/60 border border-white/15 backdrop-blur-2xl text-xs font-medium text-slate-200 cursor-pointer shadow-xl"
+                >
+                  <SlidersHorizontal className="w-3.5 h-3.5 text-emerald-300" />
+                  <span className="hidden sm:inline">Video</span>
+                </button>
 
               {engineMenuOpen && (
                 <div className="absolute right-0 mt-2 w-60 rounded-2xl bg-[#0D111A]/95 border border-white/15 backdrop-blur-2xl shadow-2xl p-2 space-y-1">
@@ -342,6 +366,7 @@ export const CallStage: React.FC<CallStageProps> = ({
                   ))}
                 </div>
               )}
+              </div>
             </div>
           </div>
 
@@ -411,12 +436,43 @@ export const CallStage: React.FC<CallStageProps> = ({
             </div>
           </div>
 
-          {/* Apple-style Floating Live Captions */}
+          {/* Apple-style Floating Live Captions + Subtle Decisions API Grounding Chip */}
           {captionsEnabled && liveCaption && (
-            <div className="absolute bottom-28 left-1/2 -translate-x-1/2 z-20 max-w-2xl w-[90vw] px-5 py-3 rounded-2xl bg-black/60 border border-white/12 backdrop-blur-2xl text-center shadow-2xl pointer-events-none">
-              <p className="text-sm sm:text-base text-white/95 leading-snug line-clamp-3">
-                {liveCaption}
-              </p>
+            <div className="absolute bottom-28 left-1/2 -translate-x-1/2 z-20 max-w-2xl w-[90vw] flex flex-col items-center gap-1.5 pointer-events-none">
+              <div className="w-full px-5 py-3 rounded-2xl bg-black/60 border border-white/12 backdrop-blur-2xl text-center shadow-2xl">
+                <p className="text-sm sm:text-base text-white/95 leading-snug line-clamp-3">
+                  {liveCaption}
+                </p>
+              </div>
+              {(verifyingDecision || latestDecision) && (
+                <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-black/55 border border-white/12 backdrop-blur-xl text-[10px] text-slate-200 shadow-lg">
+                  <span
+                    className={`w-1.5 h-1.5 rounded-full ${
+                      verifyingDecision
+                        ? "bg-sky-400 animate-ping"
+                        : latestDecision?.verdict === "anachronism"
+                          ? "bg-amber-400"
+                          : "bg-emerald-400"
+                    }`}
+                  />
+                  {verifyingDecision ? (
+                    <span className="text-sky-200">
+                      Verifying historical accuracy · gemini-decision-1
+                    </span>
+                  ) : latestDecision ? (
+                    <span>
+                      {formatDecisionVerdictLabel(latestDecision.verdict)} ·{" "}
+                      <span className="font-mono text-emerald-300">
+                        {formatConfidencePercent(latestDecision.confidence)}
+                      </span>{" "}
+                      ·{" "}
+                      <span className="font-mono text-slate-400">
+                        {latestDecision.model} · {latestDecision.latencyMs}ms
+                      </span>
+                    </span>
+                  ) : null}
+                </div>
+              )}
             </div>
           )}
 

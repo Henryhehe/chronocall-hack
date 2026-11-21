@@ -91,6 +91,60 @@ export interface FaceTimeReactionCue {
   videoCue: string;
 }
 
+export type GeminiPipelineStage =
+  | "vision"
+  | "persona"
+  | "portrait"
+  | "live-voice"
+  | "decisions"
+  | "video-stream"
+  | "video-loop";
+
+export interface GeminiPipelineEvent {
+  id: string;
+  stage: GeminiPipelineStage;
+  model: string;
+  label: string;
+  status: "running" | "active" | "done" | "standby" | "demo";
+  latencyMs?: number;
+  detail?: string;
+  timestamp: number;
+}
+
+export type DecisionVerdict =
+  | "verified"
+  | "plausible_persona"
+  | "anachronism";
+
+export interface FaceTimeDecisionResult {
+  verdict: DecisionVerdict;
+  confidence: number;
+  probabilities: Record<string, number>;
+  eraFidelityScore: number;
+  eraFidelityMax: number;
+  suggestedCue: string;
+  summary: string;
+  model: string;
+  latencyMs: number;
+  demoMode?: boolean;
+}
+
+export function formatDecisionVerdictLabel(verdict: DecisionVerdict): string {
+  switch (verdict) {
+    case "verified":
+      return "Historically Grounded";
+    case "plausible_persona":
+      return "In-Era Persona";
+    case "anachronism":
+      return "Anachronism Flagged";
+  }
+}
+
+export function formatConfidencePercent(confidence: number): string {
+  const clamped = Math.max(0, Math.min(1, Number.isFinite(confidence) ? confidence : 0));
+  return `${Math.round(clamped * 100)}%`;
+}
+
 export type FaceTimeClientMessage =
   | { type: "start"; profile: HistoricalProfile }
   | { type: "audio" | "video"; data: string }

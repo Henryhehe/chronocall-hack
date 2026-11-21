@@ -17,6 +17,7 @@ export interface FaceTimeServices {
   pollVeoPortraitVideo: typeof geminiFaceTime.pollVeoPortraitVideo;
   getVeoVideoMedia: typeof geminiFaceTime.getVeoVideoMedia;
   respondToFaceTimeText: typeof geminiFaceTime.respondToFaceTimeText;
+  evaluateHistoricalTurnDecision: typeof geminiFaceTime.evaluateHistoricalTurnDecision;
 }
 
 function createDemoPortraitSvgDataUrl(profile: HistoricalProfile): string {
@@ -321,6 +322,52 @@ export function createFaceTimeRouter(
         profile,
         message,
         history,
+      });
+      res.json({ ...result, demoMode: false });
+    } catch (err) {
+      const formatted = formatGeminiError(err);
+      res.status(formatted.status).json({ error: formatted.message });
+    }
+  });
+
+  router.post("/api/facetime/decision", async (req, res) => {
+    try {
+      const rawProfile = req.body?.profile;
+      const utterance =
+        typeof req.body?.utterance === "string" ? req.body.utterance.trim() : "";
+      const userPrompt =
+        typeof req.body?.userPrompt === "string" ? req.body.userPrompt.trim() : undefined;
+
+      if (!rawProfile || typeof rawProfile?.name !== "string" || !utterance) {
+        res.status(400).json({ error: "profile and utterance are required." });
+        return;
+      }
+      const profile = normalizeHistoricalProfile(rawProfile, rawProfile.sourceType ?? "search");
+
+      if (demoMode) {
+        res.json({
+          verdict: "verified",
+          confidence: 0.94,
+          probabilities: {
+            verified: 0.94,
+            plausible_persona: 0.05,
+            anachronism: 0.01,
+          },
+          eraFidelityScore: 4,
+          eraFidelityMax: 4,
+          suggestedCue: "warm_nod",
+          summary: `Grounded in ${profile.era} context (local demo fixture)`,
+          model: "gemini-decision-1",
+          latencyMs: 142,
+          demoMode: true,
+        });
+        return;
+      }
+
+      const result = await services.evaluateHistoricalTurnDecision({
+        profile,
+        utterance,
+        userPrompt,
       });
       res.json({ ...result, demoMode: false });
     } catch (err) {
