@@ -49,6 +49,6 @@
   },
   "description": "Chronocall: a multimodal historical character and interactive world demo.",
   "engines": {
-    "node": ">=24"
+    "node": ">=22"
   }
 }
