@@ -3,10 +3,10 @@ import { ArrowRight, BookOpen, ScanEye, Users, Globe2, Landmark, Compass, Check,
 
 export type LearningView = 'home' | 'live' | 'character' | 'museum' | 'genie' | 'notebook' | 'log' | 'compare';
 export const experiences = [
-  { id: 'museum', number: '01', name: 'Meet a living portrait', label: 'Portrait gallery', icon: Landmark, description: 'Look closely, touch a detail, and ask the person in the painting a question.', goal: 'How does a portrait communicate power?', task: 'Choose a detail in the painting. Ask what it means, then compare the answer with what you can actually see.', tag: 'Art & historical perspective' },
-  { id: 'live', number: '02', name: 'Find stories in the everyday', label: 'Visual discovery', icon: ScanEye, description: 'Bring a photo or your camera. Notice objects, ask questions, and investigate the details.', goal: 'What can an object tell us about how people live?', task: 'Upload an image or start your camera. Ask about one visible object and identify a question you would need another source to answer.', tag: 'Observation & inquiry' },
-  { id: 'character', number: '03', name: 'Try another point of view', label: 'Character studio', icon: Users, description: 'Choose a historical persona and see your scene interpreted through a different era.', goal: 'How might someone from another era see our world?', task: 'Choose a persona, add a photo or camera feed, and ask how they would interpret a modern object.', tag: 'Perspective & imagination' },
-  { id: 'genie', number: '04', name: 'Step into a possible past', label: 'World explorer', icon: Globe2, description: 'Explore a 3D setting, create a scene, and consider how environments shape a story.', goal: 'How does a place shape the way people live?', task: 'Choose a preset world or generate a scene. Explore it and note one design choice that would need historical verification.', tag: 'Spatial exploration & creativity' },
+  { id: 'museum', number: '01', name: 'Meet a living portrait', label: 'Portrait gallery', icon: Landmark, description: 'Choose a detail. Ask the person in the painting what it means.', goal: 'How does a portrait communicate power?', task: 'Choose a detail in the painting. Ask what it means, then compare the answer with what you can actually see.', tag: 'Art & historical perspective' },
+  { id: 'live', number: '02', name: 'Find stories in the everyday', label: 'Visual discovery', icon: ScanEye, description: 'Bring a photo or camera feed. Discover the stories in everyday objects.', goal: 'What can an object tell us about how people live?', task: 'Upload an image or start your camera. Ask about one visible object and identify a question you would need another source to answer.', tag: 'Observation & inquiry' },
+  { id: 'character', number: '03', name: 'Try another point of view', label: 'Character studio', icon: Users, description: 'Show a modern object to a historical persona. See it through their eyes.', goal: 'How might someone from another era see our world?', task: 'Choose a persona, add a photo or camera feed, and ask how they would interpret a modern object.', tag: 'Perspective & imagination' },
+  { id: 'genie', number: '04', name: 'Step into a possible past', label: 'World explorer', icon: Globe2, description: 'Enter a 3D world. Explore a setting or imagine your own.', goal: 'How does a place shape the way people live?', task: 'Choose a preset world or generate a scene. Explore it and note one design choice that would need historical verification.', tag: 'Spatial exploration & creativity' },
 ] as const;
 
 export function JourneyHeader({ view, onNavigate }: { view: LearningView; onNavigate: (view: LearningView) => void }) {
@@ -14,7 +14,42 @@ export function JourneyHeader({ view, onNavigate }: { view: LearningView; onNavi
 }
 
 export function LearningHome({ onNavigate }: { onNavigate: (view: LearningView) => void }) {
-  return <div className="learning-home"><section className="learning-hero"><div className="hero-copy"><p className="eyebrow">CURIOSITY IS YOUR TIME MACHINE</p><h1>History is closer<br />than you <em>think.</em></h1><p className="hero-description">A painting becomes a conversation. An everyday object opens a question. A world invites you inside. Follow your curiosity into the past.</p><div className="hero-actions"><button className="learning-primary" onClick={() => onNavigate('museum')}>Begin with a portrait <ArrowRight size={18} /></button><a href="#experiences">Explore all experiences <span aria-hidden="true">↗</span></a></div><p className="hero-note">Start with the included artwork. No camera needed.</p></div><button className="hero-art" onClick={() => onNavigate('museum')} aria-label="Explore the Washington portrait"><img src="/assets/aistudio/washington_fd94f6dd.jpeg" alt="Equestrian portrait of George Washington, with a raised sword and a dramatic sky" /><span className="art-label"><span>THE LIVING PORTRAIT COLLECTION</span><strong>What would you ask him?</strong><span>Look closer. Start a conversation. <ArrowRight size={16} /></span></span><span className="art-index">EXHIBIT 001 / WASHINGTON</span></button></section><section id="experiences" className="experience-section"><div className="section-heading"><div><p className="eyebrow">FOUR WAYS TO FOLLOW A QUESTION</p><h2>Don’t just read about it. Explore it.</h2></div><p>Pick a starting point.<br />There’s more than one way to learn.</p></div><div className="experience-grid">{experiences.map(e => <button className="experience-card" key={e.id} onClick={() => onNavigate(e.id)}><div className="card-top"><e.icon size={23} /><span>{e.number}</span></div><p className="eyebrow">{e.tag}</p><h3>{e.name}</h3><p>{e.description}</p><span className="card-link">Enter experience <ArrowRight size={17} /></span></button>)}</div></section><section className="learning-method"><BookOpen size={25} /><div><h2>A good question is only the beginning.</h2><p>Observe a detail. Explore a perspective. Record what you learned—and what you still need to verify. AI characters and generated worlds are imaginative interpretations, not primary historical sources.</p></div><button onClick={() => onNavigate('notebook')}>Open my notebook <ArrowRight size={17} /></button></section></div>;
+  return (
+    <div className="learning-home">
+      <section className="learning-hero" aria-labelledby="discovery-title">
+        <div className="hero-copy">
+          <p className="eyebrow">HISTORY, OPEN FOR CONVERSATION</p>
+          <h1 id="discovery-title">Meet the past.<br /><em>Ask it anything.</em></h1>
+          <p className="hero-description">Explore a portrait, ask its subject a question, and discover the story behind a detail.</p>
+          <div className="hero-actions">
+            <button className="learning-primary" onClick={() => onNavigate('museum')}>Explore the portrait <ArrowRight size={18} /></button>
+            <a href="#experiences">See all experiences <span aria-hidden="true">↗</span></a>
+          </div>
+          <p className="hero-note">Artwork included · No camera needed to explore</p>
+          <ol className="discovery-steps" aria-label="Your first exploration">
+            <li><span>01</span><div><strong>Look closely</strong><p>Choose a detail.</p></div></li>
+            <li><span>02</span><div><strong>Ask why</strong><p>Hear a perspective.</p></div></li>
+            <li><span>03</span><div><strong>Make a connection</strong><p>Save a reflection.</p></div></li>
+          </ol>
+        </div>
+        <button className="hero-art" onClick={() => onNavigate('museum')} aria-label="Explore the George Washington portrait">
+          <img src="/assets/aistudio/washington_fd94f6dd.jpeg" alt="Equestrian portrait of George Washington beneath a dramatic sky" fetchPriority="high" />
+          <span className="art-badge">START HERE · LIVING PORTRAIT</span>
+          <span className="art-label"><span>A QUESTION TO TAKE INSIDE</span><strong>“What does your pose<br />say about power?”</strong><span>Explore George Washington <ArrowRight size={16} /></span></span>
+          <span className="art-index">EXHIBIT 001 / WASHINGTON</span>
+        </button>
+      </section>
+      <section id="experiences" className="experience-section" aria-labelledby="experiences-title">
+        <div className="section-heading"><div><p className="eyebrow">FOLLOW YOUR CURIOSITY</p><h2 id="experiences-title">Choose your way in.</h2></div><p>Four experiences. Your own questions.</p></div>
+        <div className="experience-grid">{experiences.map(e => <button className="experience-card" key={e.id} onClick={() => onNavigate(e.id)}>
+          <div className="card-top"><e.icon size={23} /><span>{e.number}</span></div>
+          <h3>{e.label}</h3><p>{e.description}</p>
+          <span className="card-link">Explore <ArrowRight size={17} /></span>
+        </button>)}</div>
+      </section>
+      <section className="learning-method"><BookOpen size={25} /><div><h2>Leave with a question worth keeping.</h2><p>Save what you noticed and what you want to verify. AI perspectives are interpretations; check them against historical sources.</p></div><button onClick={() => onNavigate('notebook')}>Open notebook <ArrowRight size={17} /></button></section>
+    </div>
+  );
 }
 
 export function LearningGuide({ view, onNavigate, onPrompt }: { view: LearningView; onNavigate: (view: LearningView) => void; onPrompt: (prompt: string) => void }) {

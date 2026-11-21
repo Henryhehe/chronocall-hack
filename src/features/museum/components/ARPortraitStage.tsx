@@ -119,7 +119,7 @@ export const ARPortraitStage: React.FC<ARPortraitStageProps> = ({
   });
   const [anchorConfidence, setAnchorConfidence] = useState<number>(0);
   const [scanNotice, setScanNotice] = useState<string | null>(null);
-  const [showHotspots, setShowHotspots] = useState(true);
+  const [showHotspots, setShowHotspots] = useState(false);
   const [tilt, setTilt] = useState({ x: 0, y: 0 });
 
   const tiltRef = useRef({ x: 0, y: 0 });
@@ -788,7 +788,7 @@ export const ARPortraitStage: React.FC<ARPortraitStageProps> = ({
       ref={containerRef}
       onPointerMove={handlePointerMove}
       onPointerLeave={handlePointerLeave}
-      className="relative w-full h-full min-h-[420px] lg:min-h-[600px] bg-[#11100F] overflow-hidden select-none rounded-2xl border border-[#2C2824]"
+      className="relative w-full h-full min-h-0 bg-[#11100F] overflow-hidden select-none"
     >
       <input
         ref={fileInputRef}

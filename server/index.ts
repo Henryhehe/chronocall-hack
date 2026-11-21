@@ -22,7 +22,7 @@ async function startServer() {
 
   if (!config.production) {
     const { createServer } = await import("vite");
-    const vite = await createServer({ root: projectRoot, server: { middlewareMode: true, hmr: process.env.DISABLE_HMR === "true" ? false : { server } }, appType: "spa" });
+    const vite = await createServer({ root: projectRoot, server: { middlewareMode: true, hmr: process.env.DISABLE_HMR !== "true", ws: process.env.DISABLE_HMR === "true" ? false : { server } }, appType: "spa" });
     app.use(vite.middlewares);
     closeVite = () => vite.close();
   } else {

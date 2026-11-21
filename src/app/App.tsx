@@ -389,16 +389,16 @@ export default function App() {
   const isCameraStageView = workspaceView === "live" || workspaceView === "character";
 
   return (
-    <div className="min-h-screen flex flex-col bg-[#07090E] text-slate-100">
-      <JourneyHeader view={workspaceView} onNavigate={navigate} />
+    <div className={`${workspaceView === 'museum' ? 'h-dvh overflow-hidden' : 'min-h-screen'} flex flex-col bg-[#07090E] text-slate-100`}>
+      {workspaceView !== 'museum' && <JourneyHeader view={workspaceView} onNavigate={navigate} />}
 
       <RuntimeStatus />
 
       {/* Main Content */}
-      <main id="learning-main" className="flex-1 w-full max-w-[1440px] mx-auto px-4 sm:px-6 py-5">
+      <main id="learning-main" className={workspaceView === 'museum' ? "flex-1 min-h-0 w-full" : "flex-1 w-full max-w-[1440px] mx-auto px-4 sm:px-6 py-5"}>
         {workspaceView === 'home' && <LearningHome onNavigate={navigate} />}
-        <LearningGuide view={workspaceView} onNavigate={navigate} onPrompt={setPromptText} />
-        {workspaceView === 'museum' && <div className="museum-workspace"><MuseumApp /></div>}
+        {workspaceView !== 'museum' && <LearningGuide view={workspaceView} onNavigate={navigate} onPrompt={setPromptText} />}
+        {workspaceView === 'museum' && <div className="museum-workspace"><MuseumApp onExit={() => navigate('home')} /></div>}
         {workspaceView === 'notebook' && <LearningNotebook />}
         {['live', 'character', 'log', 'compare'].includes(workspaceView) && <nav className="research-tools" aria-label="Exploration tools"><span>Research tools</span><button onClick={() => navigate('live')} aria-current={workspaceView === 'live' ? 'page' : undefined}>Viewfinder</button><button onClick={() => navigate('log')} aria-current={workspaceView === 'log' ? 'page' : undefined}>Observation log</button><button onClick={() => navigate('compare')} aria-current={workspaceView === 'compare' ? 'page' : undefined}>Compare responses</button></nav>}
         {/* Keep the capture elements mounted so World can reuse the active feed. */}
@@ -518,7 +518,7 @@ export default function App() {
           />
         )}
       </main>
-      <footer className="journey-footer"><span>CHRONOCALL · LEARN THROUGH CURIOSITY</span><span>AI interpretations invite questions. Verify historical claims with reliable sources.</span></footer>
+      {workspaceView !== 'museum' && <footer className="journey-footer"><span>CHRONOCALL · LEARN THROUGH CURIOSITY</span><span>AI interpretations invite questions. Verify historical claims with reliable sources.</span></footer>}
     </div>
   );
 }

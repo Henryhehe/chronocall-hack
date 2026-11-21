@@ -10,7 +10,7 @@ A hackathon prototype for camera-based historical characters, live conversations
 
 | Screen / feature | Implemented behavior | Demo mode without a key |
 | --- | --- | --- |
-| **Discover / learning home** | Four experience entry points and guiding questions | Available without model calls |
+| **Discover / learning home** | Featured portrait, look → ask → reflect introduction, and four concise experience entry points | Available without model calls |
 | **Portrait gallery / Museum AR** | Washington portrait, animated layers, camera anchor tracking, camera/upload identification, hotspots, typed questions with optional TTS, live character voice, mobile QR | Bundled portrait/visual controls work; identification, character replies, and voice explicitly unavailable |
 | **Live Vision** | Camera selection, screen sharing, image/video upload; one-shot or timed detection; focus prompt, confidence filtering, clickable boxes, frame Q&A, annotated snapshot download | Media preview and controls work; detection returns no inferred boxes; Q&A returns a labeled placeholder |
 | **Live voice** | Microphone + sampled video over WebSocket; spoken replies, transcripts, interruption, model-triggered object highlights; standard/extended-thinking model selection | Explicitly unavailable |
@@ -252,3 +252,7 @@ Without a key, demonstrate the included artwork, capture/upload UI, preset world
 ### Characters contribution
 
 Museum identification now uses a general era-aware character guide. `POST /api/research-figure` adds Google Search research, structured profiles, and Decisions API support checks (threshold 0.8). Persona helpers also support animal, object, and place speakers. The research endpoint and alternate-speaker helpers are available for frontend integration; the existing UI does not yet automatically request research or switch speakers. Research is disabled in demo mode. See [character pipeline](research/README.md).
+
+## UI references
+
+The discovery page uses [Google Arts & Culture Play](https://artsandculture.google.com/play) as a reference for a featured cultural experience and short invitations to explore, and [Brilliant](https://brilliant.org/) for guided questions and active learning. The implementation keeps Chronocall’s own artwork, colors, and components: one primary portrait action, a look → ask → reflect introduction, and compact links to all four workspaces. No external site assets or code are copied.

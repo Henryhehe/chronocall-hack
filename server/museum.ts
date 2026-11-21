@@ -316,33 +316,27 @@ If no portrait or figure is clearly visible, set detected to false and explain b
           ? voiceName
           : 'Charon';
         try {
-          const ttsResponse = await ai.models.generateContent({
+          // Gemini 3.8 TTS uses the v1beta Interactions speech contract.
+          const ttsResponse = await createGeminiClient('v1beta').interactions.create({
             model: 'gemini-3.8-flash-lite-tts',
-            contents: [
-              {
-                role: 'user',
-                parts: [
-                  {
-                    text: replyText,
-                    speechMetadata: {
-                      style: 'Dignified, warm, historically grounded conversational portrait voice',
-                    },
-                  },
-                ],
-              },
-            ],
-            config: {
-              responseModalities: ['AUDIO'],
-              speechConfig: {
-                voiceConfig: {
-                  prebuiltVoiceConfig: { voiceName: validVoice },
-                },
-              },
+            input: [{
+              type: 'user_input',
+              content: [{
+                type: 'text',
+                text: replyText,
+                annotations: [{
+                  type: 'speech_metadata',
+                  style: 'Dignified, warm, historically grounded conversational portrait voice',
+                }],
+              }],
+            }],
+            response_format: { type: 'audio' },
+            generation_config: {
+              speech_config: [{ voice: validVoice }],
             },
           });
 
-          audioBase64 =
-            ttsResponse.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data ?? null;
+          audioBase64 = ttsResponse.output_audio?.data ?? null;
         } catch (ttsErr) {
           console.warn('TTS synthesis fallback (returning text only):', ttsErr);
         }
