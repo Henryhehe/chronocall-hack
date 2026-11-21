@@ -3,6 +3,7 @@ import { ArtworkScannerModal } from "./components/ArtworkScannerModal";
 import { CallLauncher } from "./components/CallLauncher";
 import { CallStage } from "./components/CallStage";
 import { ChronoSelfieModal } from "./components/ChronoSelfieModal";
+import { OnlineArtworkModal } from "./components/OnlineArtworkModal";
 import { matchCuratedContact } from "./data/contacts";
 import { useFaceTimeCall } from "./hooks/useFaceTimeCall";
 import { captureMediaFrame } from "../../utils/canvas";
@@ -34,6 +35,8 @@ export default function FaceTimeApp() {
   const [videoEngineMode, setVideoEngineMode] =
     useState<VideoEngineMode>("hybrid");
   const [scannerOpen, setScannerOpen] = useState(false);
+  const [artworkSearchOpen, setArtworkSearchOpen] = useState(false);
+  const [artworkInitialQuery, setArtworkInitialQuery] = useState("");
   const [resolvingQuery, setResolvingQuery] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [pipelineEvents, setPipelineEvents] = useState<GeminiPipelineEvent[]>(
@@ -100,6 +103,7 @@ export default function FaceTimeApp() {
       stopRingtone();
       setErrorMessage(null);
       setScannerOpen(false);
+      setArtworkSearchOpen(false);
       setActiveProfile(profile);
       setPortraitDataUrl(
         scannedReferenceDataUrl || profile.previewImageUrl || null
@@ -126,7 +130,9 @@ export default function FaceTimeApp() {
         try {
           setRingingSubtitle(
             scannedReferenceDataUrl
-              ? `Bringing ${profile.name} to life from your scan…`
+              ? profile.artworkTitle
+                ? `Bringing ${profile.name} to life from “${profile.artworkTitle}”…`
+                : `Bringing ${profile.name} to life from your artwork…`
               : `Connecting video feed from ${profile.era}…`
           );
           const res = await fetch("/api/facetime/portrait", {
@@ -343,6 +349,10 @@ export default function FaceTimeApp() {
           onDialCustomName={(name) => void handleDialCustomName(name)}
           onSelectContact={(contact) => void beginCall(contact)}
           onOpenScanner={() => setScannerOpen(true)}
+          onOpenArtworkSearch={(initial) => {
+            setArtworkInitialQuery(initial ?? "");
+            setArtworkSearchOpen(true);
+          }}
         />
       )}
 
@@ -408,6 +418,15 @@ export default function FaceTimeApp() {
         open={scannerOpen}
         onClose={() => setScannerOpen(false)}
         onConfirmCall={handleConfirmScannedCall}
+      />
+
+      <OnlineArtworkModal
+        open={artworkSearchOpen}
+        initialQuery={artworkInitialQuery}
+        onClose={() => setArtworkSearchOpen(false)}
+        onLaunchWithArtwork={(profile, artworkDataUrl) =>
+          void beginCall(profile, artworkDataUrl)
+        }
       />
     </>
   );

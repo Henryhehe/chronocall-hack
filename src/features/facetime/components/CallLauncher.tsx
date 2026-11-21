@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from "react";
-import { ArrowRight, Camera, Loader2, Search, Video } from "lucide-react";
+import { ArrowRight, Camera, Landmark, Loader2, Search, Video } from "lucide-react";
 import { JourneyHeader } from "../../../app/LearningJourney";
 import { CURATED_HISTORICAL_CONTACTS } from "../data/contacts";
 import type { HistoricalProfile, RuntimeHealth } from "../types";
@@ -12,9 +12,10 @@ interface CallLauncherProps {
   onDialCustomName: (name: string) => void;
   onSelectContact: (contact: HistoricalProfile) => void;
   onOpenScanner: () => void;
+  onOpenArtworkSearch: (initialQuery?: string) => void;
 }
 
-export const CallLauncher: React.FC<CallLauncherProps> = ({ health, resolvingQuery, errorMessage, onDismissError, onDialCustomName, onSelectContact, onOpenScanner }) => {
+export const CallLauncher: React.FC<CallLauncherProps> = ({ health, resolvingQuery, errorMessage, onDismissError, onDialCustomName, onSelectContact, onOpenScanner, onOpenArtworkSearch }) => {
   const [query, setQuery] = useState("");
   const filteredContacts = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -34,6 +35,7 @@ export const CallLauncher: React.FC<CallLauncherProps> = ({ health, resolvingQue
           <button className="learning-primary" disabled={!query.trim() || resolvingQuery}>{resolvingQuery ? <Loader2 size={17} className="animate-spin" /> : <Video size={17} />} {resolvingQuery ? 'Preparing…' : 'Call'}</button>
         </form>
         <button className="ui-button" onClick={onOpenScanner} disabled={resolvingQuery}><Camera size={18} />Scan artwork</button>
+        <button className="ui-button" onClick={() => onOpenArtworkSearch(query.trim() || undefined)} disabled={resolvingQuery}><Landmark size={18} />Find artwork</button>
       </div>
       <section aria-labelledby="contacts-title">
         <div className="section-heading"><h2 id="contacts-title">{query.trim() ? 'Search results' : 'Choose a person'}</h2><p>AI interpretations of historical figures</p></div>

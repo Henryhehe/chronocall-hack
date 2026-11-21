@@ -15,6 +15,9 @@ import type {
   GeminiPipelineEvent,
   GeminiPipelineStage,
   HistoricalProfile,
+  OnlineArtworkCandidate,
+  OnlineArtworkMedium,
+  OnlineArtworkSearchResult,
   VideoEngineMode,
   FaceTimeSelfieResult,
 } from "../../../shared/facetime.ts";
@@ -39,6 +42,9 @@ export type {
   GeminiPipelineEvent,
   GeminiPipelineStage,
   HistoricalProfile,
+  OnlineArtworkCandidate,
+  OnlineArtworkMedium,
+  OnlineArtworkSearchResult,
   VideoEngineMode,
 };
 export { normalizePortalPrompt };

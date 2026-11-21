@@ -128,6 +128,7 @@ test("POST /api/facetime/artifact: live mode invokes services.generateHistorical
   let invokedWithDescription = "";
 
   const mockServices: FaceTimeServices = {
+    evaluateHistoricalTurnDecision: async () => { throw new Error("Unexpected evaluateHistoricalTurnDecision request"); },
     resolveHistoricalFigure: async ({ query }) =>
       normalizeHistoricalProfile({ name: query }, "search"),
     identifyFigureFromImage: async () => ({
