@@ -2,6 +2,7 @@ import React, { useMemo, useState } from "react";
 import {
   ArrowRight,
   Camera,
+  Landmark,
   Loader2,
   Search,
   Sparkles,
@@ -18,6 +19,7 @@ interface CallLauncherProps {
   onDialCustomName: (name: string) => void;
   onSelectContact: (contact: HistoricalProfile) => void;
   onOpenScanner: () => void;
+  onOpenArtworkSearch: (initialQuery?: string) => void;
 }
 
 const QUICK_SEARCH_SUGGESTIONS = [
@@ -37,6 +39,7 @@ export const CallLauncher: React.FC<CallLauncherProps> = ({
   onDialCustomName,
   onSelectContact,
   onOpenScanner,
+  onOpenArtworkSearch,
 }) => {
   const [query, setQuery] = useState("");
 
@@ -191,12 +194,23 @@ export const CallLauncher: React.FC<CallLauncherProps> = ({
             <button
               type="button"
               onClick={onOpenScanner}
-              className="inline-flex items-center justify-center gap-2.5 px-6 py-3.5 rounded-full bg-white/[0.09] hover:bg-white/[0.16] border border-white/15 text-white font-medium text-sm backdrop-blur-2xl shadow-xl transition-all cursor-pointer shrink-0 group"
+              className="inline-flex items-center justify-center gap-2 px-5 py-3.5 rounded-full bg-white/[0.09] hover:bg-white/[0.16] border border-white/15 text-white font-medium text-sm backdrop-blur-2xl shadow-xl transition-all cursor-pointer shrink-0 group"
             >
               <span className="w-7 h-7 rounded-full bg-amber-400/20 border border-amber-300/40 flex items-center justify-center text-amber-300 group-hover:scale-105 transition-transform">
                 <Camera className="w-4 h-4" />
               </span>
-              <span>Scan Painting or Statue</span>
+              <span>Scan Art</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => onOpenArtworkSearch(query.trim() || undefined)}
+              className="inline-flex items-center justify-center gap-2 px-5 py-3.5 rounded-full bg-sky-500/15 hover:bg-sky-500/25 border border-sky-400/30 text-sky-100 font-medium text-sm backdrop-blur-2xl shadow-xl transition-all cursor-pointer shrink-0 group"
+            >
+              <span className="w-7 h-7 rounded-full bg-sky-400/20 border border-sky-300/40 flex items-center justify-center text-sky-300 group-hover:scale-105 transition-transform">
+                <Landmark className="w-4 h-4" />
+              </span>
+              <span>Famous Art Online</span>
             </button>
           </div>
 
@@ -220,30 +234,55 @@ export const CallLauncher: React.FC<CallLauncherProps> = ({
           </div>
         </section>
 
-        {/* Camera Scanner Spotlight Banner */}
-        <section>
+        {/* Dual Art Entry Spotlights: Camera Scanner + Online Famous Art Search */}
+        <section className="grid grid-cols-1 lg:grid-cols-2 gap-4">
           <button
             type="button"
             onClick={onOpenScanner}
-            className="w-full text-left rounded-3xl p-5 sm:p-6 bg-gradient-to-r from-amber-500/12 via-white/[0.05] to-emerald-500/12 border border-white/12 hover:border-white/25 backdrop-blur-xl transition-all flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 cursor-pointer group"
+            className="w-full text-left rounded-3xl p-5 sm:p-6 bg-gradient-to-r from-amber-500/12 via-white/[0.05] to-emerald-500/10 border border-white/12 hover:border-white/25 backdrop-blur-xl transition-all flex flex-col justify-between gap-4 cursor-pointer group"
           >
-            <div className="flex items-center gap-4">
-              <div className="w-13 h-13 rounded-2xl bg-gradient-to-br from-amber-400/25 to-emerald-400/25 border border-white/15 flex items-center justify-center shrink-0">
+            <div className="flex items-start gap-4">
+              <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-amber-400/25 to-emerald-400/25 border border-white/15 flex items-center justify-center shrink-0">
                 <Camera className="w-6 h-6 text-amber-200" />
               </div>
               <div>
                 <h2 className="text-base font-semibold text-white">
-                  At a museum, holding a book, or looking at a statue?
+                  Point Camera at a Painting or Statue
                 </h2>
-                <p className="text-sm text-slate-300/85 mt-0.5">
-                  Point your camera at any painting, bust, or historical photo—we
-                  identify the figure and bring them to life on your FaceTime
-                  call.
+                <p className="text-xs sm:text-sm text-slate-300/85 mt-1 leading-relaxed">
+                  At a museum or holding a book? Scan any artwork live and bring
+                  the depicted figure onto your FaceTime call.
                 </p>
               </div>
             </div>
-            <span className="inline-flex items-center gap-1.5 text-sm font-semibold text-emerald-300 group-hover:translate-x-0.5 transition-transform shrink-0">
+            <span className="inline-flex items-center gap-1.5 text-xs sm:text-sm font-semibold text-amber-200 group-hover:translate-x-0.5 transition-transform">
               Open Camera Scanner
+              <ArrowRight className="w-4 h-4" />
+            </span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => onOpenArtworkSearch(query.trim() || undefined)}
+            className="w-full text-left rounded-3xl p-5 sm:p-6 bg-gradient-to-r from-sky-500/14 via-white/[0.05] to-emerald-500/12 border border-sky-400/20 hover:border-sky-300/40 backdrop-blur-xl transition-all flex flex-col justify-between gap-4 cursor-pointer group"
+          >
+            <div className="flex items-start gap-4">
+              <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-sky-400/25 to-emerald-400/25 border border-white/15 flex items-center justify-center shrink-0">
+                <Landmark className="w-6 h-6 text-sky-200" />
+              </div>
+              <div>
+                <h2 className="text-base font-semibold text-white">
+                  Search Famous Art &amp; Sculptures Online
+                </h2>
+                <p className="text-xs sm:text-sm text-slate-300/85 mt-1 leading-relaxed">
+                  Automatically finds the most famous painting or statue online
+                  and animates it live on FaceTime—with an option to pick
+                  another piece.
+                </p>
+              </div>
+            </div>
+            <span className="inline-flex items-center gap-1.5 text-xs sm:text-sm font-semibold text-sky-300 group-hover:translate-x-0.5 transition-transform">
+              Search Museum Artworks
               <ArrowRight className="w-4 h-4" />
             </span>
           </button>

@@ -6,6 +6,9 @@ import type {
   FaceTimeVideoJobStatus,
   FaceTimeVoiceName,
   HistoricalProfile,
+  OnlineArtworkCandidate,
+  OnlineArtworkMedium,
+  OnlineArtworkSearchResult,
   VideoEngineMode,
 } from "../../../shared/facetime.ts";
 
@@ -17,6 +20,9 @@ export type {
   FaceTimeVideoJobStatus,
   FaceTimeVoiceName,
   HistoricalProfile,
+  OnlineArtworkCandidate,
+  OnlineArtworkMedium,
+  OnlineArtworkSearchResult,
   VideoEngineMode,
 };
 
