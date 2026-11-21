@@ -1210,11 +1210,13 @@ function animateFigureInLiveVideo(
   pctx.drawImage(maskCanvas, 0, 0);
   pctx.globalCompositeOperation = 'source-over';
 
-  // Subpixel motion keeps the sampled face aligned with the live painting underneath.
-  const breathScale = 1 + Math.sin(elapsed * 1.6) * speech * 0.002;
-  const angle = Math.sin(elapsed * 1.15) * speech * 0.0015;
-  const liftY = -speech * Math.min(0.6, patchH * 0.003);
-  const swayX = Math.cos(elapsed * 0.9) * speech * 0.2;
+  // Animate the live face pixels with restrained, audio-reactive nods.
+  // Keep movement bounded so the feathered patch stays close to the painting.
+  const syllable = 0.5 + 0.5 * Math.sin(elapsed * 8.5);
+  const breathScale = 1 + speech * (0.006 + syllable * 0.008);
+  const angle = Math.sin(elapsed * 2.2) * speech * 0.012;
+  const liftY = -speech * Math.min(2.5, patchH * 0.018) * (0.4 + syllable * 0.6);
+  const swayX = Math.cos(elapsed * 1.3) * speech * Math.min(1.5, patchW * 0.01);
 
   const pivotX = fx;
   const pivotY = py + patchH * 0.72;
