@@ -1,7 +1,23 @@
-export function float32ToPcm16Base64(float32: Float32Array): string {
-  const pcm16 = new Int16Array(float32.length);
-  for (let i = 0; i < float32.length; i++) {
-    const s = Math.max(-1, Math.min(1, float32[i]));
+export function float32ToPcm16Base64(float32: Float32Array, inputSampleRate = 16000): string {
+  let samples = float32;
+  if (inputSampleRate !== 16000 && inputSampleRate > 0) {
+    const ratio = inputSampleRate / 16000;
+    const outLen = Math.max(1, Math.round(float32.length / ratio));
+    const resampled = new Float32Array(outLen);
+    for (let i = 0; i < outLen; i++) {
+      const pos = i * ratio;
+      const idx = Math.floor(pos);
+      const frac = pos - idx;
+      const s0 = float32[Math.min(idx, float32.length - 1)];
+      const s1 = float32[Math.min(idx + 1, float32.length - 1)];
+      resampled[i] = s0 + (s1 - s0) * frac;
+    }
+    samples = resampled;
+  }
+
+  const pcm16 = new Int16Array(samples.length);
+  for (let i = 0; i < samples.length; i++) {
+    const s = Math.max(-1, Math.min(1, samples[i]));
     pcm16[i] = s < 0 ? s * 0x8000 : s * 0x7fff;
   }
   const bytes = new Uint8Array(pcm16.buffer);

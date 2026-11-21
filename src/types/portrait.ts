@@ -20,6 +20,19 @@ export interface FocalBox {
   height: number;
 }
 
+export interface QuadCorner {
+  /** Percentage 0-100 */
+  x: number;
+  y: number;
+}
+
+export interface FocalQuad {
+  topLeft: QuadCorner;
+  topRight: QuadCorner;
+  bottomRight: QuadCorner;
+  bottomLeft: QuadCorner;
+}
+
 export interface PortraitArtwork {
   id: string;
   accessionNumber: string;
@@ -38,6 +51,7 @@ export interface PortraitArtwork {
   openingLine: string;
   focalPoint: { x: number; y: number };
   focalBox?: FocalBox;
+  focalQuad?: FocalQuad;
   hotspots: ARHotspot[];
   suggestedQuestions: string[];
 }
