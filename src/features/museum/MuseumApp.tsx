@@ -1,6 +1,6 @@
 import './portrait-room.css';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Mic, MicOff, MessageSquare, X, ArrowLeft, Smartphone, VolumeX } from 'lucide-react';
+import { Mic, MicOff, MessageSquare, X, ArrowLeft, Smartphone, VolumeX, ShoppingBag } from 'lucide-react';
 import { WASHINGTON_PORTRAIT } from './data/washingtonPortrait';
 import { useMuseumVoice } from './hooks/useMuseumVoice';
 import { ARHotspot, LensMode, PortraitArtwork } from './types/portrait';
@@ -8,9 +8,13 @@ import { PortraitStage } from './components/PortraitStage';
 import { ARPortraitStage } from './components/ARPortraitStage';
 import { CuratorialPanel } from './components/CuratorialPanel';
 import { MobilePreviewModal } from './components/MobilePreviewModal';
+// Shopify: prints of the painting on screen (src/features/shop).
+import { PrintOfferModal } from '../shop/PrintOfferModal';
+import { useArtworkPrints } from '../shop/useArtworkPrints';
 
 export default function App({ onExit }: { onExit: () => void }) {
   const [artwork, setArtwork] = useState<PortraitArtwork>(WASHINGTON_PORTRAIT);
+  const prints = useArtworkPrints();
   const [cameraArtworkLost, setCameraArtworkLost] = useState(true);
   const [lensMode, setLensMode] = useState<LensMode>('portrait');
   const [activeHotspotId, setActiveHotspotId] = useState<string | null>(null);
@@ -78,6 +82,16 @@ export default function App({ onExit }: { onExit: () => void }) {
     },
     [askCharacter, canSpeak]
   );
+
+  // Offer prints of this painting when a conversation ends.
+  const wasListening = useRef(false);
+  useEffect(() => {
+    if (isListening) wasListening.current = true;
+    else if (wasListening.current) {
+      wasListening.current = false;
+      prints.offer({ title: artwork.title, artist: artwork.artist, characterName: artwork.characterName, imageUrl: artwork.imageUrl });
+    }
+  }, [isListening]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleArtworkIdentified = useCallback(
     (identified: PortraitArtwork, source: 'camera' | 'upload') => {
@@ -168,6 +182,7 @@ export default function App({ onExit }: { onExit: () => void }) {
         {combinedError && <p role="alert" className="portrait-room-error">{combinedError}</p>}
         <div className="portrait-room-actions"><button type="button" className="portrait-room-secondary" onClick={() => { stopLiveVoice(); setCameraArtworkLost(true); setLensMode(lensMode === 'camera' ? 'portrait' : 'camera'); }}>{lensMode === 'camera' ? 'View portrait' : 'Scan painting'}</button>
           <button type="button" className="portrait-room-secondary" onClick={() => setMobileSheetOpen(true)} aria-label="Open conversation"><MessageSquare size={20} /><span>Conversation</span></button>
+          <button type="button" className="portrait-room-secondary" onClick={() => prints.offer({ title: artwork.title, artist: artwork.artist, characterName: artwork.characterName, imageUrl: artwork.imageUrl })} aria-label="Buy a print of this painting"><ShoppingBag size={20} /><span>Prints</span></button>
           <button type="button" className={`portrait-room-speak ${isListening || connectionState === 'connecting' ? 'is-active' : ''}`} onClick={handleToggleVoice} disabled={!canSpeak && !isListening}>
             {isListening || connectionState === 'connecting' ? <MicOff size={22} /> : <Mic size={22} />}
             <span>{connectionState === 'connecting' ? 'Cancel connection' : isListening ? 'End conversation' : 'Talk to portrait'}</span>
@@ -196,6 +211,7 @@ export default function App({ onExit }: { onExit: () => void }) {
         </div>
       </dialog>
       <MobilePreviewModal open={mobileQrOpen} onClose={() => setMobileQrOpen(false)} />
+      <PrintOfferModal {...prints} />
     </div>
   );
 }

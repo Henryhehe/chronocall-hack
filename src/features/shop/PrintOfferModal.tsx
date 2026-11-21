@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { ExternalLink, Frame, Loader2, ShoppingBag, X } from "lucide-react";
+import { ExternalLink, Loader2, ShoppingBag, X } from "lucide-react";
 import { Modal } from "../../app/components/Modal";
 import type { PrintOffer, PrintOfferState } from "./usePrintOffer";
 
@@ -55,7 +55,7 @@ export function PrintOfferModal(props: PrintOfferState) {
         <div className="px-5 py-4 border-b border-white/10 flex items-center justify-between gap-4">
           <div className="flex items-center gap-3">
             <div className="w-9 h-9 rounded-xl bg-amber-400/15 border border-amber-300/30 flex items-center justify-center text-amber-300">
-              <Frame className="w-5 h-5" />
+              <ShoppingBag className="w-5 h-5" />
             </div>
             <div>
               <h2 className="text-base font-semibold text-white">
@@ -149,6 +149,11 @@ export function PrintOfferModal(props: PrintOfferState) {
             <p className="text-sm text-slate-300 py-6">No prints of this painting were found in Shopify stores right now.</p>
           ) : (
             <>
+              {result?.matchedBy === "figure" && (
+                <p className="mb-3 text-sm text-slate-300">
+                  No prints of this exact painting are sold right now. Here are prints of {figureName || "the same figure"}.
+                </p>
+              )}
               <ul className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                 {result?.offers.map((o) => (
                   <li key={o.variantId} className="rounded-lg border border-white/10 bg-white/[0.04] overflow-hidden flex flex-col">

@@ -10,7 +10,7 @@ const SEARCH_DELAY_MS = 20_000;
 const IMAGE_MAX_PX = 512;
 
 /** Shrinks a data-URL image to at most maxPx on its longer side, as a JPEG. */
-async function shrinkDataUrl(dataUrl: string | undefined, maxPx: number): Promise<{ base64: string; mimeType: string } | null> {
+export async function shrinkDataUrl(dataUrl: string | undefined, maxPx: number): Promise<{ base64: string; mimeType: string } | null> {
   if (!dataUrl?.startsWith("data:image/")) return null;
   try {
     const img = new Image();
@@ -46,6 +46,7 @@ export interface PrintSearch {
   rejected: { title: string; printScore: number }[];
   warnings: string[];
   decisions: { used: boolean; latencyMs: number; error?: string };
+  matchedBy?: "exact" | "figure";
 }
 
 interface ProfileLike {
@@ -107,7 +108,7 @@ export function usePrintOffer(params: { phase: string; profile: ProfileLike | nu
         fetch("/api/shop/prints", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ artworkTitle, artist: p.artist, imageBase64: image?.base64, mimeType: image?.mimeType }),
+          body: JSON.stringify({ artworkTitle, artist: p.artist, figure: p.name, imageBase64: image?.base64, mimeType: image?.mimeType }),
         }),
       )
       .then(async (res) => {
