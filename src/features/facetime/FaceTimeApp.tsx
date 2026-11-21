@@ -10,8 +10,10 @@ import {
   startOutgoingRingtone,
 } from "./utils/ringtone";
 import type {
+  FaceTimeDecisionResult,
   FaceTimePhase,
   FaceTimePortraitResult,
+  GeminiPipelineEvent,
   HistoricalProfile,
   RuntimeHealth,
   VideoEngineMode,
@@ -32,9 +34,32 @@ export default function FaceTimeApp() {
   const [scannerOpen, setScannerOpen] = useState(false);
   const [resolvingQuery, setResolvingQuery] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [pipelineEvents, setPipelineEvents] = useState<GeminiPipelineEvent[]>(
+    []
+  );
+  const [latestDecision, setLatestDecision] =
+    useState<FaceTimeDecisionResult | null>(null);
+  const [verifyingDecision, setVerifyingDecision] = useState(false);
 
   const callSeqRef = useRef(0);
   const stopRingtoneRef = useRef<(() => void) | null>(null);
+  const lastVerifiedUtteranceRef = useRef<string>("");
+
+  const recordPipelineEvent = useCallback(
+    (event: Omit<GeminiPipelineEvent, "id" | "timestamp">) => {
+      setPipelineEvents((prev) =>
+        [
+          {
+            ...event,
+            id: `${event.stage}-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+            timestamp: Date.now(),
+          },
+          ...prev,
+        ].slice(0, 16)
+      );
+    },
+    []
+  );
 
   useEffect(() => {
     let active = true;
@@ -72,6 +97,9 @@ export default function FaceTimeApp() {
         scannedReferenceDataUrl || profile.previewImageUrl || null
       );
       setRingingSubtitle(`Calling ${profile.location} (${profile.era})…`);
+      setLatestDecision(null);
+      setVerifyingDecision(false);
+      lastVerifiedUtteranceRef.current = "";
       setPhase("ringing");
 
       stopRingtoneRef.current = startOutgoingRingtone();
@@ -80,6 +108,13 @@ export default function FaceTimeApp() {
 
       // Fetch / generate photorealistic FaceTime portrait while ringing
       const portraitTask = (async () => {
+        const startedAt = Date.now();
+        recordPipelineEvent({
+          stage: "portrait",
+          model: "gemini-3.1-flash-lite-image",
+          label: "Synthesizing living portrait",
+          status: "running",
+        });
         try {
           setRingingSubtitle(
             scannedReferenceDataUrl
@@ -99,6 +134,13 @@ export default function FaceTimeApp() {
           const data = (await res.json()) as FaceTimePortraitResult;
           if (callSeqRef.current === seq && data.imageDataUrl) {
             setPortraitDataUrl(data.imageDataUrl);
+            recordPipelineEvent({
+              stage: "portrait",
+              model: data.model || "gemini-3.1-flash-lite-image",
+              label: "Living portrait ready",
+              status: "done",
+              latencyMs: data.latencyMs || Date.now() - startedAt,
+            });
           }
         } catch {
           // Keep preview/gradient fallback cleanly if portrait synthesis fails
@@ -129,6 +171,13 @@ export default function FaceTimeApp() {
 
       setResolvingQuery(true);
       setErrorMessage(null);
+      const startedAt = Date.now();
+      recordPipelineEvent({
+        stage: "persona",
+        model: "gemini-4-hydrogen",
+        label: `Resolving ${trimmed}`,
+        status: "running",
+      });
       try {
         const res = await fetch("/api/facetime/resolve", {
           method: "POST",
@@ -144,6 +193,13 @@ export default function FaceTimeApp() {
             data.error || `Could not prepare a FaceTime call with ${trimmed}.`
           );
         }
+        recordPipelineEvent({
+          stage: "persona",
+          model: "gemini-4-hydrogen",
+          label: `Persona ready: ${data.profile.name}`,
+          status: "done",
+          latencyMs: Date.now() - startedAt,
+        });
         void beginCall(data.profile);
       } catch (err) {
         setErrorMessage(
@@ -160,10 +216,67 @@ export default function FaceTimeApp() {
 
   const handleConfirmScannedCall = useCallback(
     (profile: HistoricalProfile, scannedDataUrl: string) => {
+      recordPipelineEvent({
+        stage: "vision",
+        model: "gemini-4-hydrogen",
+        label: `Artwork matched: ${profile.name}`,
+        status: "done",
+      });
       void beginCall(profile, scannedDataUrl || undefined);
     },
-    [beginCall]
+    [beginCall, recordPipelineEvent]
   );
+
+  // Asynchronous Decisions API historical grounding whenever the figure finishes a spoken turn
+  useEffect(() => {
+    if (phase !== "in-call" || !activeProfile) return;
+    const latestFigureEntry = [...call.transcripts]
+      .reverse()
+      .find((t) => t.speaker === "figure" && !t.streaming && t.text.trim().length > 12);
+    if (!latestFigureEntry) return;
+    const key = `${latestFigureEntry.id}:${latestFigureEntry.text}`;
+    if (lastVerifiedUtteranceRef.current === key) return;
+    lastVerifiedUtteranceRef.current = key;
+
+    const latestUserEntry = [...call.transcripts]
+      .reverse()
+      .find((t) => t.speaker === "user");
+
+    let cancelled = false;
+    setVerifyingDecision(true);
+    void (async () => {
+      try {
+        const res = await fetch("/api/facetime/decision", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            profile: activeProfile,
+            utterance: latestFigureEntry.text,
+            userPrompt: latestUserEntry?.text,
+          }),
+        });
+        if (!res.ok || cancelled) return;
+        const result = (await res.json()) as FaceTimeDecisionResult;
+        if (cancelled) return;
+        setLatestDecision(result);
+        recordPipelineEvent({
+          stage: "decisions",
+          model: result.model,
+          label: `${Math.round(result.confidence * 100)}% ${result.verdict.replace("_", " ")}`,
+          status: "done",
+          latencyMs: result.latencyMs,
+        });
+      } catch {
+        // Non-blocking telemetry — ignore transient errors
+      } finally {
+        if (!cancelled) setVerifyingDecision(false);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [activeProfile, call.transcripts, phase, recordPipelineEvent]);
 
   const handleEndCall = useCallback(() => {
     callSeqRef.current++;
@@ -220,6 +333,9 @@ export default function FaceTimeApp() {
           onSendMessage={(msg) => void call.sendMessage(msg)}
           videoEngineMode={videoEngineMode}
           onChangeVideoEngineMode={setVideoEngineMode}
+          pipelineEvents={pipelineEvents}
+          latestDecision={latestDecision}
+          verifyingDecision={verifyingDecision}
           errorMessage={errorMessage}
           onDismissError={() => setErrorMessage(null)}
           onEndCall={handleEndCall}

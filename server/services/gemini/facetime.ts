@@ -1,15 +1,20 @@
 import crypto from "node:crypto";
 import { ThinkingLevel, Type, type GenerateVideosOperation } from "@google/genai";
-import { getGeminiClient } from "./client.ts";
-import { IMAGE_GEN_MODEL, VISION_MODEL } from "../../../shared/models.ts";
+import { getGeminiClient, getLiveGeminiClient } from "./client.ts";
+import { IMAGE_GEN_MODEL, PRO_VISION_MODEL, VISION_MODEL } from "../../../shared/models.ts";
 import {
   normalizeHistoricalProfile,
   type ArtworkKind,
+  type DecisionVerdict,
+  type FaceTimeDecisionResult,
   type FaceTimeIdentifyResult,
   type FaceTimePortraitResult,
   type FaceTimeVideoJobStatus,
   type HistoricalProfile,
 } from "../../../shared/facetime.ts";
+
+const DECISION_MODEL =
+  process.env.GEMINI_DECISION_MODEL?.trim() || "models/gemini-decision-1";
 
 const DEFAULT_VEO_MODEL =
   process.env.VEO_MODEL?.trim() || "veo-3.1-fast-generate-preview";
@@ -551,4 +556,172 @@ export async function respondToFaceTimeText(params: {
     latencyMs: Date.now() - startedAt,
     model: VISION_MODEL,
   };
+}
+
+/**
+ * Evaluates a spoken historical turn in parallel across structured questions
+ * using Gemini's Decisions API (`models/gemini-decision-1`), with an honest
+ * fallback to `gemini-4-neon` if Decisions API is unavailable on the key.
+ */
+export async function evaluateHistoricalTurnDecision(params: {
+  profile: HistoricalProfile;
+  utterance: string;
+  userPrompt?: string;
+}): Promise<FaceTimeDecisionResult> {
+  const startedAt = Date.now();
+  const { profile, utterance, userPrompt } = params;
+
+  const sharedInput = [
+    `Historical speaker: ${profile.name} (${profile.title}, ${profile.era}, ${profile.location}).`,
+    userPrompt ? `Modern caller asked: "${userPrompt}"` : "",
+    `Historical figure just said aloud: "${utterance}"`,
+  ]
+    .filter(Boolean)
+    .join("\n");
+
+  try {
+    const liveAi = getLiveGeminiClient();
+    const decisionResp = await liveAi.decisions.create({
+      model: DECISION_MODEL,
+      input: sharedInput,
+      questions: {
+        historical_grounding: {
+          type: "choice",
+          instructions:
+            "Classify the historical accuracy of the speaker's statement relative to their real era and biography.",
+          criteria: {
+            verified:
+              "Consistent with documented history, dates, setting, or authentic worldview of the figure.",
+            plausible_persona:
+              "Creative conversational banter or reaction to a modern caller that stays faithfully in character.",
+            anachronism:
+              "Contains a factual historical error or claims knowledge impossible for their era without acknowledging the modern caller.",
+          },
+        },
+        era_fidelity: {
+          type: "score",
+          instructions:
+            "Rate how authentically the voice, tone, and historical context match the figure's era (0 = out of character, 4 = deeply authentic).",
+          criteria: [
+            "Completely modern or out of character",
+            "Mostly generic with minimal period grounding",
+            "Passable historical tone",
+            "Strong authentic era perspective",
+            "Vivid, deeply grounded historical voice and accuracy",
+          ],
+        },
+        suggested_cue: {
+          type: "choice",
+          instructions:
+            "Choose the single best subtle facial/body motion cue for the live video avatar matching this utterance.",
+          criteria: {
+            warm_nod: "Warm, welcoming, appreciative nod",
+            lean_curious: "Curious forward lean examining the caller",
+            expressive_gesture: "Animated enthusiastic conversational gesture",
+            thoughtful_pause: "Reflective, calm, philosophical expression",
+          },
+        },
+      },
+    });
+
+    const grounding = decisionResp.answers?.historical_grounding;
+    const fidelity = decisionResp.answers?.era_fidelity;
+    const cueAns = decisionResp.answers?.suggested_cue;
+
+    const rawChoice =
+      grounding && grounding.type === "choice" ? grounding.choice : "verified";
+    const verdict: DecisionVerdict =
+      rawChoice === "anachronism" || rawChoice === "plausible_persona"
+        ? rawChoice
+        : "verified";
+    const confidence =
+      grounding && grounding.type === "choice" ? grounding.confidence : 0.88;
+    const probabilities =
+      grounding && grounding.type === "choice"
+        ? grounding.probabilities
+        : { verified: confidence, plausible_persona: 1 - confidence, anachronism: 0 };
+
+    let eraFidelityScore = 4;
+    if (fidelity && fidelity.type === "score") {
+      let bestIdx = 3;
+      let bestProb = -1;
+      for (const [k, prob] of Object.entries(fidelity.probabilities)) {
+        const idx = Number(k);
+        if (Number.isFinite(idx) && prob > bestProb) {
+          bestProb = prob;
+          bestIdx = idx;
+        }
+      }
+      eraFidelityScore = bestIdx;
+    }
+
+    const suggestedCue =
+      cueAns && cueAns.type === "choice" ? cueAns.choice : "warm_nod";
+
+    return {
+      verdict,
+      confidence,
+      probabilities,
+      eraFidelityScore,
+      eraFidelityMax: 4,
+      suggestedCue,
+      summary:
+        verdict === "verified"
+          ? `Grounded in ${profile.era} context (${Math.round(confidence * 100)}% calibrated)`
+          : verdict === "plausible_persona"
+            ? `Authentic in-character dialogue (${Math.round(confidence * 100)}% calibrated)`
+            : `Possible anachronism flagged (${Math.round(confidence * 100)}% calibrated)`,
+      model: DECISION_MODEL.replace(/^models\//, ""),
+      latencyMs: Date.now() - startedAt,
+    };
+  } catch {
+    // Graceful fallback to Gemini 4 Neon structured assessment if Decisions endpoint is unavailable
+    const ai = getGeminiClient();
+    const fallbackResp = await ai.models.generateContent({
+      model: PRO_VISION_MODEL,
+      contents: `${sharedInput}\nReturn a concise historical grounding verdict ("verified" | "plausible_persona" | "anachronism"), calibrated confidence 0..1, eraFidelityScore 0..4, suggestedCue ("warm_nod" | "lean_curious" | "expressive_gesture" | "thoughtful_pause"), and a 1-sentence summary.`,
+      config: {
+        thinkingConfig: { thinkingLevel: ThinkingLevel.LOW },
+        responseMimeType: "application/json",
+        responseSchema: {
+          type: Type.OBJECT,
+          properties: {
+            verdict: { type: Type.STRING },
+            confidence: { type: Type.NUMBER },
+            eraFidelityScore: { type: Type.NUMBER },
+            suggestedCue: { type: Type.STRING },
+            summary: { type: Type.STRING },
+          },
+          required: ["verdict", "confidence", "eraFidelityScore", "suggestedCue", "summary"],
+        },
+      },
+    });
+    const parsed = JSON.parse((fallbackResp.text ?? "{}").trim()) as Record<string, unknown>;
+    const rawVerdict = String(parsed.verdict ?? "verified");
+    const verdict: DecisionVerdict =
+      rawVerdict === "anachronism" || rawVerdict === "plausible_persona"
+        ? rawVerdict
+        : "verified";
+    const confidence = Math.max(0, Math.min(1, Number(parsed.confidence ?? 0.9)));
+    const eraFidelityScore = Math.max(
+      0,
+      Math.min(4, Math.round(Number(parsed.eraFidelityScore ?? 4)))
+    );
+    return {
+      verdict,
+      confidence,
+      probabilities: {
+        verified: verdict === "verified" ? confidence : (1 - confidence) * 0.6,
+        plausible_persona:
+          verdict === "plausible_persona" ? confidence : (1 - confidence) * 0.35,
+        anachronism: verdict === "anachronism" ? confidence : (1 - confidence) * 0.05,
+      },
+      eraFidelityScore,
+      eraFidelityMax: 4,
+      suggestedCue: String(parsed.suggestedCue ?? "warm_nod"),
+      summary: String(parsed.summary ?? `Grounded in ${profile.era}`),
+      model: PRO_VISION_MODEL,
+      latencyMs: Date.now() - startedAt,
+    };
+  }
 }

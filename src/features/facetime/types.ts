@@ -1,21 +1,29 @@
 import type {
   ActiveVideoLayer,
+  DecisionVerdict,
+  FaceTimeDecisionResult,
   FaceTimeIdentifyResult,
   FaceTimePortraitResult,
   FaceTimeReactionCue,
   FaceTimeVideoJobStatus,
   FaceTimeVoiceName,
+  GeminiPipelineEvent,
+  GeminiPipelineStage,
   HistoricalProfile,
   VideoEngineMode,
 } from "../../../shared/facetime.ts";
 
 export type {
   ActiveVideoLayer,
+  DecisionVerdict,
+  FaceTimeDecisionResult,
   FaceTimeIdentifyResult,
   FaceTimePortraitResult,
   FaceTimeReactionCue,
   FaceTimeVideoJobStatus,
   FaceTimeVoiceName,
+  GeminiPipelineEvent,
+  GeminiPipelineStage,
   HistoricalProfile,
   VideoEngineMode,
 };

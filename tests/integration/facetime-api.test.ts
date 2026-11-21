@@ -83,6 +83,24 @@ test("FaceTime HTTP routes: validation, demo fixtures, and Veo media proxy", asy
     const replied = (await respondRes.json()) as { reply: string; model: string };
     assert.equal(replied.model, "demo");
     assert.ok(replied.reply.length > 10);
+
+    // Decisions API endpoint validates input and returns calibrated demo grounding
+    assert.equal((await post("/api/facetime/decision", {})).status, 400);
+    const decisionRes = await post("/api/facetime/decision", {
+      profile: resolved.profile,
+      utterance: "In 1899 my Colorado Springs laboratory lit lamps without wires.",
+    });
+    assert.equal(decisionRes.status, 200);
+    const decision = (await decisionRes.json()) as {
+      verdict: string;
+      confidence: number;
+      model: string;
+      demoMode: boolean;
+    };
+    assert.equal(decision.verdict, "verified");
+    assert.equal(decision.demoMode, true);
+    assert.equal(decision.model, "gemini-decision-1");
+    assert.ok(decision.confidence > 0.8);
   } finally {
     await new Promise<void>((resolve) => server.close(() => resolve()));
   }
@@ -130,6 +148,17 @@ test("FaceTime live-mode Veo job start, poll, and binary media stream", async ()
       reply: "Hello from 1505!",
       latencyMs: 12,
       model: "mock-vision",
+    }),
+    evaluateHistoricalTurnDecision: async () => ({
+      verdict: "verified",
+      confidence: 0.96,
+      probabilities: { verified: 0.96, plausible_persona: 0.03, anachronism: 0.01 },
+      eraFidelityScore: 4,
+      eraFidelityMax: 4,
+      suggestedCue: "warm_nod",
+      summary: "Grounded in 1505 Florence",
+      model: "gemini-decision-1",
+      latencyMs: 118,
     }),
   };
 
