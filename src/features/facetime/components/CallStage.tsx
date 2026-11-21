@@ -4,6 +4,7 @@ import {
   Captions,
   CaptionsOff,
   Compass,
+  Feather,
   Loader2,
   MessageSquare,
   Mic,
@@ -20,6 +21,8 @@ import {
 } from "lucide-react";
 import { captureMediaFrame } from "../../../utils/canvas";
 import { HistoricalVideoStage } from "./HistoricalVideoStage";
+import { ShowAndTellOverlay } from "./ShowAndTellOverlay";
+import { ArtifactShareCard } from "./ArtifactShareCard";
 import { GeminiTelemetryHud } from "./GeminiTelemetryHud";
 import {
   formatConfidencePercent,
@@ -30,6 +33,8 @@ import type {
   ActiveVideoLayer,
   CallTranscriptMessage,
   FaceTimeDecisionResult,
+  FaceTimeArtifactResult,
+  FaceTimeCallerAnnotation,
   FaceTimePhase,
   FaceTimePortalInvite,
   FaceTimeReactionCue,
@@ -72,6 +77,14 @@ interface CallStageProps {
   errorMessage: string | null;
   onDismissError: () => void;
   onEndCall: () => void;
+  callerAnnotation: FaceTimeCallerAnnotation | null;
+  onDismissAnnotation: () => void;
+  activeArtifact: FaceTimeArtifactResult | null;
+  isGeneratingArtifact: boolean;
+  artifactLoadingTitle: string;
+  onDismissArtifact: () => void;
+  onAskForSketch: () => void;
+  onTriggerDemoInspection?: () => void;
 }
 
 const PIP_CORNER_CLASSES: Record<PiPCorner, string> = {
@@ -129,12 +142,21 @@ export const CallStage: React.FC<CallStageProps> = ({
   errorMessage,
   onDismissError,
   onEndCall,
+  callerAnnotation,
+  onDismissAnnotation,
+  activeArtifact,
+  isGeneratingArtifact,
+  artifactLoadingTitle,
+  onDismissArtifact,
+  onAskForSketch,
+  onTriggerDemoInspection,
 }) => {
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
   const [captionsEnabled, setCaptionsEnabled] = useState(true);
   const [chatOpen, setChatOpen] = useState(false);
   const [engineMenuOpen, setEngineMenuOpen] = useState(false);
   const [pipCorner, setPipCorner] = useState<PiPCorner>("top-right");
+  const [pipExpanded, setPipExpanded] = useState(false);
   const [draftMessage, setDraftMessage] = useState("");
   const [portalActive, setPortalActive] = useState(false);
   const [dismissedInvite, setDismissedInvite] = useState(false);
@@ -485,7 +507,11 @@ export const CallStage: React.FC<CallStageProps> = ({
 
           {/* Draggable / Corner-Snapping Picture-in-Picture Self-View */}
           <div
-            className={`absolute z-20 ${PIP_CORNER_CLASSES[pipCorner]} w-28 sm:w-40 aspect-[3/4] sm:aspect-[4/3] rounded-2xl overflow-hidden bg-[#111622]/90 border border-white/25 shadow-2xl shadow-black/60 transition-all duration-300 group`}
+            className={`absolute z-20 ${
+              pipExpanded
+                ? "top-20 left-4 right-4 sm:left-auto sm:right-6 sm:w-96 aspect-[4/3]"
+                : `${PIP_CORNER_CLASSES[pipCorner]} w-28 sm:w-44 aspect-[3/4] sm:aspect-[4/3]`
+            } rounded-2xl overflow-hidden bg-[#111622]/90 border border-white/25 shadow-2xl shadow-black/60 transition-all duration-300 group`}
           >
             <video
               ref={handleUserVideoRef}
@@ -505,8 +531,18 @@ export const CallStage: React.FC<CallStageProps> = ({
               </div>
             )}
 
+            {/* Show & Tell Camera Object Annotation Overlay */}
+            <ShowAndTellOverlay
+              annotation={callerAnnotation}
+              figureName={profile.name}
+              isExpanded={pipExpanded}
+              onToggleExpand={() => setPipExpanded((v) => !v)}
+              onDismiss={onDismissAnnotation}
+              isMirrored={facingMode === "user"}
+            />
+
             {/* Quick PiP actions on hover/tap */}
-            <div className="absolute inset-x-0 bottom-0 p-1.5 bg-gradient-to-t from-black/75 to-transparent flex items-center justify-between opacity-90 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
+            <div className="absolute inset-x-0 bottom-0 p-1.5 bg-gradient-to-t from-black/75 to-transparent flex items-center justify-between opacity-90 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity z-20">
               <button
                 type="button"
                 onClick={cyclePipCorner}
@@ -515,14 +551,38 @@ export const CallStage: React.FC<CallStageProps> = ({
               >
                 Move
               </button>
-              <button
-                type="button"
-                onClick={onFlipCamera}
-                title="Flip camera"
-                className="w-6 h-6 rounded-full bg-black/50 hover:bg-black/75 flex items-center justify-center text-white cursor-pointer"
-              >
-                <RefreshCw className="w-3 h-3" />
-              </button>
+              <div className="flex items-center gap-1">
+                {demoMode && onTriggerDemoInspection && !callerAnnotation && (
+                  <button
+                    type="button"
+                    onClick={onTriggerDemoInspection}
+                    title="Demo Show & Tell inspection"
+                    className="text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-amber-500/30 hover:bg-amber-500/50 text-amber-200 border border-amber-400/30 cursor-pointer"
+                  >
+                    Inspect
+                  </button>
+                )}
+                <button
+                  type="button"
+                  onClick={() => setPipExpanded((v) => !v)}
+                  title={
+                    pipExpanded
+                      ? "Minimize self-view"
+                      : "Focus / expand self-view"
+                  }
+                  className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-black/50 hover:bg-black/75 text-white cursor-pointer"
+                >
+                  {pipExpanded ? "Collapse" : "Focus"}
+                </button>
+                <button
+                  type="button"
+                  onClick={onFlipCamera}
+                  title="Flip camera"
+                  className="w-6 h-6 rounded-full bg-black/50 hover:bg-black/75 flex items-center justify-center text-white cursor-pointer"
+                >
+                  <RefreshCw className="w-3 h-3" />
+                </button>
+              </div>
             </div>
           </div>
 
@@ -622,6 +682,32 @@ export const CallStage: React.FC<CallStageProps> = ({
                   ))
                 )}
                 <div ref={transcriptEndRef} />
+              </div>
+
+              {/* Quick Actions Bar with "Ask for Sketch" Button */}
+              <div className="px-3 py-2 border-t border-white/10 flex items-center justify-between gap-2 bg-white/[0.02]">
+                <button
+                  type="button"
+                  onClick={onAskForSketch}
+                  disabled={isGeneratingArtifact}
+                  title="Ask historical figure to draw an authentic artifact sketch"
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-gradient-to-r from-amber-500/25 to-amber-600/25 hover:from-amber-500/35 hover:to-amber-600/35 border border-amber-400/40 text-amber-200 text-xs font-semibold transition-all cursor-pointer disabled:opacity-50"
+                >
+                  <Feather className="w-3.5 h-3.5 text-amber-300" />
+                  <span>Ask for Sketch</span>
+                </button>
+
+                {demoMode && onTriggerDemoInspection && !callerAnnotation && (
+                  <button
+                    type="button"
+                    onClick={onTriggerDemoInspection}
+                    title="Simulate holding an object up to camera"
+                    className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-full bg-white/[0.06] hover:bg-white/[0.12] border border-white/10 text-slate-300 text-[11px] transition-colors cursor-pointer"
+                  >
+                    <Sparkles className="w-3 h-3 text-emerald-300" />
+                    <span>Show Object (Demo)</span>
+                  </button>
+                )}
               </div>
 
               {/* Starter Question Chips */}
@@ -820,6 +906,14 @@ export const CallStage: React.FC<CallStageProps> = ({
               lastReaction={lastReaction}
             />
           )}
+          {/* Apple SharePlay-style Artifact / Keepsake Card */}
+          <ArtifactShareCard
+            artifact={activeArtifact}
+            isLoading={isGeneratingArtifact}
+            loadingTitle={artifactLoadingTitle}
+            profile={profile}
+            onDismiss={onDismissArtifact}
+          />
         </>
       )}
     </div>

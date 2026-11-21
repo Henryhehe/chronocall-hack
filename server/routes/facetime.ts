@@ -4,6 +4,7 @@ import * as geminiFaceTime from "../services/gemini/facetime.ts";
 import {
   buildSelfieEraStamp,
   normalizeHistoricalProfile,
+  type FaceTimeArtifactResult,
   type FaceTimeIdentifyResult,
   type FaceTimePortraitResult,
   type FaceTimeSelfieResult,
@@ -16,6 +17,7 @@ export interface FaceTimeServices {
   identifyFigureFromImage: typeof geminiFaceTime.identifyFigureFromImage;
   generateHistoricalPortrait: typeof geminiFaceTime.generateHistoricalPortrait;
   generateChronoSelfie?: typeof geminiFaceTime.generateChronoSelfie;
+  generateHistoricalArtifact: typeof geminiFaceTime.generateHistoricalArtifact;
   startVeoPortraitVideo: typeof geminiFaceTime.startVeoPortraitVideo;
   pollVeoPortraitVideo: typeof geminiFaceTime.pollVeoPortraitVideo;
   getVeoVideoMedia: typeof geminiFaceTime.getVeoVideoMedia;
@@ -186,6 +188,94 @@ function createDemoSelfieSvgDataUrl(
       <text x="0" y="4" text-anchor="middle" font-family="'Courier New', monospace" font-size="7.5" font-weight="800" fill="#B45309" letter-spacing="1">POST</text>
       <text x="0" y="14" text-anchor="middle" font-family="'Courier New', monospace" font-size="7" font-weight="700" fill="#B45309">✦ ✦ ✦</text>
     </g>
+  </svg>`;
+
+  return `data:image/svg+xml;base64,${Buffer.from(svg, "utf8").toString("base64")}`;
+}
+
+function createDemoArtifactSvgDataUrl(
+  profile: HistoricalProfile,
+  title: string,
+  description: string
+): string {
+  const safeName = profile.name.replace(/[<>&"']/g, "");
+  const safeEra = profile.era.replace(/[<>&"']/g, "");
+  const safeLoc = profile.location.replace(/[<>&"']/g, "");
+  const safeTitle = title.replace(/[<>&"']/g, "");
+  const safeDesc = description.replace(/[<>&"']/g, "");
+  const safeInitials = profile.initials.replace(/[<>&"']/g, "");
+
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 600" width="800" height="600">
+    <defs>
+      <linearGradient id="parchment" x1="0%" y1="0%" x2="100%" y2="100%">
+        <stop offset="0%" stop-color="#FBF7EE"/>
+        <stop offset="50%" stop-color="#F3EAD4"/>
+        <stop offset="100%" stop-color="#E5D6BA"/>
+      </linearGradient>
+      <radialGradient id="vignette" cx="50%" cy="50%" r="70%">
+        <stop offset="60%" stop-color="#000000" stop-opacity="0"/>
+        <stop offset="100%" stop-color="#4A3419" stop-opacity="0.22"/>
+      </radialGradient>
+      <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse">
+        <path d="M 40 0 L 0 0 0 40" fill="none" stroke="#C4B08F" stroke-width="0.5" stroke-opacity="0.35"/>
+      </pattern>
+    </defs>
+    <!-- Aged parchment background -->
+    <rect width="800" height="600" fill="url(#parchment)"/>
+    <rect width="800" height="600" fill="url(#grid)"/>
+    <rect width="800" height="600" fill="url(#vignette)"/>
+
+    <!-- Archival borders -->
+    <rect x="24" y="24" width="752" height="552" fill="none" stroke="#8C6D46" stroke-width="2" stroke-opacity="0.85"/>
+    <rect x="30" y="30" width="740" height="540" fill="none" stroke="#A68962" stroke-width="1" stroke-dasharray="4,3" stroke-opacity="0.6"/>
+
+    <!-- Corner ornaments -->
+    <path d="M 24 48 L 48 48 L 48 24" fill="none" stroke="#8C6D46" stroke-width="2"/>
+    <path d="M 776 48 L 752 48 L 752 24" fill="none" stroke="#8C6D46" stroke-width="2"/>
+    <path d="M 24 552 L 48 552 L 48 576" fill="none" stroke="#8C6D46" stroke-width="2"/>
+    <path d="M 776 552 L 752 552 L 752 576" fill="none" stroke="#8C6D46" stroke-width="2"/>
+
+    <!-- Architectural compass / geometric study -->
+    <g transform="translate(400, 245)" stroke="#6B4C28" stroke-width="1.5" fill="none" opacity="0.85">
+      <circle cx="0" cy="0" r="110" stroke-dasharray="3,3" opacity="0.6"/>
+      <circle cx="0" cy="0" r="85"/>
+      <circle cx="0" cy="0" r="50"/>
+      <!-- Compass arms & diagonals -->
+      <line x1="-130" y1="0" x2="130" y2="0" stroke-dasharray="2,2" opacity="0.5"/>
+      <line x1="0" y1="-130" x2="0" y2="130" stroke-dasharray="2,2" opacity="0.5"/>
+      <polygon points="0,-85 24,0 0,85 -24,0" fill="#8C6D46" fill-opacity="0.12"/>
+      <polygon points="-85,0 0,24 85,0 0,-24" fill="#8C6D46" fill-opacity="0.12"/>
+      <circle cx="0" cy="0" r="8" fill="#6B4C28"/>
+      <!-- Stylized quill gears / arcs -->
+      <path d="M -60 -30 Q 0 -70 60 -30" stroke="#7C4D3A" stroke-width="2"/>
+      <path d="M -60 30 Q 0 70 60 30" stroke="#7C4D3A" stroke-width="2"/>
+      <path d="M -80 -70 L -40 -35 L -100 -20" stroke="#8C6D46" stroke-width="1.2" opacity="0.7"/>
+      <path d="M 80 -70 L 40 -35 L 100 -20" stroke="#8C6D46" stroke-width="1.2" opacity="0.7"/>
+    </g>
+
+    <!-- Header badge -->
+    <text x="400" y="65" text-anchor="middle" font-family="Georgia, serif" font-size="12" font-weight="bold" fill="#7C5835" letter-spacing="4" text-transform="uppercase">CHRONOCALL ARCHIVAL KEEPSAKE</text>
+    <line x1="260" y1="74" x2="540" y2="74" stroke="#8C6D46" stroke-width="1" opacity="0.6"/>
+
+    <!-- Title & provenance -->
+    <text x="400" y="105" text-anchor="middle" font-family="Georgia, serif" font-size="24" font-weight="bold" fill="#2E1F11">${safeTitle}</text>
+    <text x="400" y="128" text-anchor="middle" font-family="Georgia, serif" font-style="italic" font-size="14" fill="#634B30">From the hand of ${safeName} · ${safeEra}</text>
+
+    <!-- Description plaque -->
+    <rect x="70" y="380" width="660" height="90" rx="6" fill="#F0E3CA" fill-opacity="0.75" stroke="#BF9F74" stroke-width="1"/>
+    <text x="400" y="415" text-anchor="middle" font-family="Georgia, serif" font-size="14" fill="#3D2916" font-style="italic">"${safeDesc.length > 85 ? safeDesc.slice(0, 82) + '…' : safeDesc}"</text>
+    <text x="400" y="445" text-anchor="middle" font-family="system-ui, sans-serif" font-size="12" fill="#78593A" letter-spacing="0.5">Recorded live during FaceTime call · Origin: ${safeLoc}</text>
+
+    <!-- Archival wax seal monogram -->
+    <g transform="translate(685, 505)">
+      <circle cx="0" cy="0" r="32" fill="#8B1E1E" stroke="#5E1212" stroke-width="2"/>
+      <circle cx="0" cy="0" r="28" fill="none" stroke="#D4AF37" stroke-width="1" stroke-dasharray="2,2"/>
+      <text x="0" y="7" text-anchor="middle" font-family="Georgia, serif" font-size="16" font-weight="bold" fill="#F8E5B8">${safeInitials}</text>
+    </g>
+
+    <!-- Footer provenance note -->
+    <text x="70" y="525" font-family="Georgia, serif" font-size="13" font-style="italic" fill="#5A432D">Verified Historical Study · Chronocall Show &amp; Tell</text>
+    <text x="70" y="545" font-family="system-ui, sans-serif" font-size="11" fill="#8C6D46">Drawn with authentic period pigments &amp; geometry in local demo mode.</text>
   </svg>`;
 
   return `data:image/svg+xml;base64,${Buffer.from(svg, "utf8").toString("base64")}`;
@@ -397,6 +487,71 @@ export function createFaceTimeRouter(
         callerMimeType,
         figureImageBase64,
         figureMimeType,
+      });
+      res.json(result);
+    } catch (err) {
+      const formatted = formatGeminiError(err);
+      res.status(formatted.status).json({ error: formatted.message });
+    }
+  });
+
+  router.post("/api/facetime/artifact", async (req, res) => {
+    try {
+      const rawProfile = req.body?.profile;
+      const title =
+        typeof req.body?.title === "string" ? req.body.title.trim() : "";
+      const description =
+        typeof req.body?.description === "string"
+          ? req.body.description.trim()
+          : "";
+      const stylePrompt =
+        typeof req.body?.stylePrompt === "string"
+          ? req.body.stylePrompt.trim()
+          : undefined;
+
+      if (
+        !rawProfile ||
+        typeof rawProfile?.name !== "string" ||
+        !rawProfile.name.trim() ||
+        !title ||
+        !description
+      ) {
+        res.status(400).json({
+          error:
+            "profile (with valid name), title, and description are required to sketch an artifact.",
+        });
+        return;
+      }
+
+      const profile = normalizeHistoricalProfile(
+        rawProfile,
+        rawProfile.sourceType ?? "search"
+      );
+
+      if (demoMode) {
+        const imageDataUrl = createDemoArtifactSvgDataUrl(
+          profile,
+          title,
+          description
+        );
+        const result: FaceTimeArtifactResult = {
+          title,
+          description,
+          imageDataUrl,
+          mimeType: "image/svg+xml",
+          model: "demo",
+          latencyMs: 0,
+          demoMode: true,
+        };
+        res.json(result);
+        return;
+      }
+
+      const result = await services.generateHistoricalArtifact({
+        profile,
+        title,
+        description,
+        stylePrompt,
       });
       res.json(result);
     } catch (err) {

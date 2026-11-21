@@ -380,6 +380,14 @@ export default function FaceTimeApp() {
           errorMessage={errorMessage}
           onDismissError={() => setErrorMessage(null)}
           onEndCall={handleEndCall}
+          callerAnnotation={call.callerAnnotation}
+          onDismissAnnotation={call.dismissAnnotation}
+          activeArtifact={call.activeArtifact}
+          isGeneratingArtifact={call.isGeneratingArtifact}
+          artifactLoadingTitle={call.artifactLoadingTitle}
+          onDismissArtifact={call.dismissArtifact}
+          onAskForSketch={() => void call.askForSketch()}
+          onTriggerDemoInspection={call.triggerDemoInspection}
         />
       )}
 
