@@ -108,7 +108,7 @@ export default function App() {
             href="#ar-stage"
             className="font-serif text-2xl font-semibold tracking-tight text-[#181614] whitespace-nowrap shrink-0"
           >
-            Tableau Vivant
+            The Living Gallery
           </a>
 
           <nav
@@ -341,7 +341,7 @@ export default function App() {
                 </footer>
               </blockquote>
               <p className="text-base text-[#4A453F] leading-relaxed">
-                By anchoring optical atmospheric effects, subtle posture motion, and live conversational voice directly onto the canvas coordinates, Tableau Vivant turns passive observation into an active historical exchange.
+                By anchoring optical atmospheric effects, subtle posture motion, and live conversational voice directly onto the canvas coordinates, Chronocall turns passive observation into an active historical exchange.
               </p>
             </div>
 

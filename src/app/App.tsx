@@ -13,7 +13,6 @@ import {
   InspectorTab,
   VisionModelId,
   VisualFilterId,
-  WorkspaceView,
 } from "../types/vision";
 import { useLiveSession } from "../features/live/useLiveSession";
 import { useMediaSource } from "../features/vision/useMediaSource";
@@ -23,6 +22,9 @@ import {
   downloadAnnotatedSnapshot,
   getColorForLabel,
 } from "../utils/canvas";
+
+import MuseumApp from "../features/museum/MuseumApp";
+import { JourneyHeader, LearningHome, LearningGuide, LearningNotebook, type LearningView } from "./LearningJourney";
 
 interface RawBoxInput {
   label?: string;
@@ -46,7 +48,24 @@ async function parseJsonSafe(res: Response): Promise<Record<string, unknown>> {
 }
 
 export default function App() {
-  const [workspaceView, setWorkspaceView] = useState<WorkspaceView>("live");
+  const [workspaceView, setWorkspaceView] = useState<LearningView>(() => {
+    const route = window.location.pathname === '/museum' ? 'museum' : window.location.hash.slice(1);
+    return ['home', 'live', 'character', 'museum', 'genie', 'notebook', 'log', 'compare'].includes(route) ? route as LearningView : 'home';
+  });
+  const navigate = (view: LearningView) => {
+    window.history.pushState(null, '', view === 'museum' ? '/museum' : `/#${view}`);
+    setWorkspaceView(view);
+    window.scrollTo({ top: 0 });
+  };
+  useEffect(() => {
+    const sync = () => {
+      const route = window.location.pathname === '/museum' ? 'museum' : window.location.hash.slice(1);
+      setWorkspaceView(['home', 'live', 'character', 'museum', 'genie', 'notebook', 'log', 'compare'].includes(route) ? route as LearningView : 'home');
+    };
+    window.addEventListener('popstate', sync);
+    window.addEventListener('hashchange', sync);
+    return () => { window.removeEventListener('popstate', sync); window.removeEventListener('hashchange', sync); };
+  }, []);
   const [inspectorTab, setInspectorTab] = useState<InspectorTab>("detections");
   const [visionModel, setVisionModel] =
     useState<VisionModelId>("gemini-4-hydrogen");
@@ -247,7 +266,10 @@ export default function App() {
   });
 
   // Only one microphone session should own input while moving between workspaces.
-  useEffect(() => { if (workspaceView === "genie") stopLiveSession(); }, [workspaceView, stopLiveSession]);
+  useEffect(() => {
+    if (workspaceView !== 'live' && workspaceView !== 'character') stopLiveSession();
+    if (['home', 'museum', 'notebook'].includes(workspaceView)) stopMedia();
+  }, [workspaceView, stopLiveSession, stopMedia]);
 
   const handleToggleLiveVoice = useCallback(() => {
     if (liveConnected || liveConnecting) stopLiveSession();
@@ -368,79 +390,17 @@ export default function App() {
 
   return (
     <div className="min-h-screen flex flex-col bg-[#07090E] text-slate-100">
-      {/* Top Bar Contract: 3 zones separated by gap-8 */}
-      <header className="flex items-center justify-between gap-8 px-6 py-3.5 border-b border-slate-800 bg-[#090D16] overflow-x-auto">
-        {/* Zone 1: Single-line brand wordmark */}
-        <a
-          href="#live"
-          onClick={(e) => {
-            e.preventDefault();
-            setWorkspaceView("live");
-          }}
-          className="text-base font-semibold tracking-tight text-slate-100 whitespace-nowrap shrink-0"
-        >
-          Gemini Live Vision
-        </a>
-
-        {/* Zone 2: 5 clean single-line navigation links */}
-        <nav
-          aria-label="Workspace Views"
-          className="flex items-center gap-6 text-sm font-medium"
-        >
-          <a href="/museum" className="text-cyan-300 whitespace-nowrap">Museum AR</a>
-          {(
-            [
-              { id: "live", label: "Live Vision" },
-              { id: "character", label: "Character Mirror" },
-              { id: "genie", label: "Genie 4 World" },
-              { id: "log", label: "Detection Log" },
-              { id: "compare", label: "Compare Modes" },
-            ] as const
-          ).map((nav) => (
-            <button
-              key={nav.id}
-              type="button"
-              onClick={() => setWorkspaceView(nav.id)}
-              className={`pb-0.5 border-b-2 transition-colors whitespace-nowrap shrink-0 cursor-pointer ${
-                workspaceView === nav.id
-                  ? "border-cyan-400 text-slate-100"
-                  : "border-transparent text-slate-400 hover:text-slate-200"
-              }`}
-            >
-              {nav.label}
-            </button>
-          ))}
-        </nav>
-
-        {/* Zone 3: Single primary action CTA */}
-        <div className="shrink-0">
-          {!mediaActive && !uploadedVideoUrl ? (
-            <button
-              type="button"
-              onClick={() => {
-                if (!isCameraStageView) setWorkspaceView("live");
-                void startCamera();
-              }}
-              className="px-4 py-2 text-xs font-medium bg-cyan-500 hover:bg-cyan-400 text-slate-950 rounded-md transition-colors whitespace-nowrap shrink-0 cursor-pointer"
-            >
-              Start Camera
-            </button>
-          ) : (
-            <button
-              type="button"
-              onClick={handleStopMedia}
-              className="px-4 py-2 text-xs font-medium bg-[#111827] hover:bg-slate-800 text-slate-100 border border-slate-700 rounded-md transition-colors whitespace-nowrap shrink-0 cursor-pointer"
-            >
-              Stop Camera
-            </button>
-          )}
-        </div>
-      </header>
+      <JourneyHeader view={workspaceView} onNavigate={navigate} />
 
       <RuntimeStatus />
 
       {/* Main Content */}
-      <main className="flex-1 w-full max-w-[1440px] mx-auto px-6 py-5">
+      <main id="learning-main" className="flex-1 w-full max-w-[1440px] mx-auto px-4 sm:px-6 py-5">
+        {workspaceView === 'home' && <LearningHome onNavigate={navigate} />}
+        <LearningGuide view={workspaceView} onNavigate={navigate} onPrompt={setPromptText} />
+        {workspaceView === 'museum' && <div className="museum-workspace"><MuseumApp /></div>}
+        {workspaceView === 'notebook' && <LearningNotebook />}
+        {['live', 'character', 'log', 'compare'].includes(workspaceView) && <nav className="research-tools" aria-label="Exploration tools"><span>Research tools</span><button onClick={() => navigate('live')} aria-current={workspaceView === 'live' ? 'page' : undefined}>Viewfinder</button><button onClick={() => navigate('log')} aria-current={workspaceView === 'log' ? 'page' : undefined}>Observation log</button><button onClick={() => navigate('compare')} aria-current={workspaceView === 'compare' ? 'page' : undefined}>Compare responses</button></nav>}
         {/* Keep the capture elements mounted so World can reuse the active feed. */}
         <section className={isCameraStageView ? "" : "hidden"} aria-hidden={!isCameraStageView}>
           <div className="flex flex-col lg:flex-row items-stretch gap-5">
@@ -536,7 +496,7 @@ export default function App() {
             hasActiveCamera={
               mediaActive || Boolean(uploadedImageUrl) || Boolean(uploadedVideoUrl)
             }
-            onBackToCamera={() => setWorkspaceView("character")}
+            onBackToCamera={() => navigate("character")}
           />
         )}
 
@@ -545,7 +505,7 @@ export default function App() {
             history={history}
             onExportJson={handleExportJson}
             onClearHistory={handleClearHistory}
-            onBackToLive={() => setWorkspaceView("live")}
+            onBackToLive={() => navigate("live")}
           />
         )}
 
@@ -554,10 +514,11 @@ export default function App() {
             history={history}
             qaHistory={qaHistory}
             transcripts={transcripts}
-            onSelectLiveVision={() => setWorkspaceView("live")}
+            onSelectLiveVision={() => navigate("live")}
           />
         )}
       </main>
+      <footer className="journey-footer"><span>CHRONOCALL · LEARN THROUGH CURIOSITY</span><span>AI interpretations invite questions. Verify historical claims with reliable sources.</span></footer>
     </div>
   );
 }

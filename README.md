@@ -19,7 +19,7 @@ Open **http://localhost:3000**. Setup installs locked dependencies and creates `
 
 ## Museum AR (Demi contribution)
 
-Open **http://localhost:3000/museum** or choose **Museum AR** in the navigation. This workspace includes the Washington portrait anchor, camera/upload recognition, portrait animation, curatorial hotspots, character conversation, and a mobile QR preview. Existing vision and world workspaces remain at `/`.
+Open **http://localhost:3000/museum** or choose **Portrait gallery** in the learning navigation. This workspace includes the Washington portrait anchor, camera/upload recognition, portrait animation, curatorial hotspots, character conversation, and a mobile QR preview. The shared discovery page is at `/`; direct links to the vision and world workspaces are `/#live` and `/#genie`.
 
 Museum recognition and conversation require a Gemini key; demo mode returns an explicit unavailable response for these model calls. Camera access on a phone requires an HTTPS deployment. Set `APP_URL` to the public origin if the QR preview cannot infer it correctly. Museum voice uses `/ws/museum`; the original voice bridge remains at `/ws/live`.
 
@@ -89,3 +89,41 @@ The avatar uses a photo texture and keyboard movement; full body/face retargetin
 Original AI Studio app: https://ai.studio/apps/a8853fcf-4129-461b-8257-8266d72421cb
 
 Branch maintainers: follow the [integration guide](docs/BRANCH_INTEGRATION.md) for future Demi updates and safe merges into main.
+
+
+## Connected learning experience
+
+Chronocall opens on a discovery page that connects the existing features into a learning journey. The shared navigation is available inside every experience, including Museum AR. Browser Back/Forward and direct links select the corresponding workspace.
+
+| Space | Link | Learning activity |
+| --- | --- | --- |
+| Discover | `/#home` | Choose an experience; begin with the included portrait without camera permission |
+| Portrait gallery | `/museum` | Inspect artwork, explore hotspots, and ask the character questions |
+| Visual discovery | `/#live` | Use camera, screen share, or uploads for observation and frame questions |
+| Character studio | `/#character` | Select a historical persona and compare perspectives |
+| World explorer | `/#genie` | Explore preset or generated scenes with the existing Three.js / Genie tools |
+| My notebook | `/#notebook` | Save personal observations and questions to verify; export Markdown |
+| Research tools | `/#log`, `/#compare` | Review session observations and compare responses |
+
+Each experience has a guiding question and a suggested activity. Visual discovery and Character studio can insert that question into the existing prompt composer; the learner still submits it after adding media. Moving to Discover, the gallery, or the notebook stops the shared capture source. Moving out of visual/character exploration stops its live voice connection; the world can still reuse the capture feed. Museum media cleanup remains owned by the museum workspace.
+
+Notebook reflections persist in browser local storage, independently of the in-memory detection and conversation histories. If storage is unavailable, the notebook reports session-only saving and offers a download. These are learner-authored notes, not automatically generated lesson summaries. Generated characters and worlds are explicitly presented as interpretations requiring verification.
+
+### Suggested 3-minute education demo
+
+1. **Discover:** introduce the idea of learning history through observation, dialogue, and exploration.
+2. **Portrait gallery:** inspect the included artwork, choose a hotspot, and ask a follow-up question (model features require a configured key).
+3. **Character studio:** add a camera feed or photo, choose a persona, and use the guiding question to compare perspectives.
+4. **World explorer:** open a preset scene and explore its spatial choices; use generation only when the configured provider is ready.
+5. **My notebook:** save one observation and one claim to verify, then download the reflection.
+
+Without a key, demonstrate the included artwork, capture/upload UI, preset world, and notebook; museum AI dialogue and recognition are unavailable in demo mode. Do not present fixture responses as model results.
+
+### Learning UI smoke check
+
+- Open `/`, `/museum`, and `/#genie` directly; navigate between spaces and use browser Back/Forward.
+- At phone width, check that the main navigation scrolls within its own row and cards/forms stack.
+- Use keyboard navigation to reach the skip link, experience cards, guiding questions, and notebook fields.
+- Start capture/live voice and leave for the notebook or gallery; confirm the previous media session stops.
+- Save a reflection, reload, and export it; verify that blank observations cannot be saved.
+- Check portrait and world interactions with real provider access separately from demo-mode UI checks.
