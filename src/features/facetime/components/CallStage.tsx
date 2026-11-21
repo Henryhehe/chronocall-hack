@@ -52,6 +52,7 @@ interface CallStageProps {
   phase: Exclude<FaceTimePhase, "launcher">;
   profile: HistoricalProfile;
   portraitDataUrl: string | null;
+  portraitPreparing: boolean;
   ringingSubtitle: string;
   demoMode: boolean;
   voiceStatus: "idle" | "connecting" | "connected" | "demo" | "text-only";
@@ -140,6 +141,7 @@ export const CallStage: React.FC<CallStageProps> = ({
   videoEngineMode,
   onChangeVideoEngineMode,
   evidence,
+  portraitPreparing,
   pipelineEvents,
   latestDecision,
   verifyingDecision,
@@ -264,7 +266,7 @@ export const CallStage: React.FC<CallStageProps> = ({
         isSpeaking={isSpeaking}
         speechLevelRef={speechLevelRef}
         lastReaction={lastReaction}
-        callActive={phase === "in-call"}
+        callActive={phase === "in-call" && !portraitPreparing}
         onStatusChange={setVideoTelemetry}
       />
 

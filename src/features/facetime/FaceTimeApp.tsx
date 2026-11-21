@@ -35,6 +35,7 @@ export default function FaceTimeApp() {
     null
   );
   const [portraitDataUrl, setPortraitDataUrl] = useState<string | null>(null);
+  const [portraitPreparing, setPortraitPreparing] = useState(false);
   const [ringingSubtitle, setRingingSubtitle] = useState(
     "Connecting across history…"
   );
@@ -53,6 +54,7 @@ export default function FaceTimeApp() {
   const [verifyingDecision, setVerifyingDecision] = useState(false);
 
   const callSeqRef = useRef(0);
+  const portraitRequestRef = useRef<AbortController | null>(null);
   const stopRingtoneRef = useRef<(() => void) | null>(null);
   const lastVerifiedUtteranceRef = useRef<string>("");
 
@@ -117,6 +119,10 @@ export default function FaceTimeApp() {
   const beginCall = useCallback(
     async (profile: HistoricalProfile, scannedReferenceDataUrl?: string) => {
       const seq = ++callSeqRef.current;
+      portraitRequestRef.current?.abort();
+      const portraitRequest = new AbortController();
+      portraitRequestRef.current = portraitRequest;
+      setPortraitPreparing(true);
       stopRingtone();
       setErrorMessage(null);
       setScannerOpen(false);
@@ -136,9 +142,10 @@ export default function FaceTimeApp() {
 
       const minRingDelay = new Promise((r) => setTimeout(r, 1500));
 
-      // Fetch / generate photorealistic FaceTime portrait while ringing
-      const portraitTask = (async () => {
+      // Upgrade the existing artwork in the background; voice never waits for image generation.
+      void (async () => {
         const startedAt = Date.now();
+        const timeout = window.setTimeout(() => portraitRequest.abort(), 45_000);
         recordPipelineEvent({
           stage: "portrait",
           model: "gemini-3.1-flash-lite-image",
@@ -155,6 +162,7 @@ export default function FaceTimeApp() {
           );
           const res = await fetch("/api/facetime/portrait", {
             method: "POST",
+            signal: portraitRequest.signal,
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
               profile,
@@ -162,8 +170,9 @@ export default function FaceTimeApp() {
               referenceMimeType: "image/jpeg",
             }),
           });
-          if (!res.ok) return;
+          if (!res.ok) throw new Error('Portrait unavailable');
           const data = (await res.json()) as FaceTimePortraitResult;
+          if (!data.imageDataUrl) throw new Error('Portrait unavailable');
           if (callSeqRef.current === seq && data.imageDataUrl) {
             setPortraitDataUrl(data.imageDataUrl);
             recordPipelineEvent({
@@ -175,11 +184,19 @@ export default function FaceTimeApp() {
             });
           }
         } catch {
-          // Keep preview/gradient fallback cleanly if portrait synthesis fails
+          if (callSeqRef.current === seq) recordPipelineEvent({
+            stage: "portrait", model: "gemini-3.1-flash-lite-image",
+            label: "Portrait unavailable · using artwork preview",
+            status: "standby", latencyMs: Date.now() - startedAt,
+          });
+        } finally {
+          window.clearTimeout(timeout);
+          if (callSeqRef.current === seq) setPortraitPreparing(false);
+          if (portraitRequestRef.current === portraitRequest) portraitRequestRef.current = null;
         }
       })();
 
-      await Promise.all([minRingDelay, portraitTask]);
+      await minRingDelay;
       if (callSeqRef.current !== seq) return;
 
       stopRingtone();
@@ -314,12 +331,15 @@ export default function FaceTimeApp() {
 
   const handleEndCall = useCallback(() => {
     callSeqRef.current++;
+    portraitRequestRef.current?.abort();
+    portraitRequestRef.current = null;
     stopRingtone();
     call.stopCall();
     playEndCallChime();
     setPhase("launcher");
     setActiveProfile(null);
     setPortraitDataUrl(null);
+    setPortraitPreparing(false);
     setSelfieModalOpen(false);
     setSelfieCallerFrame(undefined);
   }, [call, stopRingtone]);
@@ -354,6 +374,9 @@ export default function FaceTimeApp() {
 
   useEffect(() => {
     return () => {
+      callSeqRef.current++;
+      portraitRequestRef.current?.abort();
+      portraitRequestRef.current = null;
       stopRingtone();
     };
   }, [stopRingtone]);
@@ -391,6 +414,7 @@ export default function FaceTimeApp() {
           phase={phase}
           profile={activeProfile}
           portraitDataUrl={portraitDataUrl}
+          portraitPreparing={portraitPreparing}
           ringingSubtitle={ringingSubtitle}
           demoMode={demoMode}
           voiceStatus={call.voiceStatus}
