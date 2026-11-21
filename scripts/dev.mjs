@@ -1,7 +1,7 @@
 import { spawn } from "node:child_process";
 import { fileURLToPath } from "node:url";
 
-const child = spawn(process.execPath, ["--watch", "--import", "tsx", "server/index.ts"], {
+const child = spawn(process.execPath, ["--import", "tsx", "server/index.ts"], {
   cwd: fileURLToPath(new URL("../", import.meta.url)),
   stdio: "inherit",
   env: { ...process.env, PORT: "3000", HOST: process.env.HOST || "0.0.0.0", ...(process.argv.includes("--demo") ? { DEMO_MODE: "true" } : {}) },
