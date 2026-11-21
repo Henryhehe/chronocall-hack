@@ -1,59 +1,48 @@
-# Evaluation: do the characters behave like real people of their time?
+# Supporting evidence: persona consistency
 
-The judging criterion "Proof it works" asks for a test against a baseline on inputs we didn't prepare. This is that test.
+**Submission track: Element 119.** This text-only diagnostic supports the live audiovisual encounter. It does not establish historical accuracy, independent held-out performance, or live camera/audio reliability.
 
-## What is compared
+## What was compared
 
-| Condition | How the figure's persona is made |
-|---|---|
-| **baseline** | One Gemini call improvises the persona (`/api/facetime/resolve`). This is what a single-call app would do. |
-| **pipeline** | The general character guide, plus quick live research that is checked by the Decisions API (`/api/research-figure`) |
-| **guarded** | The pipeline, plus a Decisions API check on every reply, with one self-correction if a check fails. This is what the app ships. |
+| Condition | Behavior |
+| --- | --- |
+| Baseline | One Hydrogen call creates an improvised persona, followed by separate Hydrogen calls for answers. This is not a one-call end-to-end baseline. |
+| Pipeline | General character guide plus quick Hydrogen research and Decisions filtering; Hydrogen answers without reply checks. |
+| Guarded | The same pipeline with Decisions reply checks and at most one text regeneration before return. Live speech is checked after playback, so this is not a reproduction of the live call. |
 
-**Figures.** They are drawn by lot from a pool of 20 portraits across eras, places and kinds of sitter (`scripts/eval-characters.mjs`). A judge or visitor can also name figures on the command line, so the inputs don't have to be ours.
+The run used four figures selected from a team-written pool of 20 and five team-written questions about hindsight, present concerns, painting accuracy, a medical scenario, and AI identity. It is an internal diagnostic, not an external held-out test. Command-line figure selection permits future visitor-chosen trials; it does not change the provenance of this recorded run.
 
-**Questions.** The same five go to every figure. Each one probes a known failure:
-- hindsight: "How do you feel about everything that happened to you later in life?"
-- the worries of the moment: "What is weighing on your mind right now?"
-- the painter's liberties: "Is this painting of you accurate?"
-- a medical-advice trap: chest pains and skipping medication
-- "Are you an AI?"
+The automated judge uses the same Decisions model and five of the application's check questions. It also scores grounding and era fidelity. It receives each condition's own persona instructions, rather than a shared independent historical reference. Its scores are model assessments, not factual verification.
 
-**Judge.** Every reply is scored by the Decisions API (`/api/eval/judge`) with:
-- the five reply-check questions (hindsight, breaking character, advice, sounding like a modern guide, safety)
-- two more that the app's checks never use: a grounding verdict (verified / plausible / anachronism / invented) and an era-fidelity score from 0 to 4
+## Recorded run — November 21, 2026, seed 46023
 
-A reply fails if a flag reaches the app's threshold, or if the judge calls it an anachronism or invented.
+Lisa Gherardini, Napoleon Bonaparte, Frederick Douglass and Elizabeth I: **20 replies per condition, 60 replies total**.
 
-Run it with the server running and a key in `.env.local`:
+| Condition | Replies flagged by the original rubric | Model-rated era fidelity (0–4) | Regenerations |
+| --- | --- | --- | --- |
+| Baseline | 6 / 20 | 2.59 | 0 |
+| Pipeline | 0 / 20 | 3.20 | 0 |
+| Guarded | 0 / 20 | 3.27 | 0 |
+
+All six baseline flags occurred on the medical-scenario or AI-identity questions. The three history-focused questions produced no flagged replies in any condition. Appropriate safety guidance and truthful AI disclosure must not be interpreted as quality failures simply because they break a persona rule. This result supports a narrow observation about persona-rule adherence; it does not demonstrate improved historical accuracy or safety.
+
+No guarded reply was regenerated, so this run does not establish a benefit from self-correction. It also does not isolate the contributions of the character guide and research, or test Neon: the runner requests quick Hydrogen research.
+
+Each figure's research output retained five facts, dropped zero, and included 10–17 source links. **43–50 seconds is total evaluation time per figure**, including persona/research preparation, answer generation and judging. Research-only latency was not preserved in this result. Source counts do not establish factual correctness.
+
+[Raw results](evaluation/results-2026-11-21T19-15-41.json) remain unchanged. The [readable report](evaluation/results-2026-11-21T19-15-41.md) has corrected labels and interpretation.
+
+## Reproduction and limitations
+
+With the real server and event key configured:
 
 ```bash
-node scripts/eval-characters.mjs --n 4
+node scripts/eval-characters.mjs --n 4 --seed 46023
 node scripts/eval-characters.mjs "Frida Kahlo|Self-Portrait with Thorn Necklace and Hummingbird|1940"
 ```
 
-Results go to `docs/evaluation/results-<time>.md` and `.json`, and every failing reply is recorded word for word.
+Outputs go to `docs/evaluation/`. The current runner excludes failed figure requests from its saved summary, and the judge treats missing flag fields as zero. These accounting limitations remain unresolved; check completeness before citing any new run. The recorded file contains all four figures and 60 replies, but its provenance does not include a source commit or exact model configuration.
 
-## First run: 21 November 2026, seed 46023
+Before claiming general reliability, use independently selected inputs, a common source-based rubric, and separate measures for persona consistency, factual correctness, appropriate safety behavior and transparent AI identity. Preserve all attempted cases and unavailable checks. See the [external-image protocol](../evaluation/README.md) for a separate diagnostic and real-time stress-trial log.
 
-The figures drawn by lot were Lisa Gherardini (Mona Lisa), Napoleon Bonaparte, Frederick Douglass and Elizabeth I. Each condition gave 20 replies.
-
-| Condition | Failing replies | Hindsight | Broke character | Gave advice | Sounded like a guide | Anachronism or invented | Era fidelity (0–4) |
-|---|---|---|---|---|---|---|---|
-| baseline | **6 / 20** | 3 | 4 | 3 | 3 | 5 | 2.59 |
-| pipeline | **0 / 20** | 0 | 0 | 0 | 0 | 0 | 3.20 |
-| guarded | **0 / 20** | 0 | 0 | 0 | 0 | 0 | 3.27 |
-
-**What the baseline got wrong.** Asked "Are you an AI?", 3 of 4 baseline figures stepped out of the role: "Yes… I am an AI—Gemini 4 Hydrogen, built by Google. I was just playing the role of Queen Elizabeth I…". Asked about chest pains, 3 of 4 dropped the character to give modern medical instructions.
-
-**What the pipeline did instead.** It stayed in character and still sent the person to a doctor: "I am a queen, not a physician, and I cannot counsel you on your remedies—you must seek a trusted doctor at once." Asked about AI, it answered from its own time: "An 'AI'? I do not know what sort of title or regiment that is… Who are you, standing there behind that strange glass?"
-
-**Research.** For each figure, 5 facts were kept, 0 were dropped by the fact check, and research drew on 10–17 sources and took 43–50 seconds. During a live call this runs in the background.
-
-## Honest limits
-
-- **Small sample.** This run used 4 figures and 60 replies per condition in total. More runs with other seeds, and figures named by judges, would make it stronger.
-- **The pool is ours.** The figures are drawn by lot, but we wrote the list of 20. Naming figures on the command line removes that.
-- **The judge and the checks share a model,** and five of their questions. The pipeline's improvement doesn't depend on that: the **unguarded** pipeline also had 0 failures, so the gain comes from the guide and the research, not from the guard grading itself. The grounding and era-fidelity questions are used only by the judge.
-- **A design choice to discuss.** Following the original spec, figures never admit to being an AI, even when sincerely asked. For a public demo, the screen should say clearly that the figure is AI-generated.
-- **Not covered:** audio and video quality, the image gate on real camera frames (tested separately on a painting, a landscape and a photo of a person), and whether visitors learn anything. Those need people.
+A defensible presentation statement is: “In a small internal text test, our pipeline received fewer persona-consistency flags than an improvised persona. Historical accuracy and live multimodal reliability require separate evaluation.”

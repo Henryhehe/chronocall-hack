@@ -394,6 +394,7 @@ export const CallStage: React.FC<CallStageProps> = ({
                     {videoTelemetry.label}
                   </span>
                 </div>
+                <p className="text-[10px] leading-4 text-slate-300">AI historical interpretation</p>
               </div>
             </div>
 
@@ -626,25 +627,26 @@ export const CallStage: React.FC<CallStageProps> = ({
                   {liveCaption}
                 </p>
               </div>
-              {(verifyingDecision || latestDecision) && (
-                <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-black/55 border border-white/12 backdrop-blur-xl text-[10px] text-slate-200 shadow-lg">
+              <div role="status" className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-black/55 border border-white/12 backdrop-blur-xl text-[10px] text-slate-200 shadow-lg">
                   <span
                     className={`w-1.5 h-1.5 rounded-full ${
                       verifyingDecision
                         ? "bg-sky-400 animate-ping"
-                        : latestDecision?.verdict === "anachronism"
-                          ? "bg-amber-400"
-                          : "bg-emerald-400"
+                        : !latestDecision || latestDecision.verdict === "unavailable"
+                          ? "bg-slate-400"
+                          : latestDecision.verdict === "anachronism"
+                            ? "bg-amber-400"
+                            : "bg-emerald-400"
                     }`}
                   />
                   {verifyingDecision ? (
                     <span className="text-sky-200">
-                      Verifying historical accuracy · gemini-decision-1
+                      Checking era consistency
                     </span>
-                  ) : latestDecision ? (
+                  ) : latestDecision && latestDecision.verdict !== "unavailable" ? (
                     <span>
                       {formatDecisionVerdictLabel(latestDecision.verdict)} ·{" "}
-                      <span className="font-mono text-emerald-300">
+                      <span className={`font-mono ${latestDecision.verdict === "anachronism" ? "text-amber-300" : "text-slate-200"}`}>
                         {formatConfidencePercent(latestDecision.confidence)}
                       </span>{" "}
                       ·{" "}
@@ -652,9 +654,10 @@ export const CallStage: React.FC<CallStageProps> = ({
                         {latestDecision.model} · {latestDecision.latencyMs}ms
                       </span>
                     </span>
-                  ) : null}
-                </div>
-              )}
+                  ) : (
+                    <span className="text-slate-400">Assessment unavailable or not yet received</span>
+                  )}
+              </div>
             </div>
           )}
 

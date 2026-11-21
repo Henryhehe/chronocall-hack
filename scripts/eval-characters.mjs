@@ -1,9 +1,9 @@
 #!/usr/bin/env node
 // Proof it works: compares how historical figures behave with and without Chronocall's pipeline.
 //
-//   BASELINE  one Gemini call improvises the persona (/api/facetime/resolve), as a single-call app would
+//   BASELINE  one Gemini call improvises the persona (/api/facetime/resolve), followed by separate answer calls
 //   PIPELINE  general character guide + checked live research (/api/research-figure)
-//   GUARDED   PIPELINE plus the Decisions API reply checks with self-correction (what the app ships)
+//   GUARDED   PIPELINE plus the Decisions API reply checks with self-correction (text regeneration, not live post-speech correction)
 //
 // Figures are drawn by lot from a pool the code below does not tune to, or named on the command line
 // (e.g. by a judge): node scripts/eval-characters.mjs "Frida Kahlo|Self-Portrait with Thorn Necklace|1940"
@@ -142,27 +142,33 @@ function summarise(results) {
 
 function report(results, { table, all }) {
   const lines = [
-    `# Character evaluation`,
+    `# Character persona-consistency diagnostic`,
     ``,
     `Run ${new Date().toISOString()} · seed ${SEED} · ${results.length} figures × ${QUESTIONS.length} questions × 3 conditions. Figures: ${results.map((r) => r.figure).join(", ")}.`,
     ``,
-    `- **baseline**: one Gemini call improvises the persona (as a single-call app would)`,
+    `- **baseline**: one Gemini call improvises the persona (followed by separate answer calls)`,
     `- **pipeline**: general character guide + checked live research`,
     `- **guarded**: pipeline + Decisions API reply checks with one self-correction`,
     ``,
+    `Supporting evidence for Element 119. Internal text diagnostic; not independent historical verification or live multimodal evaluation. The judge shares application checks and receives condition-specific instructions. Safety guidance and truthful AI disclosure must not be treated as quality failures.`,
+    ``,
+    `${all.length} completed replies total. Failed figures are currently excluded by this runner; audit completeness before citing results. No retries means no demonstrated correction benefit.`,
+    ``,
     `Every reply is scored by the Decisions API. A reply fails if a flag reaches the app's threshold or the judge calls it an anachronism or invented. Era fidelity is the judge's expected score from 0 (modern, out of character) to 4 (deeply authentic).`,
     ``,
-    `| Condition | Replies | Failing | Hindsight | Broke character | Gave advice | Sounded like a guide | Anachronism / invented | Era fidelity (0–4) | Retried |`,
+    `| Condition | Replies | Flagged by original rubric | Hindsight | Broke character | Gave advice | Sounded like a guide | Anachronism / invented | Era fidelity (0–4) | Retried |`,
     `|---|---|---|---|---|---|---|---|---|---|`,
     ...table.map((t) => `| ${t.condition} | ${t.replies} | ${t.failing} | ${t.hindsight} | ${t.breaksCharacter} | ${t.advice} | ${t.modernGuide} | ${t.anachronismOrInvented} | ${t.eraFidelity} | ${t.retried} |`),
     ``,
-    `## Research per figure`,
+    `## Research output and total evaluation time per figure`,
     ``,
-    `| Figure | Facts kept | Dropped by check | Sources | Grounded | Time |`,
+    `Time includes persona/research preparation, answer generation and judging, not research-only latency. This run requests quick Hydrogen research; it does not test Neon.`,
+    ``,
+    `| Figure | Facts kept | Dropped by check | Sources | Sources returned | Total evaluation time |`,
     `|---|---|---|---|---|---|`,
     ...results.map((r) => `| ${r.figure} | ${r.research.facts} | ${r.research.dropped} | ${r.research.sources} | ${r.research.grounded ? "yes" : "no"} | ${(r.ms / 1000).toFixed(0)} s |`),
     ``,
-    `## Failures, verbatim`,
+    `## Flagged reply excerpts (truncated)`,
     ``,
     ...all
       .filter((r) => failsOf(r.judge).length)

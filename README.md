@@ -4,9 +4,9 @@ Chronocall lets you call someone inside a painting. Scan an artwork, start a liv
 
 **Element 119 demo:** open `/facetime` → scan artwork → call → show an unexpected object. Hydrogen handles identification and quick research; Neon adds deeper research; Decisions filters research claims and assesses completed replies. Live 3.8 handles voice and sampled camera frames. Automated assessments are not independent historical verification.
 
-[Three-minute demo and one-minute video](docs/DEMO_RUNBOOK.md) · [Evaluation protocol](evaluation/README.md) · [Submission and contribution checklist](docs/SUBMISSION_CHECKLIST.md)
+[Three-minute demo and one-minute video](docs/DEMO_RUNBOOK.md) · [Persona diagnostic](docs/EVALUATION.md) · [External-image protocol](evaluation/README.md) · [Element 119 evidence](docs/ELEMENT119_EVIDENCE.md) · [Submission and contribution checklist](docs/SUBMISSION_CHECKLIST.md)
 
-**Evidence status:** automated checks validate code paths. External-image comparison and venue camera/audio rehearsal are still pending; no measured model-accuracy claim is made. Confirm the experience's eligibility with an organizer because the event excludes education chatbots and image analyzers.
+**Evidence status:** an internal persona diagnostic records 20 replies per condition (60 total). Its flags measure persona-rule adherence, not independently verified historical accuracy. External-image comparison and documented venue camera/audio stress trials remain pending. Confirm the experience's eligibility with an organizer because the event excludes education chatbots and image analyzers.
 
 [Team](#team) · [Local setup](#start-locally) · [Features](#whats-in-the-app) · [Deployment](#deploy) · [Demo runbook](docs/DEMO_RUNBOOK.md) · [Architecture/API](docs/ARCHITECTURE.md) · [Contributing](CONTRIBUTING.md)
 
