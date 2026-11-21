@@ -13,7 +13,8 @@ import {
   type LiveProfile,
   type IdentifiedSubject,
 } from '../src/features/museum/data/liveResearch.ts';
-import { checkReply, correctionNote, type ReplyCheckResult } from './services/gemini/replyChecks.ts';
+import { checkReply, correctionNote, DECISIONS_API_VERSION, type ReplyCheckResult } from './services/gemini/replyChecks.ts';
+import { gateImage } from './services/gemini/imageGate.ts';
 function createGeminiClient(apiVersion?: string) {
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) {
@@ -81,6 +82,9 @@ export function createMuseumRouter(demoMode = false) {
 
       const ai = createGeminiClient();
       const cleanBase64 = imageBase64.replace(/^data:image\/[a-zA-Z+]+;base64,/, '');
+      // Image gate (Decisions API), run alongside identification: is there a figure to talk to, and is
+      // this an artwork or historical figure rather than an ordinary present-day person?
+      const gatePromise = gateImage(ai, { data: cleanBase64, mimeType });
 
       const response = await ai.models.generateContent({
         model: 'gemini-4-hydrogen',
@@ -171,6 +175,19 @@ If no portrait or figure is clearly visible, set detected to false and explain b
       });
 
       const parsed = JSON.parse((response.text ?? '{}').trim());
+      const gate = await gatePromise;
+      parsed.gate = gate;
+      if (!gate.allowed) {
+        // No character: say why, and never build a persona (in particular not for a living person).
+        return res.json({
+          detected: false,
+          isWashingtonAnchor: false,
+          characterName: '',
+          paintingTitle: '',
+          historicalContext: gate.reason,
+          gate,
+        });
+      }
       // Replace the persona the model improvised with the general character guide (then call
       // /api/research-figure to add live research).
       // The improvised one is kept as `generatedPersona`: it is the one-call baseline for evaluation.
@@ -208,14 +225,22 @@ If no portrait or figure is clearly visible, set detected to false and explain b
 
       const ai = createGeminiClient();
       const timings: Record<string, number> = {};
+      console.log(`[research-figure] start: ${s.name ?? s.subject}`);
 
       // 1. Research with Google Search grounding (free prose, sources after each fact).
+      // gemini-4-neon with Google Search did not answer within 5 minutes in testing; Hydrogen took ~30 s.
+      const researchModel = process.env.RESEARCH_MODEL || 'gemini-4-hydrogen';
       const research = await ai.models.generateContent({
-        model: 'gemini-4-neon',
+        model: researchModel,
         contents: liveResearchPrompt(s),
-        config: { tools: [{ googleSearch: {} }] },
+        config: {
+          tools: [{ googleSearch: {} }],
+          thinkingConfig: { thinkingLevel: ThinkingLevel.LOW },
+          abortSignal: AbortSignal.timeout(Number(process.env.RESEARCH_TIMEOUT_MS) || 60_000),
+        },
       });
       const notes = research.text ?? '';
+      console.log(`[research-figure] ${researchModel} research done in ${Date.now() - t0} ms (${notes.length} chars)`);
       const sources = (research.candidates?.[0]?.groundingMetadata?.groundingChunks ?? [])
         .map((c) => ({ title: c.web?.title, uri: c.web?.uri }))
         .filter((c) => c.uri);
@@ -236,6 +261,7 @@ If no portrait or figure is clearly visible, set detected to false and explain b
       profile.eraViews ??= [];
       profile.sensitive ??= [];
       timings.structureMs = Date.now() - t0 - timings.researchMs;
+      console.log(`[research-figure] structured in ${timings.structureMs} ms (${profile.keyFacts?.length ?? 0} facts)`);
 
       // 3. Check every fact against the research notes with the Decisions API (yes/no, calibrated).
       //    Code decides: a fact stays only if P(yes) >= 0.8.
@@ -244,6 +270,7 @@ If no portrait or figure is clearly visible, set detected to false and explain b
       if (qs.length) {
         const t2 = Date.now();
         const decision = await ai.decisions.create({
+          ...DECISIONS_API_VERSION,
           model: 'models/gemini-decision-1',
           input: `RESEARCH NOTES WITH SOURCES:\n${notes}`,
           questions: Object.fromEntries(

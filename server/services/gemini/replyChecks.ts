@@ -9,6 +9,8 @@
 import type { GoogleGenAI } from '@google/genai';
 
 export const DECISION_MODEL = 'models/gemini-decision-1';
+/** API version for Decisions API calls (a preview API); override with DECISIONS_API_VERSION. */
+export const DECISIONS_API_VERSION = { api_version: process.env.DECISIONS_API_VERSION || 'v1alpha' };
 
 interface ReplyCheck {
   id: string;
@@ -86,6 +88,7 @@ export async function checkReply(
       .filter(Boolean)
       .join('\n\n');
     const response = await ai.decisions.create({
+      ...DECISIONS_API_VERSION,
       model: DECISION_MODEL,
       input,
       questions: Object.fromEntries(

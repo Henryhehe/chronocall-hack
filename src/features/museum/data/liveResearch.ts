@@ -4,7 +4,7 @@
 //
 // Server-side only. Suggested pipeline (Legendry's rule: let the model read first, structure after):
 //   1. IDENTIFY  (gemini-4-hydrogen, image)       → who/what, painting, artist, years   [already in /api/identify-portrait]
-//   2. RESEARCH  (gemini-4-neon + googleSearch)   → free prose notes with sources       [liveResearchPrompt]
+//   2. RESEARCH  (gemini-4-hydrogen + googleSearch) → free prose notes with sources     [liveResearchPrompt]
 //   3. STRUCTURE (gemini-4-hydrogen, JSON schema) → LiveProfile                         [structurePrompt + LIVE_PROFILE_SCHEMA]
 //   4. CHECK     (gemini-decision-1, yes/no)      → drop facts their source doesn't support [factCheckQuestions]
 //   5. SPEAK     (gemini-3.8-live)                → livePersona(profile, artwork)
