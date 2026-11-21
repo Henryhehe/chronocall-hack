@@ -865,34 +865,7 @@ export const PortraitStage: React.FC<ARPortraitStageProps> = ({
       )}
 
       {/* Top Viewfinder HUD */}
-      <div className="absolute top-3 left-3 right-3 z-20 flex flex-wrap items-center justify-between gap-2 pointer-events-none">
-        <div className="pointer-events-auto inline-flex items-center p-1 rounded-xl bg-black/65 backdrop-blur-md border border-white/12">
-          <button
-            type="button"
-            onClick={() => onChangeLensMode('portrait')}
-            className={`min-h-[38px] px-3 py-1.5 rounded-lg text-xs font-medium transition-colors flex items-center gap-1.5 whitespace-nowrap shrink-0 ${
-              lensMode === 'portrait'
-                ? 'bg-[#F6F3EC] text-[#181614]'
-                : 'text-[#E5DFD3] hover:text-white'
-            }`}
-          >
-            <ImageIcon className="w-3.5 h-3.5" />
-            Gallery Portrait
-          </button>
-          <button
-            type="button"
-            onClick={() => onChangeLensMode('camera')}
-            className={`min-h-[38px] px-3 py-1.5 rounded-lg text-xs font-medium transition-colors flex items-center gap-1.5 whitespace-nowrap shrink-0 ${
-              lensMode === 'camera'
-                ? 'bg-[#F6F3EC] text-[#181614]'
-                : 'text-[#E5DFD3] hover:text-white'
-            }`}
-          >
-            <Camera className="w-3.5 h-3.5" />
-            Camera AR
-          </button>
-        </div>
-
+      <div className="absolute top-3 left-3 right-3 z-20 flex flex-wrap items-center justify-end gap-2 pointer-events-none">
         <div className="pointer-events-auto flex items-center gap-2">
           {lensMode === 'camera' && cameraReady && (
             <>

@@ -281,43 +281,45 @@ export const CallStage: React.FC<CallStageProps> = ({
               </div>
             </div>
 
-            {/* Video Engine Selector Pill */}
+            {/* Video settings Selector Pill */}
             <div className="pointer-events-auto relative">
               <button
                 type="button"
                 onClick={() => setEngineMenuOpen((v) => !v)}
+                aria-label="Video settings"
+                aria-expanded={engineMenuOpen}
                 className="inline-flex items-center gap-2 px-3.5 py-2 rounded-full bg-black/45 hover:bg-black/60 border border-white/15 backdrop-blur-2xl text-xs font-medium text-slate-200 cursor-pointer shadow-xl"
               >
                 <SlidersHorizontal className="w-3.5 h-3.5 text-emerald-300" />
-                <span className="hidden sm:inline">Video Engine</span>
+                <span className="hidden sm:inline">Video settings</span>
               </button>
 
               {engineMenuOpen && (
                 <div className="absolute right-0 mt-2 w-60 rounded-2xl bg-[#0D111A]/95 border border-white/15 backdrop-blur-2xl shadow-2xl p-2 space-y-1">
                   <p className="px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wider text-slate-400">
-                    Full-Motion Video Mode
+                    Video mode
                   </p>
                   {(
                     [
                       {
                         id: "hybrid",
-                        label: "Hybrid Auto (Recommended)",
-                        desc: "Instant portrait → Genie 4 / Veo",
+                        label: "Automatic (recommended)",
+                        desc: "Choose the available video mode",
                       },
                       {
                         id: "genie",
-                        label: "Genie 4 Live WebRTC",
+                        label: "Live generated video",
                         desc: "Interactive reaction-steered stream",
                       },
                       {
                         id: "veo",
-                        label: "Veo Full-Motion Video",
+                        label: "Cinematic video",
                         desc: "Cinematic 720p listening & speaking",
                       },
                       {
                         id: "portrait",
-                        label: "Live Animated Portrait",
-                        desc: "Lowest latency 60fps reactive video",
+                        label: "Animated portrait",
+                        desc: "Responsive animated portrait",
                       },
                     ] as const
                   ).map((opt) => (
@@ -511,7 +513,7 @@ export const CallStage: React.FC<CallStageProps> = ({
                   type="submit"
                   disabled={!draftMessage.trim() || isSendingText}
                   aria-label="Send message"
-                  className="w-9 h-9 rounded-full bg-[#30D158] hover:bg-[#34C759] disabled:bg-white/10 disabled:text-slate-500 text-slate-950 flex items-center justify-center cursor-pointer disabled:cursor-not-allowed shrink-0"
+                  className="w-9 h-9 rounded-full bg-accent-500 hover:bg-accent-400 disabled:bg-white/10 disabled:text-slate-500 text-slate-950 flex items-center justify-center cursor-pointer disabled:cursor-not-allowed shrink-0"
                 >
                   {isSendingText ? (
                     <Loader2 className="w-4 h-4 animate-spin" />
@@ -524,7 +526,7 @@ export const CallStage: React.FC<CallStageProps> = ({
           )}
 
           {/* Bottom Frosted-Glass FaceTime Control Dock */}
-          <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-20 flex items-center gap-2.5 sm:gap-3.5 px-4 sm:px-5 py-3 rounded-full bg-black/55 border border-white/15 backdrop-blur-2xl shadow-2xl">
+          <div className="call-control-dock absolute bottom-6 left-1/2 -translate-x-1/2 z-20 flex items-center gap-2.5 sm:gap-3.5 px-4 sm:px-5 py-3 rounded-full bg-black/55 border border-white/15 backdrop-blur-2xl shadow-2xl">
             <button
               type="button"
               onClick={onToggleMic}
@@ -611,7 +613,7 @@ export const CallStage: React.FC<CallStageProps> = ({
             <button
               type="button"
               onClick={onEndCall}
-              aria-label="End FaceTime call"
+              aria-label="End call"
               title="End Call"
               className="h-12 px-5 sm:px-6 rounded-full bg-[#FF3B30] hover:bg-[#FF453A] text-white flex items-center justify-center gap-2 font-semibold text-sm shadow-lg shadow-rose-600/35 transition-transform active:scale-95 cursor-pointer"
             >

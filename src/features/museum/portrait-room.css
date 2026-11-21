@@ -1,23 +1,23 @@
 .museum-workspace { height: 100%; }
-.portrait-room { height: 100%; display: flex; flex-direction: column; overflow: hidden; background: #11100f; color: #f6f3ec; }
+.portrait-room { height: 100%; display: flex; flex-direction: column; overflow: hidden; background: var(--color-canvas); color: var(--journey-cream); }
 .portrait-room button { cursor: pointer; }
 .portrait-room button:focus-visible { outline: 2px solid #e2b46d; outline-offset: 4px; }
 .portrait-room-header { height: 56px; flex-shrink: 0; display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 0 24px; border-bottom: 1px solid #ffffff12; }
 .portrait-room-header button { display: flex; align-items: center; gap: 10px; min-height: 44px; min-width: 44px; font-size: 14px; }
 .portrait-room-title { font-size: 13px; color: #c7c0b4; text-align: center; }
 .portrait-room-stage { flex: 1; min-height: 0; position: relative; }
-.portrait-room-dock { flex-shrink: 0; padding: 16px 20px max(14px, env(safe-area-inset-bottom)); background: #11100f; border-top: 1px solid #ffffff12; }
-.portrait-room-actions { display: flex; align-items: center; justify-content: center; gap: 20px; }
-.portrait-room-speak { display: flex; align-items: center; justify-content: center; gap: 12px; min-height: 56px; padding: 0 32px; border-radius: 999px; background: #e5bd7c; color: #19140d; font-weight: 600; font-size: 15px; box-shadow: 0 0 30px #e5bd7c15; }
+.portrait-room-dock { flex-shrink: 0; padding: 16px 20px max(14px, env(safe-area-inset-bottom)); background: var(--color-canvas); border-top: 1px solid #ffffff12; }
+.portrait-room-actions { display: flex; align-items: center; justify-content: center; gap: 12px; flex-wrap: wrap; }
+.portrait-room-speak { display: flex; align-items: center; justify-content: center; gap: 12px; min-height: 56px; padding: 0 32px; border-radius: 12px; background: var(--journey-gold); color: #19140d; font-weight: 600; font-size: 15px; box-shadow: 0 0 30px #e5bd7c15; }
 .portrait-room-speak:hover { background: #f1cf98; }
 .portrait-room-speak.is-active { background: #803b2d; color: #fff4e6; }
 .portrait-room-secondary { display: flex; align-items: center; justify-content: center; gap: 8px; min-width: 44px; min-height: 44px; color: #c7c0b4; font-size: 12px; }
 .portrait-room-hint { font-size: 12px; color: #9b958b; text-align: center; margin-top: 10px; }
 .portrait-room-error { max-width: 680px; margin: 0 auto 12px; color: #ffc7b6; font-size: 13px; text-align: center; max-height: 70px; overflow-y: auto; }
-.portrait-room-sheet { position: fixed; inset: 0 0 0 auto; margin: 0; padding: 0; width: min(480px, 100%); height: 100dvh; max-height: 100dvh; max-width: 100%; border: 0; background: #fbf9f4; color: #181614; }
+.portrait-room-sheet { position: fixed; inset: 0 0 0 auto; margin: 0; padding: 0; width: min(480px, 100%); height: 100dvh; max-height: 100dvh; max-width: 100%; border: 0; background: var(--color-surface); color: #f1f5f9; }
 .portrait-room-sheet::backdrop { background: #0008; backdrop-filter: blur(4px); }
 .portrait-room-sheet-body { height: 100%; display: flex; flex-direction: column; }
-.portrait-room-sheet-heading { display: flex; align-items: center; justify-content: space-between; padding: 8px 20px; border-bottom: 1px solid #18161420; font-size: 14px; }
+.portrait-room-sheet-heading { display: flex; align-items: center; justify-content: space-between; padding: 8px 20px; border-bottom: 1px solid #ffffff20; font-size: 14px; }
 .portrait-room-sheet-heading button { display: grid; place-items: center; width: 44px; height: 44px; }
 .portrait-room-panel { flex: 1; min-height: 0; overflow-y: auto; }
 @media (max-width: 640px) {
@@ -30,3 +30,8 @@
   .portrait-room-dock { padding-top: 12px; }
   .portrait-room-hint { font-size: 11px; }
 }
+
+.portrait-room-panel > aside { border: 0; border-radius: 0; }
+.portrait-room-panel button { min-height: 44px; }
+.portrait-room-sheet :focus-visible { outline: 2px solid var(--journey-gold); outline-offset: 2px; }
+@media (max-width: 640px) { .portrait-room-speak { order: -1; width: 100%; min-height: 48px; } .portrait-room-actions { gap: 4px 16px; } .portrait-room-hint { display: none; } }

@@ -19,7 +19,6 @@ import {
   DetectionBox,
   HistoricalPersonaId,
   SourceMode,
-  VisionModelId,
   VisualFilterId,
 } from "../../../types/vision";
 import { computeContainedRect, ContainedRect } from "../../../utils/canvas";
@@ -44,15 +43,11 @@ interface CameraStageProps {
   onStartScreen: () => void;
   onUploadFile: (file: File) => void;
   onStopMedia: () => void;
-  visionModel: VisionModelId;
-  onChangeVisionModel: (model: VisionModelId) => void;
   characterMode: boolean;
   characterPersona: HistoricalPersonaId;
   onChangeCharacterPersona: (id: HistoricalPersonaId) => void;
   autoDetect: boolean;
   onToggleAutoDetect: () => void;
-  intervalMs: number;
-  onChangeInterval: (ms: number) => void;
   isDetecting: boolean;
   onAnalyzeOnce: () => void;
   liveConnected: boolean;
@@ -65,7 +60,6 @@ interface CameraStageProps {
   selectedBoxId: string | null;
   onSelectBox: (id: string | null) => void;
   latestSummary: string;
-  latestLatencyMs: number | null;
   promptText: string;
   onChangePromptText: (text: string) => void;
   onSubmitPrompt: () => void;
@@ -92,15 +86,11 @@ export const CameraStage: React.FC<CameraStageProps> = ({
   onStartScreen,
   onUploadFile,
   onStopMedia,
-  visionModel,
-  onChangeVisionModel,
   characterMode,
   characterPersona,
   onChangeCharacterPersona,
   autoDetect,
   onToggleAutoDetect,
-  intervalMs,
-  onChangeInterval,
   isDetecting,
   onAnalyzeOnce,
   liveConnected,
@@ -113,7 +103,6 @@ export const CameraStage: React.FC<CameraStageProps> = ({
   selectedBoxId,
   onSelectBox,
   latestSummary,
-  latestLatencyMs,
   promptText,
   onChangePromptText,
   onSubmitPrompt,
@@ -205,45 +194,33 @@ export const CameraStage: React.FC<CameraStageProps> = ({
 
       {/* Historical Character Persona Selector Strip */}
       {characterMode && (
-        <div className="flex flex-wrap items-center justify-between gap-2 px-3 py-2 bg-[#0B0F17] border border-slate-800 rounded-lg">
-          <div className="flex flex-wrap items-center gap-1.5">
-            {HISTORICAL_PERSONAS.map((p) => {
-              const active = characterPersona === p.id;
-              return (
-                <button
-                  key={p.id}
-                  type="button"
-                  onClick={() => onChangeCharacterPersona(p.id)}
-                  className={`px-3 py-1.5 text-xs font-medium rounded-md border transition-colors whitespace-nowrap shrink-0 cursor-pointer ${
-                    active
-                      ? "bg-cyan-500/15 border-cyan-500/60 text-cyan-300"
-                      : "bg-[#0D121C] border-slate-800 text-slate-300 hover:bg-[#111827]"
-                  }`}
-                >
-                  {p.name}
-                </button>
-              );
-            })}
-          </div>
+        <div className="flex flex-wrap items-center justify-between gap-2 px-3 py-2 bg-surface border border-slate-800 rounded-lg">
+          <label className="flex items-center gap-3 text-sm text-slate-300 min-w-0 flex-1">Persona
+            <select value={characterPersona} onChange={event => onChangeCharacterPersona(event.target.value as HistoricalPersonaId)} className="min-w-0 flex-1 min-h-11 bg-elevated border border-slate-700 rounded-md px-3 text-sm text-slate-100">
+              {HISTORICAL_PERSONAS.map(persona => <option key={persona.id} value={persona.id}>{persona.name}</option>)}
+            </select>
+          </label>
           <button
             type="button"
             onClick={() => setShowBoxesInCharacter((v) => !v)}
-            className="inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium bg-[#111827] hover:bg-slate-800 text-slate-300 border border-slate-700 rounded-md transition-colors whitespace-nowrap shrink-0 cursor-pointer"
+            aria-pressed={showBoxesInCharacter}
+            aria-label={showBoxesInCharacter ? 'Hide object outlines' : 'Show object outlines'}
+            className="inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium bg-elevated hover:bg-slate-800 text-slate-300 border border-slate-700 rounded-md transition-colors whitespace-nowrap shrink-0 cursor-pointer"
           >
             {showBoxesInCharacter ? (
               <EyeOff className="w-3.5 h-3.5" />
             ) : (
               <Eye className="w-3.5 h-3.5" />
             )}
-            {showBoxesInCharacter ? "Hide Boxes" : "Show Boxes"}
+            <span className="hidden sm:inline">Object outlines</span>
           </button>
         </div>
       )}
 
       {/* Main Viewport Stage */}
-      <div className="relative flex flex-col bg-[#0B0F17] border border-slate-800 rounded-lg overflow-hidden">
+      <div className="relative flex flex-col bg-surface border border-slate-800 rounded-lg overflow-hidden">
         {/* Top instrument telemetry bar */}
-        <div className="flex items-center justify-between gap-4 px-4 py-2.5 border-b border-slate-800 bg-[#0D121C] text-xs text-slate-400">
+        <div className="flex items-center justify-between gap-4 px-4 py-2.5 border-b border-slate-800 bg-surface text-xs text-slate-400">
           <div className="flex items-center gap-3 min-w-0">
             <span className="flex items-center gap-2 font-medium text-slate-200 whitespace-nowrap shrink-0">
               {mediaActive || liveConnected ? (
@@ -263,18 +240,12 @@ export const CameraStage: React.FC<CameraStageProps> = ({
                     ? "Image Loaded"
                     : "Camera Standby"}
             </span>
-            <span aria-hidden="true" className="text-slate-600">
-              ·
-            </span>
-            <span className="font-mono text-slate-300 truncate">
-              {visionModel}
-            </span>
             {characterMode && activePersona && (
               <>
                 <span aria-hidden="true" className="text-slate-600">
                   ·
                 </span>
-                <span className="text-cyan-400 truncate">
+                <span className="text-accent-400 truncate">
                   {activePersona.name}
                 </span>
               </>
@@ -284,21 +255,12 @@ export const CameraStage: React.FC<CameraStageProps> = ({
                 <span aria-hidden="true" className="text-slate-600">
                   ·
                 </span>
-                <span className="text-cyan-300 whitespace-nowrap shrink-0">
+                <span className="text-accent-300 whitespace-nowrap shrink-0">
                   {activeFilterPreset.label}
                 </span>
               </>
             )}
-            {latestLatencyMs !== null && (
-              <>
-                <span aria-hidden="true" className="text-slate-600">
-                  ·
-                </span>
-                <span className="font-mono tabular-nums text-cyan-400 whitespace-nowrap shrink-0">
-                  {latestLatencyMs} ms
-                </span>
-              </>
-            )}
+
           </div>
 
           <div className="flex items-center gap-3 shrink-0 font-mono tabular-nums">
@@ -310,7 +272,7 @@ export const CameraStage: React.FC<CameraStageProps> = ({
                 <span aria-hidden="true" className="text-slate-600">
                   ·
                 </span>
-                <span className="text-cyan-400">Analyzing</span>
+                <span className="text-accent-400">Analyzing</span>
               </>
             )}
           </div>
@@ -320,23 +282,23 @@ export const CameraStage: React.FC<CameraStageProps> = ({
         <div
           ref={stageContainerRef}
           onClick={() => onSelectBox(null)}
-          className="relative w-full aspect-video max-h-[62vh] bg-[#07090E] flex items-center justify-center overflow-hidden select-none"
+          className="camera-viewport relative w-full aspect-video max-h-[62vh] bg-canvas flex items-center justify-center overflow-hidden select-none"
         >
           <CameraFilterSvgDefs />
           {!hasVisualSource && (
             <div className="flex flex-col items-center justify-center text-center px-6 py-10 max-w-md">
-              <div className="w-12 h-12 rounded-lg bg-[#111827] border border-slate-800 flex items-center justify-center mb-4 text-cyan-400">
+              <div className="w-12 h-12 rounded-lg bg-elevated border border-slate-800 flex items-center justify-center mb-4 text-accent-400">
                 <Camera className="w-6 h-6" />
               </div>
               <h2 className="text-lg font-semibold text-slate-100 mb-1.5">
                 {characterMode
-                  ? "Step into the Historical Mirror"
-                  : "Start your camera for real-time vision"}
+                  ? "See through another era"
+                  : "What will you discover?"}
               </h2>
               <p className="text-sm text-slate-400 mb-6 leading-relaxed">
                 {characterMode
-                  ? "Start your webcam and Gemini 4 will track your face and shoulders to fit historical attire while commenting in character."
-                  : "Stream live frames for Gemini 4 bounding-box object detection, or enable interactive voice conversation over your video feed."}
+                  ? "Choose a persona, then add a photo or start your camera."
+                  : "Add a photo or start your camera. Ask a question about what you see."}
               </p>
               <div className="flex flex-wrap items-center justify-center gap-3">
                 <button
@@ -345,10 +307,10 @@ export const CameraStage: React.FC<CameraStageProps> = ({
                     e.stopPropagation();
                     onStartCamera();
                   }}
-                  className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium bg-cyan-500 hover:bg-cyan-400 text-slate-950 rounded-md transition-colors whitespace-nowrap shrink-0 cursor-pointer"
+                  className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium bg-accent-500 hover:bg-accent-400 text-slate-950 rounded-md transition-colors whitespace-nowrap shrink-0 cursor-pointer"
                 >
                   <Camera className="w-4 h-4" />
-                  Start Camera
+                  Start camera
                 </button>
                 <button
                   type="button"
@@ -356,10 +318,10 @@ export const CameraStage: React.FC<CameraStageProps> = ({
                     e.stopPropagation();
                     onStartScreen();
                   }}
-                  className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium bg-[#111827] hover:bg-slate-800 text-slate-200 border border-slate-700 rounded-md transition-colors whitespace-nowrap shrink-0 cursor-pointer"
+                  className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium bg-elevated hover:bg-slate-800 text-slate-200 border border-slate-700 rounded-md transition-colors whitespace-nowrap shrink-0 cursor-pointer"
                 >
                   <Monitor className="w-4 h-4" />
-                  Share Screen
+                  Share screen
                 </button>
                 <button
                   type="button"
@@ -367,10 +329,10 @@ export const CameraStage: React.FC<CameraStageProps> = ({
                     e.stopPropagation();
                     fileInputRef.current?.click();
                   }}
-                  className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium bg-[#111827] hover:bg-slate-800 text-slate-200 border border-slate-700 rounded-md transition-colors whitespace-nowrap shrink-0 cursor-pointer"
+                  className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium bg-elevated hover:bg-slate-800 text-slate-200 border border-slate-700 rounded-md transition-colors whitespace-nowrap shrink-0 cursor-pointer"
                 >
                   <ImagePlus className="w-4 h-4" />
-                  Upload Media
+                  Upload media
                 </button>
               </div>
             </div>
@@ -504,7 +466,7 @@ export const CameraStage: React.FC<CameraStageProps> = ({
                       />
 
                       <span
-                        className={`absolute left-0 flex items-center gap-1.5 px-1.5 py-0.5 text-[11px] font-mono tabular-nums font-medium text-slate-50 bg-[#07090E]/90 border border-slate-700/80 whitespace-nowrap ${
+                        className={`absolute left-0 flex items-center gap-1.5 px-1.5 py-0.5 text-[11px] font-mono tabular-nums font-medium text-slate-50 bg-canvas/90 border border-slate-700/80 whitespace-nowrap ${
                           placeLabelBelow ? "top-1" : "-top-6"
                         }`}
                       >
@@ -534,33 +496,33 @@ export const CameraStage: React.FC<CameraStageProps> = ({
         </div>
 
         {/* Real-Time Visual Filter Selection Bar */}
-        <VisualFilterSelector
+        <details className="ui-disclosure camera-effects"><summary>Visual effects{visualFilter !== 'none' ? ` · ${activeFilterPreset.label}` : ''}</summary><VisualFilterSelector
           selectedFilter={visualFilter}
           onSelectFilter={onChangeVisualFilter}
           intensity={filterIntensity}
           onChangeIntensity={onChangeFilterIntensity}
-        />
+        /></details>
 
         {/* Media & Gemini Controls Bar */}
-        <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-3 border-t border-slate-800 bg-[#0D121C]">
-          <div className="flex flex-wrap items-center gap-2">
+        <div className="camera-controls flex flex-wrap items-center justify-between gap-3 px-4 py-3 border-t border-slate-800 bg-surface">
+          <div className={hasVisualSource ? "flex flex-wrap items-center gap-2" : "hidden"}>
             {!mediaActive && !uploadedVideoUrl ? (
               <button
                 type="button"
                 onClick={() => onStartCamera()}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium bg-cyan-500 hover:bg-cyan-400 text-slate-950 rounded-md transition-colors whitespace-nowrap shrink-0 cursor-pointer"
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium bg-accent-500 hover:bg-accent-400 text-slate-950 rounded-md transition-colors whitespace-nowrap shrink-0 cursor-pointer"
               >
                 <Camera className="w-3.5 h-3.5" />
-                Start Camera
+                Start camera
               </button>
             ) : (
               <button
                 type="button"
                 onClick={onStopMedia}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium bg-[#111827] hover:bg-slate-800 text-slate-200 border border-slate-700 rounded-md transition-colors whitespace-nowrap shrink-0 cursor-pointer"
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium bg-elevated hover:bg-slate-800 text-slate-200 border border-slate-700 rounded-md transition-colors whitespace-nowrap shrink-0 cursor-pointer"
               >
                 <CameraOff className="w-3.5 h-3.5" />
-                Stop Source
+                Stop source
               </button>
             )}
 
@@ -570,7 +532,7 @@ export const CameraStage: React.FC<CameraStageProps> = ({
                 onClick={handleCycleCamera}
                 title="Switch Camera"
                 aria-label="Switch Camera"
-                className="inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium bg-[#111827] hover:bg-slate-800 text-slate-200 border border-slate-700 rounded-md transition-colors whitespace-nowrap shrink-0 cursor-pointer"
+                className="inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium bg-elevated hover:bg-slate-800 text-slate-200 border border-slate-700 rounded-md transition-colors whitespace-nowrap shrink-0 cursor-pointer"
               >
                 <SwitchCamera className="w-3.5 h-3.5" />
                 Switch
@@ -580,7 +542,7 @@ export const CameraStage: React.FC<CameraStageProps> = ({
             <button
               type="button"
               onClick={onStartScreen}
-              className="inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium bg-[#111827] hover:bg-slate-800 text-slate-300 border border-slate-800 rounded-md transition-colors whitespace-nowrap shrink-0 cursor-pointer"
+              className="inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium bg-elevated hover:bg-slate-800 text-slate-300 border border-slate-800 rounded-md transition-colors whitespace-nowrap shrink-0 cursor-pointer"
             >
               <Monitor className="w-3.5 h-3.5" />
               Screen
@@ -589,7 +551,7 @@ export const CameraStage: React.FC<CameraStageProps> = ({
             <button
               type="button"
               onClick={() => fileInputRef.current?.click()}
-              className="inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium bg-[#111827] hover:bg-slate-800 text-slate-300 border border-slate-800 rounded-md transition-colors whitespace-nowrap shrink-0 cursor-pointer"
+              className="inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium bg-elevated hover:bg-slate-800 text-slate-300 border border-slate-800 rounded-md transition-colors whitespace-nowrap shrink-0 cursor-pointer"
             >
               <ImagePlus className="w-3.5 h-3.5" />
               Upload
@@ -604,27 +566,16 @@ export const CameraStage: React.FC<CameraStageProps> = ({
           </div>
 
           <div className="flex flex-wrap items-center gap-2">
-            {/* Gemini 4 Model Selector */}
-            <select
-              aria-label="Gemini 4 vision model"
-              value={visionModel}
-              onChange={(e) =>
-                onChangeVisionModel(e.target.value as VisionModelId)
-              }
-              className="px-2.5 py-1.5 text-xs font-mono bg-[#111827] text-cyan-300 border border-slate-700 rounded-md focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-cyan-500"
-            >
-              <option value="gemini-4-hydrogen">gemini-4-hydrogen</option>
-              <option value="gemini-4-neon">gemini-4-neon (Pro)</option>
-            </select>
 
-            <button
+            {hasVisualSource && (<button
               type="button"
               disabled={!hasVisualSource}
               onClick={onToggleAutoDetect}
+              aria-pressed={autoDetect}
               className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-md border transition-colors whitespace-nowrap shrink-0 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed ${
                 autoDetect
                   ? "bg-emerald-500/15 border-emerald-500/50 text-emerald-300 hover:bg-emerald-500/20"
-                  : "bg-[#111827] border-slate-700 text-slate-200 hover:bg-slate-800"
+                  : "bg-elevated border-slate-700 text-slate-200 hover:bg-slate-800"
               }`}
             >
               {autoDetect ? (
@@ -632,29 +583,20 @@ export const CameraStage: React.FC<CameraStageProps> = ({
               ) : (
                 <Play className="w-3.5 h-3.5" />
               )}
-              {autoDetect ? "Auto Detect On" : "Auto Detect"}
-            </button>
+              {autoDetect ? "Auto analysis on" : "Auto analysis"}
+            </button>)}
 
-            <select
-              aria-label="Detection cadence"
-              value={intervalMs}
-              onChange={(e) => onChangeInterval(Number(e.target.value))}
-              className="px-2 py-1.5 text-xs font-mono tabular-nums bg-[#111827] text-slate-200 border border-slate-700 rounded-md focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-cyan-500"
-            >
-              <option value={1000}>1.0s</option>
-              <option value={2000}>2.0s</option>
-              <option value={4000}>4.0s</option>
-            </select>
 
-            <button
+
+            {hasVisualSource && (<button
               type="button"
               disabled={!hasVisualSource || isDetecting}
               onClick={onAnalyzeOnce}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium bg-[#111827] hover:bg-slate-800 text-slate-200 border border-slate-700 rounded-md transition-colors whitespace-nowrap shrink-0 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium bg-elevated hover:bg-slate-800 text-slate-200 border border-slate-700 rounded-md transition-colors whitespace-nowrap shrink-0 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
             >
               <Scan className="w-3.5 h-3.5" />
-              Analyze Frame
-            </button>
+              Analyze once
+            </button>)}
 
             <button
               type="button"
@@ -663,15 +605,15 @@ export const CameraStage: React.FC<CameraStageProps> = ({
               className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-md border transition-colors whitespace-nowrap shrink-0 cursor-pointer disabled:opacity-50 ${
                 liveConnected
                   ? "bg-rose-500/15 border-rose-500/50 text-rose-300 hover:bg-rose-500/25"
-                  : "bg-cyan-500/15 border-cyan-500/50 text-cyan-300 hover:bg-cyan-500/25"
+                  : "bg-accent-500 border-accent-500 text-slate-950 hover:bg-accent-400"
               }`}
             >
               <Mic className="w-3.5 h-3.5" />
               {liveConnecting
                 ? "Connecting..."
                 : liveConnected
-                  ? "End Live Voice"
-                  : "Start Live Voice"}
+                  ? "End conversation"
+                  : "Start conversation"}
             </button>
 
             {liveConnected && (
@@ -682,7 +624,7 @@ export const CameraStage: React.FC<CameraStageProps> = ({
                 className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium rounded-md border transition-colors whitespace-nowrap shrink-0 cursor-pointer ${
                   micMuted
                     ? "bg-amber-500/15 border-amber-500/50 text-amber-300"
-                    : "bg-[#111827] border-slate-700 text-slate-200 hover:bg-slate-800"
+                    : "bg-elevated border-slate-700 text-slate-200 hover:bg-slate-800"
                 }`}
               >
                 {micMuted ? (
@@ -694,17 +636,17 @@ export const CameraStage: React.FC<CameraStageProps> = ({
               </button>
             )}
 
-            <button
+            {hasVisualSource && (<button
               type="button"
               disabled={!hasVisualSource}
               onClick={onSaveSnapshot}
               title="Download annotated snapshot"
               aria-label="Download annotated snapshot"
-              className="inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium bg-[#111827] hover:bg-slate-800 text-slate-200 border border-slate-700 rounded-md transition-colors whitespace-nowrap shrink-0 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+              className="inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium bg-elevated hover:bg-slate-800 text-slate-200 border border-slate-700 rounded-md transition-colors whitespace-nowrap shrink-0 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
             >
               <Download className="w-3.5 h-3.5" />
               Snapshot
-            </button>
+            </button>)}
           </div>
         </div>
       </div>
@@ -715,28 +657,29 @@ export const CameraStage: React.FC<CameraStageProps> = ({
           e.preventDefault();
           onSubmitPrompt();
         }}
-        className="flex items-center gap-2 p-2 bg-[#0B0F17] border border-slate-800 rounded-lg"
+        className="flex items-center gap-2 p-2 bg-surface border border-slate-800 rounded-lg"
       >
         <input
           type="text"
+          aria-label="Ask a question"
           value={promptText}
           onChange={(e) => onChangePromptText(e.target.value)}
           placeholder={
             characterMode && activePersona
               ? `Ask ${activePersona.name} about what you are showing on camera...`
               : liveConnected
-                ? "Optional: send a text message to the active Gemini Live session..."
-                : "Optional: ask Gemini 4 about what is on camera (e.g., What am I holding?)"
+                ? "Type a message…"
+                : "Ask about what you see…"
           }
           className="flex-1 min-w-0 bg-transparent px-3 py-1.5 text-sm text-slate-100 placeholder:text-slate-500 focus-visible:outline-none"
         />
         <button
           type="submit"
           disabled={!promptText.trim() || (!hasVisualSource && !liveConnected) || isAsking}
-          className="inline-flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-medium bg-[#111827] hover:bg-slate-800 text-cyan-400 border border-slate-700 rounded-md transition-colors whitespace-nowrap shrink-0 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+          className="inline-flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-medium bg-elevated hover:bg-slate-800 text-accent-400 border border-slate-700 rounded-md transition-colors whitespace-nowrap shrink-0 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
         >
           <Send className="w-3.5 h-3.5" />
-          {isAsking ? "Asking..." : liveConnected ? "Send to Live" : "Ask Frame"}
+          {isAsking ? "Asking..." : liveConnected ? "Send" : "Ask"}
         </button>
       </form>
     </div>

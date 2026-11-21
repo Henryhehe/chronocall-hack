@@ -1,3 +1,4 @@
+import { Modal } from "../../../app/components/Modal";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
   Camera,
@@ -181,16 +182,10 @@ export const ArtworkScannerModal: React.FC<ArtworkScannerModalProps> = ({
     setScanError(null);
   };
 
-  if (!open) return null;
 
   return (
-    <div
-      className="fixed inset-0 z-50 bg-black/85 backdrop-blur-xl flex items-center justify-center p-4 sm:p-6"
-      role="dialog"
-      aria-modal="true"
-      aria-label="Scan painting, photo, or statue"
-    >
-      <div className="w-full max-w-2xl rounded-3xl overflow-hidden bg-[#0C1018] border border-white/15 shadow-2xl flex flex-col max-h-[92vh]">
+    <Modal open={open} onClose={onClose} label="Scan artwork">
+      <div className="w-full max-w-2xl rounded-xl overflow-hidden bg-surface border border-white/15 shadow-2xl flex flex-col max-h-[92vh]">
         {/* Header */}
         <div className="px-5 py-4 border-b border-white/10 flex items-center justify-between gap-4">
           <div className="flex items-center gap-3">
@@ -199,7 +194,7 @@ export const ArtworkScannerModal: React.FC<ArtworkScannerModalProps> = ({
             </div>
             <div>
               <h2 className="text-base font-semibold text-white">
-                Point at a Painting, Photo, or Statue
+                Scan artwork
               </h2>
               <p className="text-xs text-slate-400">
                 Frame the historical figure clearly or upload an artwork photo
@@ -210,7 +205,7 @@ export const ArtworkScannerModal: React.FC<ArtworkScannerModalProps> = ({
             type="button"
             onClick={onClose}
             aria-label="Close scanner"
-            className="w-9 h-9 rounded-full bg-white/[0.08] hover:bg-white/[0.16] flex items-center justify-center text-slate-300 hover:text-white cursor-pointer"
+            className="w-11 h-11 shrink-0 rounded-lg bg-white/[0.08] hover:bg-white/[0.16] flex items-center justify-center text-slate-300 hover:text-white cursor-pointer"
           >
             <X className="w-4 h-4" />
           </button>
@@ -246,7 +241,7 @@ export const ArtworkScannerModal: React.FC<ArtworkScannerModalProps> = ({
                   <button
                     type="button"
                     onClick={() => fileInputRef.current?.click()}
-                    className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full bg-white text-slate-950 font-semibold text-sm cursor-pointer"
+                    className="inline-flex items-center gap-2 px-5 py-2.5 rounded-lg bg-white text-slate-950 font-semibold text-sm cursor-pointer"
                   >
                     <ImagePlus className="w-4 h-4" />
                     <span>Upload Artwork Photo</span>
@@ -285,7 +280,7 @@ export const ArtworkScannerModal: React.FC<ArtworkScannerModalProps> = ({
               <button
                 type="button"
                 onClick={handleRescan}
-                className="text-xs font-semibold px-3 py-1 rounded-full bg-white/15 hover:bg-white/25 cursor-pointer shrink-0"
+                className="text-xs font-semibold px-3 py-1 rounded-lg bg-white/15 hover:bg-white/25 cursor-pointer shrink-0"
               >
                 Try Again
               </button>
@@ -303,7 +298,7 @@ export const ArtworkScannerModal: React.FC<ArtworkScannerModalProps> = ({
                       {Math.round(scanResult.confidence * 100)}% match
                     </span>
                     {scanResult.demoMode && (
-                      <span className="px-2 py-0.5 rounded-full bg-amber-400/20 text-amber-200 text-[10px]">
+                      <span className="px-2 py-0.5 rounded-lg bg-amber-400/20 text-amber-200 text-[10px]">
                         Demo Fixture
                       </span>
                     )}
@@ -326,7 +321,7 @@ export const ArtworkScannerModal: React.FC<ArtworkScannerModalProps> = ({
                   <button
                     type="button"
                     onClick={handleRescan}
-                    className="px-4 py-2.5 rounded-full bg-white/10 hover:bg-white/15 text-slate-200 text-sm font-medium cursor-pointer flex items-center gap-1.5"
+                    className="px-4 py-2.5 rounded-lg bg-white/10 hover:bg-white/15 text-slate-200 text-sm font-medium cursor-pointer flex items-center gap-1.5"
                   >
                     <RotateCcw className="w-4 h-4" />
                     <span>Rescan</span>
@@ -339,10 +334,10 @@ export const ArtworkScannerModal: React.FC<ArtworkScannerModalProps> = ({
                         capturedPreviewUrl || ""
                       )
                     }
-                    className="flex-1 sm:flex-initial inline-flex items-center justify-center gap-2 px-6 py-2.5 rounded-full bg-[#30D158] hover:bg-[#34C759] text-slate-950 font-semibold text-sm shadow-lg shadow-emerald-500/25 cursor-pointer"
+                    className="flex-1 sm:flex-initial inline-flex items-center justify-center gap-2 px-6 py-2.5 rounded-lg bg-accent-500 hover:bg-accent-400 text-slate-950 font-semibold text-sm  cursor-pointer"
                   >
                     <Video className="w-4 h-4" />
-                    <span>FaceTime {scanResult.profile.name.split(" ")[0]}</span>
+                    <span>Call {scanResult.profile.name.split(" ")[0]}</span>
                   </button>
                 </div>
               </div>
@@ -361,7 +356,7 @@ export const ArtworkScannerModal: React.FC<ArtworkScannerModalProps> = ({
               <button
                 type="button"
                 onClick={handleRescan}
-                className="px-4 py-2 rounded-full bg-white text-slate-950 text-sm font-semibold cursor-pointer shrink-0"
+                className="px-4 py-2 rounded-lg bg-white text-slate-950 text-sm font-semibold cursor-pointer shrink-0"
               >
                 Try Again
               </button>
@@ -372,7 +367,7 @@ export const ArtworkScannerModal: React.FC<ArtworkScannerModalProps> = ({
                 type="button"
                 onClick={() => fileInputRef.current?.click()}
                 disabled={isScanning}
-                className="inline-flex items-center gap-2 px-4 py-2.5 rounded-full bg-white/[0.08] hover:bg-white/[0.15] border border-white/10 text-slate-200 text-sm font-medium cursor-pointer disabled:opacity-50"
+                className="inline-flex items-center gap-2 px-4 py-2.5 rounded-lg bg-white/[0.08] hover:bg-white/[0.15] border border-white/10 text-slate-200 text-sm font-medium cursor-pointer disabled:opacity-50"
               >
                 <ImagePlus className="w-4 h-4" />
                 <span>Upload Photo</span>
@@ -382,7 +377,7 @@ export const ArtworkScannerModal: React.FC<ArtworkScannerModalProps> = ({
                 type="button"
                 onClick={handleCaptureFrame}
                 disabled={!cameraReady || isScanning}
-                className="inline-flex items-center gap-2.5 px-7 py-3 rounded-full bg-[#30D158] hover:bg-[#34C759] disabled:bg-white/10 disabled:text-slate-500 text-slate-950 font-semibold text-sm shadow-lg shadow-emerald-500/25 cursor-pointer disabled:cursor-not-allowed"
+                className="inline-flex items-center gap-2.5 px-7 py-3 rounded-lg bg-accent-500 hover:bg-accent-400 disabled:bg-white/10 disabled:text-slate-500 text-slate-950 font-semibold text-sm  cursor-pointer disabled:cursor-not-allowed"
               >
                 <Camera className="w-4 h-4" />
                 <span>Scan Figure</span>
@@ -397,7 +392,7 @@ export const ArtworkScannerModal: React.FC<ArtworkScannerModalProps> = ({
                 }
                 disabled={isScanning || Boolean(capturedPreviewUrl)}
                 aria-label="Flip scanner camera"
-                className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-full bg-white/[0.08] hover:bg-white/[0.15] border border-white/10 text-slate-200 text-sm font-medium cursor-pointer disabled:opacity-40"
+                className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-lg bg-white/[0.08] hover:bg-white/[0.15] border border-white/10 text-slate-200 text-sm font-medium cursor-pointer disabled:opacity-40"
               >
                 <RefreshCw className="w-4 h-4" />
                 <span className="hidden sm:inline">Flip</span>
@@ -414,6 +409,6 @@ export const ArtworkScannerModal: React.FC<ArtworkScannerModalProps> = ({
           />
         </div>
       </div>
-    </div>
+    </Modal>
   );
 };

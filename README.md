@@ -236,7 +236,7 @@ Notebook reflections persist in browser local storage, independently of the in-m
 2. **Portrait gallery:** inspect the included artwork, choose a hotspot, and ask a follow-up question (model features require a configured key).
 3. **Character studio:** add a camera feed or photo, choose a persona, and use the guiding question to compare perspectives.
 4. **World explorer:** open a preset scene and explore its spatial choices; use generation only when the configured provider is ready.
-5. **My notebook:** save one observation and one claim to verify, then download the reflection.
+5. **Notebook:** save one observation and one claim to verify, then download the reflection.
 
 Without a key, demonstrate the included artwork, capture/upload UI, preset world, and notebook; museum AI dialogue and recognition are unavailable in demo mode. Do not present fixture responses as model results.
 
@@ -255,8 +255,17 @@ Museum identification now uses a general era-aware character guide. `POST /api/r
 
 ## UI references
 
-The discovery page uses [Google Arts & Culture Play](https://artsandculture.google.com/play) as a reference for a featured cultural experience and short invitations to explore, and [Brilliant](https://brilliant.org/) for guided questions and active learning. The implementation keeps Chronocall’s own artwork, colors, and components: one primary portrait action, a look → ask → reflect introduction, and compact links to all four workspaces. No external site assets or code are copied.
+The discovery page uses [Google Arts & Culture Play](https://artsandculture.google.com/play) as a reference for a featured cultural experience and short invitations to explore, and [Brilliant](https://brilliant.org/) for guided questions and active learning. The implementation keeps Chronocall’s own artwork, colors, and components: one primary portrait action, compact links to all five experiences. No external site assets or code are copied.
 
 ### Latest branch integration
 
 Historical video calls are available at `/facetime` (also linked from Discover), with the camera scanner, character contacts, and hybrid video. `/museum` retains the portrait and upload view; choose **Scan painting** for perspective-tracked camera AR. Character typed replies now pass through Decisions API checks. The speech request uses the Interactions API.
+
+
+### UI consistency
+
+- Shared colors, control sizes, and surfaces live in `src/index.css`. Use `bg-canvas`, `bg-surface`, `bg-elevated`, and `accent-*` for new UI; reserve green and red for status and destructive actions.
+- Use `JourneyHeader` for browsing screens. Keep immersive portrait/call views focused, with a clear exit and a compact conversation dock.
+- Keep one main action per section. Model/cadence options live in visual discovery’s **Settings**; visual effects, guiding questions, scene settings, and character appearance expand on demand.
+- Use `Modal` for pop-ups to retain native focus containment, Escape dismissal, and focus restoration. Give icon-only controls accessible names and aim for 44px touch targets.
+- Check desktop and phone widths for navigation, camera empty states, world controls, notebook, conversation drawers, and dialogs. Provider-dependent voice/video needs a separate live check.

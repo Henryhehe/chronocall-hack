@@ -60,37 +60,40 @@ export const InspectorPanel: React.FC<InspectorPanelProps> = ({
   onClearHistory,
 }) => {
   return (
-    <aside className="w-full lg:w-[390px] xl:w-[410px] shrink-0 flex flex-col bg-[#0B0F17] border border-slate-800 rounded-lg overflow-hidden max-h-[calc(100vh-7.5rem)]">
+    <aside className="w-full lg:w-[390px] xl:w-[410px] shrink-0 flex flex-col bg-surface border border-slate-800 rounded-lg overflow-hidden max-h-[calc(100vh-7.5rem)]">
       {/* Segmented Inspector Tabs */}
-      <div className="flex items-center gap-1 p-1.5 border-b border-slate-800 bg-[#0D121C]">
+      <div className="flex items-center gap-1 p-1.5 border-b border-slate-800 bg-surface">
         <button
           type="button"
           onClick={() => onChangeTab("detections")}
+          aria-pressed={activeTab === "detections"}
           className={`flex-1 px-3 py-1.5 text-xs font-medium rounded-md transition-colors whitespace-nowrap shrink-0 cursor-pointer ${
             activeTab === "detections"
-              ? "bg-[#161E2E] text-cyan-400 border border-slate-700"
+              ? "bg-elevated text-accent-400 border border-slate-700"
               : "text-slate-400 hover:text-slate-200 border border-transparent"
           }`}
         >
-          Detections ({boxes.length})
+          Objects ({boxes.length})
         </button>
         <button
           type="button"
           onClick={() => onChangeTab("transcript")}
+          aria-pressed={activeTab === "transcript"}
           className={`flex-1 px-3 py-1.5 text-xs font-medium rounded-md transition-colors whitespace-nowrap shrink-0 cursor-pointer ${
             activeTab === "transcript"
-              ? "bg-[#161E2E] text-cyan-400 border border-slate-700"
+              ? "bg-elevated text-accent-400 border border-slate-700"
               : "text-slate-400 hover:text-slate-200 border border-transparent"
           }`}
         >
-          Live Session ({transcripts.length})
+          Conversation
         </button>
         <button
           type="button"
           onClick={() => onChangeTab("settings")}
+          aria-pressed={activeTab === "settings"}
           className={`flex-1 px-3 py-1.5 text-xs font-medium rounded-md transition-colors whitespace-nowrap shrink-0 cursor-pointer ${
             activeTab === "settings"
-              ? "bg-[#161E2E] text-cyan-400 border border-slate-700"
+              ? "bg-elevated text-accent-400 border border-slate-700"
               : "text-slate-400 hover:text-slate-200 border border-transparent"
           }`}
         >
@@ -106,7 +109,7 @@ export const InspectorPanel: React.FC<InspectorPanelProps> = ({
             <div className="pb-3 border-b border-slate-800/80">
               <div className="flex items-center justify-between text-xs text-slate-400 mb-1.5">
                 <span className="font-medium text-slate-300">
-                  Gemini Scene Analysis
+                  What’s in view
                 </span>
                 <span className="font-mono tabular-nums">
                   {latestLatencyMs !== null ? `${latestLatencyMs} ms` : "Ready"}
@@ -114,15 +117,15 @@ export const InspectorPanel: React.FC<InspectorPanelProps> = ({
               </div>
               <p className="text-sm text-slate-300 leading-relaxed">
                 {latestSummary ||
-                  "Start the camera or upload media and enable Auto Detect or Analyze Frame to view Gemini bounding boxes."}
+                  "Add a photo or start your camera to discover objects and their stories."}
               </p>
             </div>
 
-            {/* Detected Objects List */}
+            {/* Objects List */}
             <div>
               <div className="flex items-center justify-between text-xs text-slate-400 mb-2">
                 <span className="font-medium text-slate-300">
-                  Detected Objects
+                  Objects
                 </span>
                 <span className="font-mono tabular-nums">
                   Min {Math.round(minConfidence * 100)}%
@@ -146,8 +149,8 @@ export const InspectorPanel: React.FC<InspectorPanelProps> = ({
                         onClick={() => onSelectBox(isSelected ? null : box.id)}
                         className={`w-full text-left px-3 py-2.5 transition-colors cursor-pointer ${
                           isSelected
-                            ? "bg-cyan-500/10"
-                            : "bg-[#0D121C] hover:bg-[#111827]"
+                            ? "bg-accent-500/10"
+                            : "bg-surface hover:bg-elevated"
                         }`}
                       >
                         <div className="flex items-center justify-between gap-2">
@@ -160,16 +163,13 @@ export const InspectorPanel: React.FC<InspectorPanelProps> = ({
                               {box.label}
                             </span>
                           </div>
-                          <span className="text-xs font-mono tabular-nums text-cyan-400 shrink-0">
+                          <span className="text-xs font-mono tabular-nums text-accent-400 shrink-0">
                             {Math.round(box.confidence * 100)}%
                           </span>
                         </div>
                         <div className="mt-1 flex items-center justify-between gap-2 text-[11px] text-slate-400">
                           <span className="truncate">
                             {box.detail || "Localized in frame"}
-                          </span>
-                          <span className="font-mono tabular-nums text-slate-500 shrink-0">
-                            [{box.ymin}, {box.xmin}, {box.ymax}, {box.xmax}]
                           </span>
                         </div>
                       </button>
@@ -183,16 +183,16 @@ export const InspectorPanel: React.FC<InspectorPanelProps> = ({
             {qaHistory.length > 0 && (
               <div className="pt-2 border-t border-slate-800/80">
                 <h3 className="text-xs font-medium text-slate-300 mb-2">
-                  Frame Q&amp;A Responses
+                  Your questions
                 </h3>
                 <div className="space-y-2.5">
                   {qaHistory.map((qa) => (
                     <div
                       key={qa.id}
-                      className="p-3 bg-[#0D121C] border border-slate-800 rounded-md space-y-1.5"
+                      className="p-3 bg-surface border border-slate-800 rounded-md space-y-1.5"
                     >
                       <div className="flex items-center justify-between gap-2 text-xs text-slate-400">
-                        <span className="font-medium text-cyan-400 truncate">
+                        <span className="font-medium text-accent-400 truncate">
                           {qa.question}
                         </span>
                         <span className="font-mono tabular-nums shrink-0">
@@ -215,8 +215,8 @@ export const InspectorPanel: React.FC<InspectorPanelProps> = ({
             <div className="flex items-center justify-between text-xs text-slate-400 pb-2 border-b border-slate-800/80">
               <span>
                 {liveConnected
-                  ? "Streaming audio & video to Gemini Live"
-                  : "Live voice session idle"}
+                  ? "Conversation active"
+                  : "Conversation not started"}
               </span>
               <span className="font-mono tabular-nums">gemini-3.8-live</span>
             </div>
@@ -227,8 +227,7 @@ export const InspectorPanel: React.FC<InspectorPanelProps> = ({
                   No live conversation yet
                 </p>
                 <p className="text-xs text-slate-400 leading-relaxed">
-                  Click Start Live Voice below the camera to speak directly with
-                  Gemini while streaming your live video feed.
+                  Choose Start conversation below the image to talk about what you see.
                 </p>
               </div>
             ) : (
@@ -238,10 +237,10 @@ export const InspectorPanel: React.FC<InspectorPanelProps> = ({
                     key={entry.id}
                     className={`p-3 rounded-md border text-xs leading-relaxed ${
                       entry.speaker === "user"
-                        ? "bg-[#111827] border-slate-700 text-slate-100"
+                        ? "bg-elevated border-slate-700 text-slate-100"
                         : entry.speaker === "gemini"
-                          ? "bg-[#0D1522] border-cyan-900/60 text-slate-100"
-                          : "bg-[#0B0F17] border-slate-800 text-slate-400"
+                          ? "bg-[#0D1522] border-accent-900/60 text-slate-100"
+                          : "bg-surface border-slate-800 text-slate-400"
                     }`}
                   >
                     <div className="flex items-center justify-between gap-2 mb-1 text-[11px] text-slate-400">
@@ -284,7 +283,7 @@ export const InspectorPanel: React.FC<InspectorPanelProps> = ({
                 onChange={(e) =>
                   onChangeVisionModel(e.target.value as VisionModelId)
                 }
-                className="w-full px-3 py-2 text-xs font-mono bg-[#111827] text-slate-100 border border-slate-700 rounded-md focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-cyan-500"
+                className="w-full px-3 py-2 text-xs font-mono bg-elevated text-slate-100 border border-slate-700 rounded-md focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent-500"
               >
                 <option value="gemini-4-hydrogen">
                   gemini-4-hydrogen (Fast Flash)
@@ -307,7 +306,7 @@ export const InspectorPanel: React.FC<InspectorPanelProps> = ({
                   id="camera-device-select"
                   value={selectedCameraId}
                   onChange={(e) => onSelectCamera(e.target.value)}
-                  className="w-full px-3 py-2 text-xs bg-[#111827] text-slate-100 border border-slate-700 rounded-md focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-cyan-500"
+                  className="w-full px-3 py-2 text-xs bg-elevated text-slate-100 border border-slate-700 rounded-md focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent-500"
                 >
                   {cameras.map((cam, idx) => (
                     <option key={cam.deviceId || idx} value={cam.deviceId}>
@@ -329,7 +328,7 @@ export const InspectorPanel: React.FC<InspectorPanelProps> = ({
                 id="cadence-select"
                 value={intervalMs}
                 onChange={(e) => onChangeIntervalMs(Number(e.target.value))}
-                className="w-full px-3 py-2 text-xs font-mono tabular-nums bg-[#111827] text-slate-100 border border-slate-700 rounded-md focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-cyan-500"
+                className="w-full px-3 py-2 text-xs font-mono tabular-nums bg-elevated text-slate-100 border border-slate-700 rounded-md focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent-500"
               >
                 <option value={1000}>Every 1.0 second</option>
                 <option value={2000}>Every 2.0 seconds</option>
@@ -345,7 +344,7 @@ export const InspectorPanel: React.FC<InspectorPanelProps> = ({
                 >
                   Confidence Threshold
                 </label>
-                <span className="font-mono tabular-nums text-cyan-400">
+                <span className="font-mono tabular-nums text-accent-400">
                   {Math.round(minConfidence * 100)}%
                 </span>
               </div>
@@ -359,7 +358,7 @@ export const InspectorPanel: React.FC<InspectorPanelProps> = ({
                 onChange={(e) =>
                   onChangeMinConfidence(Number(e.target.value) / 100)
                 }
-                className="w-full accent-cyan-500 cursor-pointer"
+                className="w-full accent-accent-500 cursor-pointer"
               />
             </div>
 
@@ -376,7 +375,7 @@ export const InspectorPanel: React.FC<InspectorPanelProps> = ({
                 value={focusPrompt}
                 onChange={(e) => onChangeFocusPrompt(e.target.value)}
                 placeholder="Leave blank to detect all visible objects"
-                className="w-full px-3 py-2 text-xs bg-[#111827] text-slate-100 placeholder:text-slate-500 border border-slate-700 rounded-md focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-cyan-500"
+                className="w-full px-3 py-2 text-xs bg-elevated text-slate-100 placeholder:text-slate-500 border border-slate-700 rounded-md focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent-500"
               />
               <p className="mt-1.5 text-[11px] text-slate-400">
                 Optional instruction sent with each frame (e.g., &ldquo;cups and
@@ -388,7 +387,7 @@ export const InspectorPanel: React.FC<InspectorPanelProps> = ({
               <button
                 type="button"
                 onClick={onExportJson}
-                className="flex-1 inline-flex items-center justify-center gap-1.5 px-3 py-2 text-xs font-medium bg-[#111827] hover:bg-slate-800 text-slate-200 border border-slate-700 rounded-md transition-colors whitespace-nowrap shrink-0 cursor-pointer"
+                className="flex-1 inline-flex items-center justify-center gap-1.5 px-3 py-2 text-xs font-medium bg-elevated hover:bg-slate-800 text-slate-200 border border-slate-700 rounded-md transition-colors whitespace-nowrap shrink-0 cursor-pointer"
               >
                 <Download className="w-3.5 h-3.5" />
                 Export JSON
@@ -396,7 +395,7 @@ export const InspectorPanel: React.FC<InspectorPanelProps> = ({
               <button
                 type="button"
                 onClick={onClearHistory}
-                className="flex-1 inline-flex items-center justify-center gap-1.5 px-3 py-2 text-xs font-medium bg-[#111827] hover:bg-rose-950/50 text-rose-300 border border-slate-700 rounded-md transition-colors whitespace-nowrap shrink-0 cursor-pointer"
+                className="flex-1 inline-flex items-center justify-center gap-1.5 px-3 py-2 text-xs font-medium bg-elevated hover:bg-rose-950/50 text-rose-300 border border-slate-700 rounded-md transition-colors whitespace-nowrap shrink-0 cursor-pointer"
               >
                 <Trash2 className="w-3.5 h-3.5" />
                 Clear Session

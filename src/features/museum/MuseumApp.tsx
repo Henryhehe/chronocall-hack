@@ -165,7 +165,7 @@ export default function App({ onExit }: { onExit: () => void }) {
       <div className="portrait-room-dock">
         {combinedError && <p role="alert" className="portrait-room-error">{combinedError}</p>}
         <div className="portrait-room-actions"><button type="button" className="portrait-room-secondary" onClick={() => setLensMode(lensMode === 'camera' ? 'portrait' : 'camera')}>{lensMode === 'camera' ? 'View portrait' : 'Scan painting'}</button>
-          <button type="button" className="portrait-room-secondary" onClick={() => setMobileSheetOpen(true)} aria-label="Open dialogue and notes"><MessageSquare size={20} /><span>Dialogue & notes</span></button>
+          <button type="button" className="portrait-room-secondary" onClick={() => setMobileSheetOpen(true)} aria-label="Open conversation"><MessageSquare size={20} /><span>Conversation</span></button>
           <button type="button" className={`portrait-room-speak ${isListening || connectionState === 'connecting' ? 'is-active' : ''}`} onClick={handleToggleVoice}>
             {isListening || connectionState === 'connecting' ? <MicOff size={22} /> : <Mic size={22} />}
             <span>{connectionState === 'connecting' ? 'Cancel connection' : isListening ? 'End conversation' : 'Talk to portrait'}</span>
@@ -174,9 +174,9 @@ export default function App({ onExit }: { onExit: () => void }) {
         </div>
         <p className="portrait-room-hint">{isListening ? 'Listening · Ask a question or interrupt naturally' : 'Start a conversation. Ask anything about the painting.'}</p>
       </div>
-      <dialog ref={sheetRef} className="portrait-room-sheet" onCancel={() => setMobileSheetOpen(false)} onClick={(event) => { if (event.target === event.currentTarget) setMobileSheetOpen(false); }}>
+      <dialog aria-label="Portrait conversation" ref={sheetRef} className="portrait-room-sheet" onCancel={() => setMobileSheetOpen(false)} onClick={(event) => { if (event.target === event.currentTarget) setMobileSheetOpen(false); }}>
         <div className="portrait-room-sheet-body">
-          <div className="portrait-room-sheet-heading"><span>Dialogue & notes</span><button type="button" onClick={() => setMobileSheetOpen(false)} aria-label="Close dialogue and notes"><X size={22} /></button></div>
+          <div className="portrait-room-sheet-heading"><span>Conversation</span><button type="button" onClick={() => setMobileSheetOpen(false)} aria-label="Close conversation"><X size={22} /></button></div>
           <div className="portrait-room-panel">
               <CuratorialPanel
                 artwork={artwork}

@@ -194,7 +194,7 @@ export const Interactive3DWorld: React.FC<Interactive3DWorldProps> = ({
   const [atmosphere, setAtmosphere] = useState<WorldAtmosphere>("daylight");
   const [rainEnabled, setRainEnabled] = useState(false);
   const [sfxMuted, setSfxMuted] = useState(false);
-  const [controlsCollapsed, setControlsCollapsed] = useState(false);
+  const [controlsCollapsed, setControlsCollapsed] = useState(true);
   const [objectPrompt, setObjectPrompt] = useState("");
   const [interactedCount, setInteractedCount] = useState(0);
 
@@ -1043,15 +1043,15 @@ export const Interactive3DWorld: React.FC<Interactive3DWorldProps> = ({
   const activeSceneTitle = customSceneBlueprint?.sceneName ?? themeInfo.name;
 
   return (
-    <div className="relative w-full aspect-video bg-[#07090E] overflow-hidden select-none">
+    <div className="world-viewport relative w-full aspect-video bg-canvas overflow-hidden select-none">
       {/* Dedicated WebGL Mount Container (never shares DOM children with HUD) */}
       <div ref={mountRef} className="w-full h-full cursor-grab active:cursor-grabbing" />
 
       {/* Top-Left World Banner & Proximity Prompt (leaves top-right clear for floating panel) */}
-      <div className="pointer-events-none absolute top-3 left-3 flex flex-col items-start gap-2 max-w-[360px]">
-        <div className="pointer-events-auto w-full bg-[#07090E]/90 border border-slate-700/80 rounded-md px-3 py-2 text-xs">
+      <div className="world-scene-caption pointer-events-none absolute top-3 left-3 flex flex-col items-start gap-2 max-w-[360px]">
+        <div className="pointer-events-auto w-full bg-canvas/90 border border-slate-700/80 rounded-md px-3 py-2 text-xs">
           <div className="flex items-center justify-between gap-3">
-            <span className="font-semibold text-cyan-300 truncate">
+            <span className="font-semibold text-accent-300 truncate">
               {activeSceneTitle}
             </span>
             <span className="font-mono text-[11px] text-slate-400 shrink-0">
@@ -1060,9 +1060,9 @@ export const Interactive3DWorld: React.FC<Interactive3DWorldProps> = ({
           </div>
           <div className="mt-1 flex items-start gap-1.5 text-slate-200 leading-snug">
             {isAiReacting ? (
-              <Loader2 className="w-3.5 h-3.5 mt-0.5 shrink-0 animate-spin text-cyan-400" />
+              <Loader2 className="w-3.5 h-3.5 mt-0.5 shrink-0 animate-spin text-accent-400" />
             ) : (
-              <Sparkles className="w-3.5 h-3.5 mt-0.5 shrink-0 text-cyan-400" />
+              <Sparkles className="w-3.5 h-3.5 mt-0.5 shrink-0 text-accent-400" />
             )}
             <span>{reactionBanner}</span>
           </div>
@@ -1073,11 +1073,11 @@ export const Interactive3DWorld: React.FC<Interactive3DWorldProps> = ({
           <button
             type="button"
             onClick={interactNearest}
-            className="pointer-events-auto inline-flex items-center gap-2 px-3 py-2 bg-[#07090E]/90 hover:bg-[#111827] border border-cyan-500/60 rounded-md text-xs text-slate-100 cursor-pointer transition-colors"
+            className="pointer-events-auto inline-flex items-center gap-2 px-3 py-2 bg-canvas/90 hover:bg-elevated border border-accent-500/60 rounded-md text-xs text-slate-100 cursor-pointer transition-colors"
           >
-            <Hand className="w-3.5 h-3.5 text-cyan-400 shrink-0" />
+            <Hand className="w-3.5 h-3.5 text-accent-400 shrink-0" />
             <span>
-              <span className="font-mono text-cyan-300 mr-1">[E]</span>
+              <span className="font-mono text-accent-300 mr-1">[E]</span>
               <span className="font-medium">{activeTarget.name}</span>
               <span className="text-slate-400 ml-1.5">
                 ({activeTarget.status})
@@ -1093,14 +1093,15 @@ export const Interactive3DWorld: React.FC<Interactive3DWorldProps> = ({
           <button
             type="button"
             onClick={() => setControlsCollapsed((c) => !c)}
-            className="pointer-events-auto inline-flex items-center gap-1 px-2.5 py-1 text-[11px] font-medium bg-[#07090E]/90 hover:bg-[#111827] text-slate-300 border border-slate-700 rounded cursor-pointer"
+            aria-expanded={!controlsCollapsed}
+            className="pointer-events-auto inline-flex items-center gap-1 px-2.5 py-1 text-[11px] font-medium bg-canvas/90 hover:bg-elevated text-slate-300 border border-slate-700 rounded cursor-pointer"
           >
             {controlsCollapsed ? (
               <ChevronUp className="w-3 h-3" />
             ) : (
               <ChevronDown className="w-3 h-3" />
             )}
-            {controlsCollapsed ? "Show 3D Controls" : "Hide Controls"}
+            {controlsCollapsed ? "Movement controls" : "Hide controls"}
           </button>
 
           {!controlsCollapsed && activeTarget && (
@@ -1113,12 +1114,12 @@ export const Interactive3DWorld: React.FC<Interactive3DWorldProps> = ({
                 value={objectPrompt}
                 onChange={(e) => setObjectPrompt(e.target.value)}
                 placeholder={`Action for ${activeTarget.name}...`}
-                className="flex-1 min-w-0 px-2.5 py-1 text-xs bg-[#07090E]/90 text-slate-100 placeholder:text-slate-500 border border-slate-700 rounded focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-cyan-500"
+                className="flex-1 min-w-0 px-2.5 py-1 text-xs bg-canvas/90 text-slate-100 placeholder:text-slate-500 border border-slate-700 rounded focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent-500"
               />
               <button
                 type="submit"
                 disabled={!objectPrompt.trim() || isAiReacting}
-                className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-medium bg-cyan-500 hover:bg-cyan-400 text-slate-950 rounded cursor-pointer disabled:opacity-40"
+                className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-medium bg-accent-500 hover:bg-accent-400 text-slate-950 rounded cursor-pointer disabled:opacity-40"
               >
                 <Send className="w-3 h-3" />
                 Act
@@ -1128,7 +1129,7 @@ export const Interactive3DWorld: React.FC<Interactive3DWorldProps> = ({
         </div>
 
         {!controlsCollapsed && (
-          <div className="pointer-events-auto flex flex-wrap items-center justify-between gap-2 px-3 py-2 bg-[#07090E]/90 border border-slate-800 rounded-md">
+          <div className="pointer-events-auto flex flex-wrap items-center justify-between gap-2 px-3 py-2 bg-canvas/90 border border-slate-800 rounded-md">
             {/* Movement & Jump Touch Pad */}
             <div className="flex items-center gap-1">
               <button
@@ -1137,7 +1138,7 @@ export const Interactive3DWorld: React.FC<Interactive3DWorldProps> = ({
                 onPointerDown={() => (touchMoveRef.current.right = -1)}
                 onPointerUp={() => (touchMoveRef.current.right = 0)}
                 onPointerLeave={() => (touchMoveRef.current.right = 0)}
-                className="p-1.5 bg-[#111827] hover:bg-slate-800 text-slate-200 border border-slate-700 rounded cursor-pointer"
+                className="p-1.5 bg-elevated hover:bg-slate-800 text-slate-200 border border-slate-700 rounded cursor-pointer"
               >
                 <ArrowLeft className="w-3.5 h-3.5" />
               </button>
@@ -1147,7 +1148,7 @@ export const Interactive3DWorld: React.FC<Interactive3DWorldProps> = ({
                 onPointerDown={() => (touchMoveRef.current.forward = 1)}
                 onPointerUp={() => (touchMoveRef.current.forward = 0)}
                 onPointerLeave={() => (touchMoveRef.current.forward = 0)}
-                className="p-1.5 bg-[#111827] hover:bg-slate-800 text-slate-200 border border-slate-700 rounded cursor-pointer"
+                className="p-1.5 bg-elevated hover:bg-slate-800 text-slate-200 border border-slate-700 rounded cursor-pointer"
               >
                 <ArrowUp className="w-3.5 h-3.5" />
               </button>
@@ -1157,7 +1158,7 @@ export const Interactive3DWorld: React.FC<Interactive3DWorldProps> = ({
                 onPointerDown={() => (touchMoveRef.current.forward = -1)}
                 onPointerUp={() => (touchMoveRef.current.forward = 0)}
                 onPointerLeave={() => (touchMoveRef.current.forward = 0)}
-                className="p-1.5 bg-[#111827] hover:bg-slate-800 text-slate-200 border border-slate-700 rounded cursor-pointer"
+                className="p-1.5 bg-elevated hover:bg-slate-800 text-slate-200 border border-slate-700 rounded cursor-pointer"
               >
                 <ArrowDown className="w-3.5 h-3.5" />
               </button>
@@ -1167,14 +1168,14 @@ export const Interactive3DWorld: React.FC<Interactive3DWorldProps> = ({
                 onPointerDown={() => (touchMoveRef.current.right = 1)}
                 onPointerUp={() => (touchMoveRef.current.right = 0)}
                 onPointerLeave={() => (touchMoveRef.current.right = 0)}
-                className="p-1.5 bg-[#111827] hover:bg-slate-800 text-slate-200 border border-slate-700 rounded cursor-pointer"
+                className="p-1.5 bg-elevated hover:bg-slate-800 text-slate-200 border border-slate-700 rounded cursor-pointer"
               >
                 <ArrowRight className="w-3.5 h-3.5" />
               </button>
               <button
                 type="button"
                 onClick={triggerJump}
-                className="ml-1 px-2.5 py-1 text-[11px] font-medium bg-[#111827] hover:bg-slate-800 text-slate-200 border border-slate-700 rounded cursor-pointer"
+                className="ml-1 px-2.5 py-1 text-[11px] font-medium bg-elevated hover:bg-slate-800 text-slate-200 border border-slate-700 rounded cursor-pointer"
               >
                 Jump
               </button>
@@ -1182,7 +1183,7 @@ export const Interactive3DWorld: React.FC<Interactive3DWorldProps> = ({
                 type="button"
                 disabled={!activeTarget}
                 onClick={interactNearest}
-                className="px-2.5 py-1 text-[11px] font-medium bg-cyan-500/20 hover:bg-cyan-500/30 text-cyan-300 border border-cyan-500/50 rounded cursor-pointer disabled:opacity-40"
+                className="px-2.5 py-1 text-[11px] font-medium bg-accent-500/20 hover:bg-accent-500/30 text-accent-300 border border-accent-500/50 rounded cursor-pointer disabled:opacity-40"
               >
                 Interact [E]
               </button>
@@ -1201,7 +1202,7 @@ export const Interactive3DWorld: React.FC<Interactive3DWorldProps> = ({
                         : "daylight";
                   applyAtmosphere(next);
                 }}
-                className="inline-flex items-center gap-1 px-2 py-1 text-[11px] bg-[#111827] hover:bg-slate-800 text-slate-200 border border-slate-700 rounded cursor-pointer"
+                className="inline-flex items-center gap-1 px-2 py-1 text-[11px] bg-elevated hover:bg-slate-800 text-slate-200 border border-slate-700 rounded cursor-pointer"
               >
                 <Sun className="w-3 h-3 text-amber-400" />
                 {atmosphere === "daylight"
@@ -1220,8 +1221,8 @@ export const Interactive3DWorld: React.FC<Interactive3DWorldProps> = ({
                 }}
                 className={`inline-flex items-center gap-1 px-2 py-1 text-[11px] border rounded cursor-pointer ${
                   rainEnabled
-                    ? "bg-cyan-500/20 border-cyan-500/50 text-cyan-300"
-                    : "bg-[#111827] hover:bg-slate-800 border-slate-700 text-slate-200"
+                    ? "bg-accent-500/20 border-accent-500/50 text-accent-300"
+                    : "bg-elevated hover:bg-slate-800 border-slate-700 text-slate-200"
                 }`}
               >
                 <CloudRain className="w-3 h-3" />
@@ -1235,7 +1236,7 @@ export const Interactive3DWorld: React.FC<Interactive3DWorldProps> = ({
                   worldSfx.playInteract("brazier");
                   setReactionBanner("Ignited every brazier and lantern in the plaza.");
                 }}
-                className="inline-flex items-center gap-1 px-2 py-1 text-[11px] bg-[#111827] hover:bg-slate-800 text-amber-300 border border-slate-700 rounded cursor-pointer"
+                className="inline-flex items-center gap-1 px-2 py-1 text-[11px] bg-elevated hover:bg-slate-800 text-amber-300 border border-slate-700 rounded cursor-pointer"
               >
                 <Flame className="w-3 h-3" />
                 Ignite All
@@ -1248,13 +1249,13 @@ export const Interactive3DWorld: React.FC<Interactive3DWorldProps> = ({
                   worldSfx.muted = next;
                   setSfxMuted(next);
                 }}
-                className="inline-flex items-center gap-1 px-2 py-1 text-[11px] bg-[#111827] hover:bg-slate-800 text-slate-300 border border-slate-700 rounded cursor-pointer"
+                className="inline-flex items-center gap-1 px-2 py-1 text-[11px] bg-elevated hover:bg-slate-800 text-slate-300 border border-slate-700 rounded cursor-pointer"
                 title={sfxMuted ? "Unmute 3D Sound Effects" : "Mute 3D Sound Effects"}
               >
                 {sfxMuted ? (
                   <VolumeX className="w-3 h-3 text-slate-400" />
                 ) : (
-                  <Volume2 className="w-3 h-3 text-cyan-400" />
+                  <Volume2 className="w-3 h-3 text-accent-400" />
                 )}
                 SFX
               </button>
@@ -1262,7 +1263,7 @@ export const Interactive3DWorld: React.FC<Interactive3DWorldProps> = ({
               <button
                 type="button"
                 onClick={resetPosition}
-                className="inline-flex items-center gap-1 px-2 py-1 text-[11px] bg-[#111827] hover:bg-slate-800 text-slate-300 border border-slate-700 rounded cursor-pointer"
+                className="inline-flex items-center gap-1 px-2 py-1 text-[11px] bg-elevated hover:bg-slate-800 text-slate-300 border border-slate-700 rounded cursor-pointer"
                 title="Reset character position"
               >
                 <RotateCcw className="w-3 h-3" />

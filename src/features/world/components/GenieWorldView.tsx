@@ -51,7 +51,6 @@ import {
 interface GenieWorldViewProps {
   getCameraElement: () => HTMLVideoElement | HTMLImageElement | null;
   hasActiveCamera: boolean;
-  onBackToCamera: () => void;
 }
 
 const KEY_MAP: Record<string, GenieMoveKey> = {
@@ -68,7 +67,6 @@ const KEY_MAP: Record<string, GenieMoveKey> = {
 export const GenieWorldView: React.FC<GenieWorldViewProps> = ({
   getCameraElement,
   hasActiveCamera,
-  onBackToCamera,
 }) => {
   const genieVideoRef = useRef<HTMLVideoElement | null>(null);
   const genieAudioRef = useRef<HTMLAudioElement | null>(null);
@@ -102,7 +100,7 @@ export const GenieWorldView: React.FC<GenieWorldViewProps> = ({
   const [activeEnvTheme, setActiveEnvTheme] = useState<
     EnvironmentThemeId | "custom"
   >("default");
-  const [floatingControlsOpen, setFloatingControlsOpen] = useState(true);
+  const [floatingControlsOpen, setFloatingControlsOpen] = useState(false);
   const [cameraRotationDeg, setCameraRotationDeg] = useState(0);
   const [cameraPitchDeg, setCameraPitchDeg] = useState(21);
   const [cameraZoom, setCameraZoom] = useState(8.2);
@@ -384,7 +382,7 @@ export const GenieWorldView: React.FC<GenieWorldViewProps> = ({
     const el = getCameraElement();
     if (!el) {
       setErrorMsg(
-        "No active Live Vision feed found. Use Take Photo or Upload Photo instead."
+        "No active Live Vision feed found. Use Take photo or Upload photo instead."
       );
       return;
     }
@@ -759,21 +757,10 @@ export const GenieWorldView: React.FC<GenieWorldViewProps> = ({
   const zoomPercent = Math.round(((15.5 - cameraZoom) / (15.5 - 4.2)) * 100);
 
   return (
-    <section className="space-y-4">
+    <section className="world-workspace space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-4 pb-4 border-b border-slate-800">
-        <div>
-          <h1 className="text-xl font-semibold text-slate-100">
-            Interactive 3D Character & Genie World Studio
-          </h1>
-          <p className="text-sm text-slate-400 mt-0.5">
-            Control your character directly in 3D, click or press{" "}
-            <span className="font-mono text-cyan-400">[E]</span> to interact with
-            any object, or stream via{" "}
-            <span className="font-mono text-cyan-400">models/genie-4</span>.
-          </p>
-        </div>
         <div className="flex flex-wrap items-center gap-2">
-          <div className="inline-flex items-center bg-[#0B0F17] border border-slate-800 rounded-md p-0.5">
+          <div className="inline-flex items-center bg-surface border border-slate-800 rounded-md p-0.5">
             <button
               type="button"
               onClick={() => {
@@ -782,69 +769,27 @@ export const GenieWorldView: React.FC<GenieWorldViewProps> = ({
               }}
               className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium rounded transition-colors cursor-pointer whitespace-nowrap ${
                 worldEngine === "3d"
-                  ? "bg-cyan-500 text-slate-950"
+                  ? "bg-accent-500 text-slate-950"
                   : "text-slate-300 hover:text-white"
               }`}
             >
               <Box className="w-3.5 h-3.5" />
-              Interactive 3D World
+              3D world
             </button>
             <button
               type="button"
               onClick={() => setWorldEngine("genie")}
               className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium rounded transition-colors cursor-pointer whitespace-nowrap ${
                 worldEngine === "genie"
-                  ? "bg-cyan-500 text-slate-950"
+                  ? "bg-accent-500 text-slate-950"
                   : "text-slate-300 hover:text-white"
               }`}
             >
               <Globe className="w-3.5 h-3.5" />
-              Genie 4 Video
+              Generated video
             </button>
           </div>
-          <button
-            type="button"
-            onClick={() => void handleOpenSelfieBooth()}
-            disabled={running}
-            className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-medium bg-cyan-500 hover:bg-cyan-400 text-slate-950 rounded-md transition-colors whitespace-nowrap shrink-0 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
-          >
-            <Camera className="w-3.5 h-3.5" />
-            Take Photo
-          </button>
-          {hasActiveCamera && (
-            <button
-              type="button"
-              onClick={() => void handleCaptureFromActiveFeed()}
-              disabled={running}
-              className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-medium bg-[#111827] hover:bg-slate-800 text-slate-200 border border-slate-700 rounded-md transition-colors whitespace-nowrap shrink-0 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
-            >
-              <UserCheck className="w-3.5 h-3.5" />
-              Snap Active Feed
-            </button>
-          )}
-          <button
-            type="button"
-            onClick={() => fileInputRef.current?.click()}
-            disabled={running}
-            className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-medium bg-[#111827] hover:bg-slate-800 text-slate-200 border border-slate-700 rounded-md transition-colors whitespace-nowrap shrink-0 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
-          >
-            <ImagePlus className="w-3.5 h-3.5" />
-            Upload Photo
-          </button>
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept="image/*"
-            onChange={handleUploadPhoto}
-            className="hidden"
-          />
-          <button
-            type="button"
-            onClick={onBackToCamera}
-            className="px-3 py-2 text-xs font-medium bg-[#111827] hover:bg-slate-800 text-slate-300 border border-slate-800 rounded-md transition-colors whitespace-nowrap shrink-0 cursor-pointer"
-          >
-            Back to Camera
-          </button>
+
         </div>
       </div>
 
@@ -866,8 +811,8 @@ export const GenieWorldView: React.FC<GenieWorldViewProps> = ({
 
       <div className="flex flex-col lg:flex-row gap-5 items-stretch">
         {/* 16:9 WebRTC World & Character Preview Viewport */}
-        <div className="flex-1 min-w-0 flex flex-col bg-[#0B0F17] border border-slate-800 rounded-lg overflow-hidden">
-          <div className="flex items-center justify-between gap-4 px-4 py-2.5 border-b border-slate-800 bg-[#0D121C] text-xs text-slate-400">
+        <div className="flex-1 min-w-0 flex flex-col bg-surface border border-slate-800 rounded-lg overflow-hidden">
+          <div className="flex items-center justify-between gap-4 px-4 py-2.5 border-b border-slate-800 bg-surface text-xs text-slate-400">
             <div className="flex items-center gap-2 min-w-0">
               <span
                 className={`w-2 h-2 rounded-full shrink-0 ${
@@ -876,7 +821,7 @@ export const GenieWorldView: React.FC<GenieWorldViewProps> = ({
                     : running
                       ? "bg-emerald-500"
                       : cameraBoothOpen
-                        ? "bg-cyan-400"
+                        ? "bg-accent-400"
                         : "bg-slate-600"
                 }`}
               />
@@ -884,31 +829,31 @@ export const GenieWorldView: React.FC<GenieWorldViewProps> = ({
                 {cameraBoothOpen
                   ? "Selfie Booth Active"
                   : worldEngine === "3d"
-                    ? "Interactive 3D World · WASD Move · Click or [E] on Any Object"
+                    ? "Explore the scene"
                     : running
-                      ? "Genie 4 WebRTC Stream Active (720p · 24 fps)"
+                      ? "Video connected"
                       : connecting
-                        ? "Connecting WebRTC Session..."
+                        ? "Connecting video…"
                         : transformedImageUrl
                           ? "Character World Seed Ready"
                           : selfiePreviewUrl
                             ? "Photo Captured · Ready to Transform"
-                            : "Genie 4 Ready"}
+                            : "Ready to generate"}
               </span>
               {transformLatencyMs !== null && !running && (
                 <>
                   <span aria-hidden="true" className="text-slate-600">
                     ·
                   </span>
-                  <span className="font-mono tabular-nums text-cyan-400 whitespace-nowrap shrink-0">
+                  <span className="font-mono tabular-nums text-accent-400 whitespace-nowrap shrink-0">
                     {transformLatencyMs} ms
                   </span>
                 </>
               )}
             </div>
-            <span className="font-mono tabular-nums text-cyan-400 whitespace-nowrap shrink-0">
+            <span className="font-mono tabular-nums text-accent-400 whitespace-nowrap shrink-0">
               {worldEngine === "3d"
-                ? "Three.js PBR + Gemini 4"
+                ? "3D world"
                 : running
                   ? `${secondsLeft}s remaining`
                   : "120s cap"}
@@ -936,169 +881,9 @@ export const GenieWorldView: React.FC<GenieWorldViewProps> = ({
                 }}
               />
 
-              {/* Floating 3D Environment Theme & Camera Control Panel */}
-              <div className="absolute top-3 right-3 z-20 w-60 bg-[#07090E]/92 border border-slate-700/90 rounded-lg shadow-lg text-xs">
-                <div className="flex items-center justify-between gap-2 px-3 py-2 border-b border-slate-800">
-                  <div className="flex items-center gap-1.5 font-medium text-slate-100">
-                    <SlidersHorizontal className="w-3.5 h-3.5 text-cyan-400" />
-                    <span>Scene Controls</span>
-                  </div>
-                  <div className="flex items-center gap-1">
-                    <button
-                      type="button"
-                      onClick={handleResetCameraView}
-                      title="Reset camera angle and zoom"
-                      className="p-1 text-slate-400 hover:text-cyan-300 rounded cursor-pointer"
-                    >
-                      <RotateCcw className="w-3 h-3" />
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setFloatingControlsOpen((o) => !o)}
-                      aria-label={
-                        floatingControlsOpen
-                          ? "Collapse scene controls"
-                          : "Expand scene controls"
-                      }
-                      className="p-1 text-slate-400 hover:text-slate-100 rounded cursor-pointer"
-                    >
-                      {floatingControlsOpen ? (
-                        <ChevronUp className="w-3.5 h-3.5" />
-                      ) : (
-                        <ChevronDown className="w-3.5 h-3.5" />
-                      )}
-                    </button>
-                  </div>
-                </div>
-
-                {floatingControlsOpen && (
-                  <div className="p-3 space-y-3">
-                    {/* Low-Poly Environment Theme Selector */}
-                    <div>
-                      <div className="flex items-center justify-between mb-1.5">
-                        <span className="text-[11px] font-medium text-slate-300">
-                          Environment Theme
-                        </span>
-                        {activeEnvTheme === "custom" && (
-                          <span className="text-[10px] font-mono text-cyan-400">
-                            Gemini 4
-                          </span>
-                        )}
-                      </div>
-                      <div className="grid grid-cols-2 gap-1.5">
-                        {ENVIRONMENT_THEME_OPTIONS.map((theme) => {
-                          const isSelected = activeEnvTheme === theme.id;
-                          return (
-                            <button
-                              key={theme.id}
-                              type="button"
-                              onClick={() => handleSelectEnvTheme(theme.id)}
-                              className={`text-left px-2 py-1.5 rounded border transition-colors cursor-pointer ${
-                                isSelected
-                                  ? "bg-cyan-500/20 border-cyan-500/70 text-cyan-100"
-                                  : "bg-[#0D121C] border-slate-800 text-slate-300 hover:bg-[#111827]"
-                              }`}
-                            >
-                              <div className="text-[11px] font-medium leading-tight">
-                                {theme.label}
-                              </div>
-                              <div className="text-[10px] text-slate-400 leading-tight">
-                                {theme.subtitle}
-                              </div>
-                            </button>
-                          );
-                        })}
-                      </div>
-                    </div>
-
-                    {/* Camera Rotation / Tilt / Zoom Sliders */}
-                    <div className="space-y-2 pt-2 border-t border-slate-800">
-                      <div>
-                        <div className="flex items-center justify-between text-[11px] mb-0.5">
-                          <label
-                            htmlFor="scene-rotation-slider"
-                            className="text-slate-300"
-                          >
-                            Rotation
-                          </label>
-                          <span className="font-mono tabular-nums text-cyan-400">
-                            {cameraRotationDeg}°
-                          </span>
-                        </div>
-                        <input
-                          id="scene-rotation-slider"
-                          type="range"
-                          min={-180}
-                          max={180}
-                          step={1}
-                          value={cameraRotationDeg}
-                          onChange={(e) =>
-                            setCameraRotationDeg(Number(e.target.value))
-                          }
-                          className="w-full h-1.5 accent-cyan-400 cursor-pointer"
-                        />
-                      </div>
-
-                      <div>
-                        <div className="flex items-center justify-between text-[11px] mb-0.5">
-                          <label
-                            htmlFor="scene-pitch-slider"
-                            className="text-slate-300"
-                          >
-                            Camera Tilt
-                          </label>
-                          <span className="font-mono tabular-nums text-cyan-400">
-                            {cameraPitchDeg}°
-                          </span>
-                        </div>
-                        <input
-                          id="scene-pitch-slider"
-                          type="range"
-                          min={10}
-                          max={68}
-                          step={1}
-                          value={cameraPitchDeg}
-                          onChange={(e) =>
-                            setCameraPitchDeg(Number(e.target.value))
-                          }
-                          className="w-full h-1.5 accent-cyan-400 cursor-pointer"
-                        />
-                      </div>
-
-                      <div>
-                        <div className="flex items-center justify-between text-[11px] mb-0.5">
-                          <label
-                            htmlFor="scene-zoom-slider"
-                            className="text-slate-300"
-                          >
-                            Zoom
-                          </label>
-                          <span className="font-mono tabular-nums text-cyan-400">
-                            {zoomPercent}%
-                          </span>
-                        </div>
-                        <input
-                          id="scene-zoom-slider"
-                          type="range"
-                          min={0}
-                          max={100}
-                          step={1}
-                          value={zoomPercent}
-                          onChange={(e) => {
-                            const pct = Number(e.target.value);
-                            const dist = 15.5 - (pct / 100) * (15.5 - 4.2);
-                            setCameraZoom(Number(dist.toFixed(1)));
-                          }}
-                          className="w-full h-1.5 accent-cyan-400 cursor-pointer"
-                        />
-                      </div>
-                    </div>
-                  </div>
-                )}
-              </div>
             </div>
           ) : (
-          <div className="relative w-full aspect-video bg-[#07090E] flex items-center justify-center overflow-hidden">
+          <div className="relative w-full aspect-video bg-canvas flex items-center justify-center overflow-hidden">
             {/* Separate WebRTC audio element so muted video never gets autoplay-blocked */}
             <audio
               ref={genieAudioRef}
@@ -1127,7 +912,7 @@ export const GenieWorldView: React.FC<GenieWorldViewProps> = ({
 
             {/* Warm-up overlay while waiting for Genie 4's initial WebRTC frames */}
             {running && !hasFirstFrame && (
-              <div className="absolute inset-0 flex flex-col items-center justify-center bg-[#07090E]/90 px-6 text-center">
+              <div className="absolute inset-0 flex flex-col items-center justify-center bg-canvas/90 px-6 text-center">
                 {(transformedImageUrl || seedPreviewUrl) && (
                   <img
                     src={transformedImageUrl ?? seedPreviewUrl ?? ""}
@@ -1137,7 +922,7 @@ export const GenieWorldView: React.FC<GenieWorldViewProps> = ({
                   />
                 )}
                 <div className="inline-flex items-center gap-2 text-sm font-medium text-slate-100">
-                  <Loader2 className="w-4 h-4 animate-spin text-cyan-400" />
+                  <Loader2 className="w-4 h-4 animate-spin text-accent-400" />
                   Receiving live frames from Genie 4...
                 </div>
                 {webrtcStatus && (
@@ -1155,7 +940,7 @@ export const GenieWorldView: React.FC<GenieWorldViewProps> = ({
                       void genieAudioRef.current.play().catch(() => {});
                     }
                   }}
-                  className="mt-3 px-3 py-1.5 text-xs font-medium bg-[#111827] hover:bg-slate-800 text-cyan-300 border border-slate-700 rounded-md cursor-pointer"
+                  className="mt-3 px-3 py-1.5 text-xs font-medium bg-elevated hover:bg-slate-800 text-accent-300 border border-slate-700 rounded-md cursor-pointer"
                 >
                   Resume Playback
                 </button>
@@ -1179,7 +964,7 @@ export const GenieWorldView: React.FC<GenieWorldViewProps> = ({
                   <button
                     type="button"
                     onClick={() => void handleSnapFromBooth()}
-                    className="inline-flex items-center gap-2 px-4 py-2 text-xs font-medium bg-cyan-500 hover:bg-cyan-400 text-slate-950 rounded-md transition-colors whitespace-nowrap shrink-0 cursor-pointer"
+                    className="inline-flex items-center gap-2 px-4 py-2 text-xs font-medium bg-accent-500 hover:bg-accent-400 text-slate-950 rounded-md transition-colors whitespace-nowrap shrink-0 cursor-pointer"
                   >
                     <Camera className="w-4 h-4" />
                     Snap Photo
@@ -1187,7 +972,7 @@ export const GenieWorldView: React.FC<GenieWorldViewProps> = ({
                   <button
                     type="button"
                     onClick={stopSelfieBooth}
-                    className="px-3.5 py-2 text-xs font-medium bg-[#0B0F17]/90 hover:bg-slate-800 text-slate-200 border border-slate-700 rounded-md transition-colors whitespace-nowrap shrink-0 cursor-pointer"
+                    className="px-3.5 py-2 text-xs font-medium bg-surface/90 hover:bg-slate-800 text-slate-200 border border-slate-700 rounded-md transition-colors whitespace-nowrap shrink-0 cursor-pointer"
                   >
                     Cancel
                   </button>
@@ -1208,7 +993,7 @@ export const GenieWorldView: React.FC<GenieWorldViewProps> = ({
                       className="w-full h-full object-contain"
                     />
                     {selfiePreviewUrl && (
-                      <div className="absolute top-3 left-3 p-1 bg-[#07090E]/90 border border-slate-700 rounded-md">
+                      <div className="absolute top-3 left-3 p-1 bg-canvas/90 border border-slate-700 rounded-md">
                         <img
                           src={selfiePreviewUrl}
                           alt="Original photo"
@@ -1222,7 +1007,7 @@ export const GenieWorldView: React.FC<GenieWorldViewProps> = ({
                     )}
                     <div className="absolute bottom-0 inset-x-0 bg-gradient-to-t from-black/90 via-black/55 to-transparent px-4 pt-8 pb-3 flex flex-wrap items-center justify-between gap-3">
                       <div className="text-xs text-slate-200">
-                        <span className="font-medium text-cyan-300">
+                        <span className="font-medium text-accent-300">
                           Character World Seed Ready
                         </span>
                         {seedBytes !== null && (
@@ -1235,7 +1020,7 @@ export const GenieWorldView: React.FC<GenieWorldViewProps> = ({
                         type="button"
                         disabled={connecting || !worldPrompt.trim()}
                         onClick={() => void handleLaunchWorld()}
-                        className="inline-flex items-center gap-2 px-4 py-2 text-xs font-medium bg-cyan-500 hover:bg-cyan-400 text-slate-950 rounded-md transition-colors whitespace-nowrap shrink-0 cursor-pointer disabled:opacity-50"
+                        className="inline-flex items-center gap-2 px-4 py-2 text-xs font-medium bg-accent-500 hover:bg-accent-400 text-slate-950 rounded-md transition-colors whitespace-nowrap shrink-0 cursor-pointer disabled:opacity-50"
                       >
                         <Play className="w-3.5 h-3.5" />
                         {connecting
@@ -1268,7 +1053,7 @@ export const GenieWorldView: React.FC<GenieWorldViewProps> = ({
                           type="button"
                           disabled={isTransforming}
                           onClick={() => void handleTransformIntoCharacter()}
-                          className="inline-flex items-center gap-2 px-4 py-2 text-xs font-medium bg-cyan-500 hover:bg-cyan-400 text-slate-950 rounded-md transition-colors whitespace-nowrap shrink-0 cursor-pointer disabled:opacity-50"
+                          className="inline-flex items-center gap-2 px-4 py-2 text-xs font-medium bg-accent-500 hover:bg-accent-400 text-slate-950 rounded-md transition-colors whitespace-nowrap shrink-0 cursor-pointer disabled:opacity-50"
                         >
                           {isTransforming ? (
                             <Loader2 className="w-3.5 h-3.5 animate-spin" />
@@ -1283,7 +1068,7 @@ export const GenieWorldView: React.FC<GenieWorldViewProps> = ({
                           type="button"
                           disabled={isTransforming}
                           onClick={handleUseRawSeed}
-                          className="px-3 py-2 text-xs font-medium bg-[#111827] hover:bg-slate-800 text-slate-200 border border-slate-700 rounded-md transition-colors whitespace-nowrap shrink-0 cursor-pointer disabled:opacity-40"
+                          className="px-3 py-2 text-xs font-medium bg-elevated hover:bg-slate-800 text-slate-200 border border-slate-700 rounded-md transition-colors whitespace-nowrap shrink-0 cursor-pointer disabled:opacity-40"
                         >
                           Use Raw Seed
                         </button>
@@ -1300,7 +1085,7 @@ export const GenieWorldView: React.FC<GenieWorldViewProps> = ({
                         className="w-64 aspect-video object-cover rounded-md border border-slate-700 mb-4"
                       />
                     ) : (
-                      <div className="w-12 h-12 rounded-lg bg-[#111827] border border-slate-800 flex items-center justify-center mb-4 text-cyan-400">
+                      <div className="w-12 h-12 rounded-lg bg-elevated border border-slate-800 flex items-center justify-center mb-4 text-accent-400">
                         <Globe className="w-6 h-6" />
                       </div>
                     )}
@@ -1318,24 +1103,24 @@ export const GenieWorldView: React.FC<GenieWorldViewProps> = ({
                       <button
                         type="button"
                         onClick={() => void handleOpenSelfieBooth()}
-                        className="inline-flex items-center gap-2 px-4 py-2 text-xs font-medium bg-cyan-500 hover:bg-cyan-400 text-slate-950 rounded-md transition-colors whitespace-nowrap shrink-0 cursor-pointer"
+                        className="inline-flex items-center gap-2 px-4 py-2 text-xs font-medium bg-accent-500 hover:bg-accent-400 text-slate-950 rounded-md transition-colors whitespace-nowrap shrink-0 cursor-pointer"
                       >
                         <Camera className="w-3.5 h-3.5" />
-                        Take Photo of Me
+                        Take photo of Me
                       </button>
                       <button
                         type="button"
                         onClick={() => fileInputRef.current?.click()}
-                        className="inline-flex items-center gap-2 px-3.5 py-2 text-xs font-medium bg-[#111827] hover:bg-slate-800 text-slate-200 border border-slate-700 rounded-md transition-colors whitespace-nowrap shrink-0 cursor-pointer"
+                        className="inline-flex items-center gap-2 px-3.5 py-2 text-xs font-medium bg-elevated hover:bg-slate-800 text-slate-200 border border-slate-700 rounded-md transition-colors whitespace-nowrap shrink-0 cursor-pointer"
                       >
                         <ImagePlus className="w-3.5 h-3.5" />
-                        Upload Photo
+                        Upload photo
                       </button>
                       <button
                         type="button"
                         disabled={connecting || !worldPrompt.trim()}
                         onClick={() => void handleLaunchWorld()}
-                        className="inline-flex items-center gap-2 px-3.5 py-2 text-xs font-medium bg-[#111827] hover:bg-slate-800 text-cyan-300 border border-slate-700 rounded-md transition-colors whitespace-nowrap shrink-0 cursor-pointer disabled:opacity-50"
+                        className="inline-flex items-center gap-2 px-3.5 py-2 text-xs font-medium bg-elevated hover:bg-slate-800 text-accent-300 border border-slate-700 rounded-md transition-colors whitespace-nowrap shrink-0 cursor-pointer disabled:opacity-50"
                       >
                         <Play className="w-3.5 h-3.5" />
                         {connecting ? "Connecting..." : "Launch Text World"}
@@ -1349,17 +1134,17 @@ export const GenieWorldView: React.FC<GenieWorldViewProps> = ({
           )}
 
           {/* Bottom Controls */}
-          <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-3 border-t border-slate-800 bg-[#0D121C]">
+          <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-3 border-t border-slate-800 bg-surface">
             <div className="flex flex-wrap items-center gap-2">
               {worldEngine === "3d" && !cameraBoothOpen && (
                 <button
                   type="button"
                   disabled={running || connecting}
                   onClick={() => void handleStream3DSceneInGenie4()}
-                  className="inline-flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-medium bg-cyan-500 hover:bg-cyan-400 text-slate-950 rounded-md transition-colors whitespace-nowrap shrink-0 cursor-pointer disabled:opacity-50"
+                  className="inline-flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-medium bg-accent-500 hover:bg-accent-400 text-slate-950 rounded-md transition-colors whitespace-nowrap shrink-0 cursor-pointer disabled:opacity-50"
                 >
                   <Video className="w-3.5 h-3.5" />
-                  Stream 3D View in Genie 4
+                  Animate this world
                 </button>
               )}
 
@@ -1369,7 +1154,7 @@ export const GenieWorldView: React.FC<GenieWorldViewProps> = ({
                     type="button"
                     disabled={connecting || !worldPrompt.trim()}
                     onClick={() => void handleLaunchWorld()}
-                    className="inline-flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-medium bg-cyan-500 hover:bg-cyan-400 text-slate-950 rounded-md transition-colors whitespace-nowrap shrink-0 cursor-pointer disabled:opacity-50"
+                    className="inline-flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-medium bg-accent-500 hover:bg-accent-400 text-slate-950 rounded-md transition-colors whitespace-nowrap shrink-0 cursor-pointer disabled:opacity-50"
                   >
                     <Play className="w-3.5 h-3.5" />
                     {connecting ? "Connecting..." : "Launch World"}
@@ -1393,7 +1178,7 @@ export const GenieWorldView: React.FC<GenieWorldViewProps> = ({
                 className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-md border transition-colors whitespace-nowrap shrink-0 cursor-pointer disabled:opacity-50 ${
                   voiceConnected
                     ? "bg-rose-500/15 border-rose-500/50 text-rose-300 hover:bg-rose-500/25"
-                    : "bg-cyan-500/15 border-cyan-500/50 text-cyan-300 hover:bg-cyan-500/25"
+                    : "bg-accent-500/15 border-accent-500/50 text-accent-300 hover:bg-accent-500/25"
                 }`}
               >
                 <Mic className="w-3.5 h-3.5" />
@@ -1401,7 +1186,7 @@ export const GenieWorldView: React.FC<GenieWorldViewProps> = ({
                   ? "Connecting Voice..."
                   : voiceConnected
                     ? "End Voice"
-                    : "Talk to World"}
+                    : "Talk to the world"}
               </button>
 
               {voiceConnected && (
@@ -1411,7 +1196,7 @@ export const GenieWorldView: React.FC<GenieWorldViewProps> = ({
                   className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium rounded-md border transition-colors whitespace-nowrap shrink-0 cursor-pointer ${
                     micMuted
                       ? "bg-amber-500/15 border-amber-500/50 text-amber-300"
-                      : "bg-[#111827] border-slate-700 text-slate-200 hover:bg-slate-800"
+                      : "bg-elevated border-slate-700 text-slate-200 hover:bg-slate-800"
                   }`}
                 >
                   {micMuted ? (
@@ -1432,12 +1217,12 @@ export const GenieWorldView: React.FC<GenieWorldViewProps> = ({
                       ? "Unmute ambient Genie 4 world audio"
                       : "Mute ambient Genie 4 world audio"
                   }
-                  className="inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium bg-[#111827] hover:bg-slate-800 text-slate-300 border border-slate-700 rounded-md transition-colors whitespace-nowrap shrink-0 cursor-pointer"
+                  className="inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium bg-elevated hover:bg-slate-800 text-slate-300 border border-slate-700 rounded-md transition-colors whitespace-nowrap shrink-0 cursor-pointer"
                 >
                   {worldAudioMuted ? (
                     <VolumeX className="w-3.5 h-3.5 text-slate-400" />
                   ) : (
-                    <Volume2 className="w-3.5 h-3.5 text-cyan-400" />
+                    <Volume2 className="w-3.5 h-3.5 text-accent-400" />
                   )}
                   {worldAudioMuted ? "World Muted" : "World Audio"}
                 </button>
@@ -1465,7 +1250,7 @@ export const GenieWorldView: React.FC<GenieWorldViewProps> = ({
                   onPointerDown={() => triggerTouchKey("key_down", "arrow_left")}
                   onPointerUp={() => triggerTouchKey("key_up", "arrow_left")}
                   onPointerLeave={() => triggerTouchKey("key_up", "arrow_left")}
-                  className="p-1.5 bg-[#111827] hover:bg-slate-800 text-slate-200 border border-slate-700 rounded cursor-pointer disabled:opacity-40"
+                  className="p-1.5 bg-elevated hover:bg-slate-800 text-slate-200 border border-slate-700 rounded cursor-pointer disabled:opacity-40"
                 >
                   <ArrowLeft className="w-3.5 h-3.5" />
                 </button>
@@ -1476,7 +1261,7 @@ export const GenieWorldView: React.FC<GenieWorldViewProps> = ({
                   onPointerDown={() => triggerTouchKey("key_down", "key_w")}
                   onPointerUp={() => triggerTouchKey("key_up", "key_w")}
                   onPointerLeave={() => triggerTouchKey("key_up", "key_w")}
-                  className="p-1.5 bg-[#111827] hover:bg-slate-800 text-slate-200 border border-slate-700 rounded cursor-pointer disabled:opacity-40"
+                  className="p-1.5 bg-elevated hover:bg-slate-800 text-slate-200 border border-slate-700 rounded cursor-pointer disabled:opacity-40"
                 >
                   <ArrowUp className="w-3.5 h-3.5" />
                 </button>
@@ -1487,7 +1272,7 @@ export const GenieWorldView: React.FC<GenieWorldViewProps> = ({
                   onPointerDown={() => triggerTouchKey("key_down", "key_s")}
                   onPointerUp={() => triggerTouchKey("key_up", "key_s")}
                   onPointerLeave={() => triggerTouchKey("key_up", "key_s")}
-                  className="p-1.5 bg-[#111827] hover:bg-slate-800 text-slate-200 border border-slate-700 rounded cursor-pointer disabled:opacity-40"
+                  className="p-1.5 bg-elevated hover:bg-slate-800 text-slate-200 border border-slate-700 rounded cursor-pointer disabled:opacity-40"
                 >
                   <ArrowDown className="w-3.5 h-3.5" />
                 </button>
@@ -1498,7 +1283,7 @@ export const GenieWorldView: React.FC<GenieWorldViewProps> = ({
                   onPointerDown={() => triggerTouchKey("key_down", "arrow_right")}
                   onPointerUp={() => triggerTouchKey("key_up", "arrow_right")}
                   onPointerLeave={() => triggerTouchKey("key_up", "arrow_right")}
-                  className="p-1.5 bg-[#111827] hover:bg-slate-800 text-slate-200 border border-slate-700 rounded cursor-pointer disabled:opacity-40"
+                  className="p-1.5 bg-elevated hover:bg-slate-800 text-slate-200 border border-slate-700 rounded cursor-pointer disabled:opacity-40"
                 >
                   <ArrowRight className="w-3.5 h-3.5" />
                 </button>
@@ -1507,17 +1292,180 @@ export const GenieWorldView: React.FC<GenieWorldViewProps> = ({
           </div>
         </div>
 
-        {/* Right Controls: Gemini 4 Low-Poly 3D Builder, Avatar Transform & World Steering */}
-        <aside className="w-full lg:w-[390px] shrink-0 bg-[#0B0F17] border border-slate-800 rounded-lg p-4 space-y-4">
+        {/* Right Controls: Create a world, Avatar Transform & World Steering */}
+        <aside className="w-full lg:w-[390px] shrink-0 bg-surface border border-slate-800 rounded-lg p-4 space-y-4">
+          {worldEngine === '3d' && <>              {/* Scene settings */}
+              <div className="w-full bg-canvas/92 border border-slate-700/90 rounded-lg shadow-lg text-xs">
+                <div className="flex items-center justify-between gap-2 px-3 py-2 border-b border-slate-800">
+                  <div className="flex items-center gap-1.5 font-medium text-slate-100">
+                    <SlidersHorizontal className="w-3.5 h-3.5 text-accent-400" />
+                    <span>Scene settings</span>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <button
+                      type="button"
+                      onClick={handleResetCameraView}
+                      title="Reset camera angle and zoom"
+                      className="min-w-11 min-h-11 flex items-center justify-center text-slate-400 hover:text-accent-300 rounded cursor-pointer"
+                    >
+                      <RotateCcw className="w-3 h-3" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setFloatingControlsOpen((o) => !o)}
+                      aria-expanded={floatingControlsOpen}
+                      aria-label={
+                        floatingControlsOpen
+                          ? "Collapse scene controls"
+                          : "Expand scene controls"
+                      }
+                      className="min-w-11 min-h-11 flex items-center justify-center text-slate-400 hover:text-slate-100 rounded cursor-pointer"
+                    >
+                      {floatingControlsOpen ? (
+                        <ChevronUp className="w-3.5 h-3.5" />
+                      ) : (
+                        <ChevronDown className="w-3.5 h-3.5" />
+                      )}
+                    </button>
+                  </div>
+                </div>
+
+                {floatingControlsOpen && (
+                  <div className="p-3 space-y-3">
+                    {/* Low-Poly Environment Theme Selector */}
+                    <div>
+                      <div className="flex items-center justify-between mb-1.5">
+                        <span className="text-[11px] font-medium text-slate-300">
+                          Environment Theme
+                        </span>
+                        {activeEnvTheme === "custom" && (
+                          <span className="text-[10px] font-mono text-accent-400">
+                            Gemini 4
+                          </span>
+                        )}
+                      </div>
+                      <div className="grid grid-cols-2 gap-1.5">
+                        {ENVIRONMENT_THEME_OPTIONS.map((theme) => {
+                          const isSelected = activeEnvTheme === theme.id;
+                          return (
+                            <button
+                              key={theme.id}
+                              type="button"
+                              onClick={() => handleSelectEnvTheme(theme.id)}
+                              className={`text-left px-2 py-1.5 rounded border transition-colors cursor-pointer ${
+                                isSelected
+                                  ? "bg-accent-500/20 border-accent-500/70 text-accent-100"
+                                  : "bg-surface border-slate-800 text-slate-300 hover:bg-elevated"
+                              }`}
+                            >
+                              <div className="text-[11px] font-medium leading-tight">
+                                {theme.label}
+                              </div>
+                              <div className="text-[10px] text-slate-400 leading-tight">
+                                {theme.subtitle}
+                              </div>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+
+                    {/* Camera Rotation / Tilt / Zoom Sliders */}
+                    <div className="space-y-2 pt-2 border-t border-slate-800">
+                      <div>
+                        <div className="flex items-center justify-between text-[11px] mb-0.5">
+                          <label
+                            htmlFor="scene-rotation-slider"
+                            className="text-slate-300"
+                          >
+                            Rotation
+                          </label>
+                          <span className="font-mono tabular-nums text-accent-400">
+                            {cameraRotationDeg}°
+                          </span>
+                        </div>
+                        <input
+                          id="scene-rotation-slider"
+                          type="range"
+                          min={-180}
+                          max={180}
+                          step={1}
+                          value={cameraRotationDeg}
+                          onChange={(e) =>
+                            setCameraRotationDeg(Number(e.target.value))
+                          }
+                          className="w-full h-1.5 accent-accent-400 cursor-pointer"
+                        />
+                      </div>
+
+                      <div>
+                        <div className="flex items-center justify-between text-[11px] mb-0.5">
+                          <label
+                            htmlFor="scene-pitch-slider"
+                            className="text-slate-300"
+                          >
+                            Camera Tilt
+                          </label>
+                          <span className="font-mono tabular-nums text-accent-400">
+                            {cameraPitchDeg}°
+                          </span>
+                        </div>
+                        <input
+                          id="scene-pitch-slider"
+                          type="range"
+                          min={10}
+                          max={68}
+                          step={1}
+                          value={cameraPitchDeg}
+                          onChange={(e) =>
+                            setCameraPitchDeg(Number(e.target.value))
+                          }
+                          className="w-full h-1.5 accent-accent-400 cursor-pointer"
+                        />
+                      </div>
+
+                      <div>
+                        <div className="flex items-center justify-between text-[11px] mb-0.5">
+                          <label
+                            htmlFor="scene-zoom-slider"
+                            className="text-slate-300"
+                          >
+                            Zoom
+                          </label>
+                          <span className="font-mono tabular-nums text-accent-400">
+                            {zoomPercent}%
+                          </span>
+                        </div>
+                        <input
+                          id="scene-zoom-slider"
+                          type="range"
+                          min={0}
+                          max={100}
+                          step={1}
+                          value={zoomPercent}
+                          onChange={(e) => {
+                            const pct = Number(e.target.value);
+                            const dist = 15.5 - (pct / 100) * (15.5 - 4.2);
+                            setCameraZoom(Number(dist.toFixed(1)));
+                          }}
+                          className="w-full h-1.5 accent-accent-400 cursor-pointer"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+</>}
+
           <div className="space-y-2.5 pb-3 border-b border-slate-800">
             <div className="flex items-center justify-between gap-2">
               <h2 className="text-xs font-medium text-slate-200 flex items-center gap-1.5">
-                <Wand2 className="w-3.5 h-3.5 text-cyan-400" />
-                Gemini 4 Low-Poly 3D Builder
+                <Wand2 className="w-3.5 h-3.5 text-accent-400" />
+                Create a world
               </h2>
               <div className="flex items-center gap-2">
                 {sceneLatencyMs !== null && (
-                  <span className="text-[11px] font-mono text-cyan-400">
+                  <span className="text-[11px] font-mono text-accent-400">
                     {sceneLatencyMs} ms
                   </span>
                 )}
@@ -1535,17 +1483,18 @@ export const GenieWorldView: React.FC<GenieWorldViewProps> = ({
 
             <textarea
               rows={2}
+              aria-label="Describe a world"
               disabled={isGeneratingScene || running}
               value={sceneBuilderPrompt}
               onChange={(e) => setSceneBuilderPrompt(e.target.value)}
-              placeholder="Describe any 3D low-poly world for Gemini 4 to construct..."
-              className="w-full px-3 py-1.5 text-xs bg-[#111827] text-slate-100 border border-slate-700 rounded-md focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-cyan-500 disabled:opacity-60"
+              placeholder="Describe a place and time to explore…"
+              className="w-full px-3 py-1.5 text-xs bg-elevated text-slate-100 border border-slate-700 rounded-md focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent-500 disabled:opacity-60"
             />
             <button
               type="button"
               disabled={!sceneBuilderPrompt.trim() || isGeneratingScene || running}
               onClick={() => void handleGenerateLowPolyScene()}
-              className="w-full inline-flex items-center justify-center gap-2 px-3 py-2 text-xs font-medium bg-cyan-500 hover:bg-cyan-400 text-slate-950 rounded-md transition-colors cursor-pointer disabled:opacity-40"
+              className="w-full inline-flex items-center justify-center gap-2 px-3 py-2 text-xs font-medium bg-accent-500 hover:bg-accent-400 text-slate-950 rounded-md transition-colors cursor-pointer disabled:opacity-40"
             >
               {isGeneratingScene ? (
                 <Loader2 className="w-3.5 h-3.5 animate-spin" />
@@ -1553,8 +1502,8 @@ export const GenieWorldView: React.FC<GenieWorldViewProps> = ({
                 <Wand2 className="w-3.5 h-3.5" />
               )}
               {isGeneratingScene
-                ? "Constructing 3D Models..."
-                : "Generate Low-Poly 3D Scene (Gemini 4)"}
+                ? "Creating world…"
+                : "Generate world"}
             </button>
 
             <form
@@ -1567,15 +1516,16 @@ export const GenieWorldView: React.FC<GenieWorldViewProps> = ({
               <input
                 type="text"
                 disabled={isSpawningProp || running}
+                aria-label="Object to add"
                 value={spawnPropPrompt}
                 onChange={(e) => setSpawnPropPrompt(e.target.value)}
-                placeholder="Spawn 3D prop (e.g., crystal obelisk, clockwork robot)"
-                className="flex-1 min-w-0 px-2.5 py-1.5 text-xs bg-[#111827] text-slate-100 placeholder:text-slate-500 border border-slate-700 rounded-md focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-cyan-500 disabled:opacity-50"
+                placeholder="Add an object, e.g. a clockwork robot"
+                className="flex-1 min-w-0 px-2.5 py-1.5 text-xs bg-elevated text-slate-100 placeholder:text-slate-500 border border-slate-700 rounded-md focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent-500 disabled:opacity-50"
               />
               <button
                 type="submit"
                 disabled={!spawnPropPrompt.trim() || isSpawningProp || running}
-                className="inline-flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium bg-[#111827] hover:bg-slate-800 text-cyan-300 border border-slate-700 rounded-md cursor-pointer disabled:opacity-40 whitespace-nowrap"
+                className="inline-flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium bg-elevated hover:bg-slate-800 text-accent-300 border border-slate-700 rounded-md cursor-pointer disabled:opacity-40 whitespace-nowrap"
               >
                 {isSpawningProp ? (
                   <Loader2 className="w-3.5 h-3.5 animate-spin" />
@@ -1587,11 +1537,45 @@ export const GenieWorldView: React.FC<GenieWorldViewProps> = ({
             </form>
           </div>
 
-          <div className="space-y-2.5 pb-3 border-b border-slate-800">
+          <details className="ui-disclosure"><summary>Character & appearance</summary><div className="space-y-3">
+<div className="flex flex-wrap gap-2">          <button
+            type="button"
+            onClick={() => void handleOpenSelfieBooth()}
+            disabled={running}
+            className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-medium bg-accent-500 hover:bg-accent-400 text-slate-950 rounded-md transition-colors whitespace-nowrap shrink-0 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+          >
+            <Camera className="w-3.5 h-3.5" />
+            Take photo
+          </button>
+          {hasActiveCamera && (
+            <button
+              type="button"
+              onClick={() => void handleCaptureFromActiveFeed()}
+              disabled={running}
+              className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-medium bg-elevated hover:bg-slate-800 text-slate-200 border border-slate-700 rounded-md transition-colors whitespace-nowrap shrink-0 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+            >
+              <UserCheck className="w-3.5 h-3.5" />
+              Snap Active Feed
+            </button>
+          )}
+          <button
+            type="button"
+            onClick={() => fileInputRef.current?.click()}
+            disabled={running}
+            className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-medium bg-elevated hover:bg-slate-800 text-slate-200 border border-slate-700 rounded-md transition-colors whitespace-nowrap shrink-0 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+          >
+            <ImagePlus className="w-3.5 h-3.5" />
+            Upload photo
+          </button>
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/*"
+            onChange={handleUploadPhoto}
+            className="hidden"
+          />
+</div>
             <div className="flex items-center justify-between gap-2">
-              <h2 className="text-xs font-medium text-slate-200">
-                1. Character & World Style
-              </h2>
               {(selfiePreviewUrl || transformedImageUrl) && !running && (
                 <button
                   type="button"
@@ -1626,8 +1610,8 @@ export const GenieWorldView: React.FC<GenieWorldViewProps> = ({
                     }}
                     className={`text-left px-2.5 py-2 rounded-md border text-xs transition-colors cursor-pointer disabled:opacity-50 ${
                       active
-                        ? "bg-cyan-500/10 border-cyan-500/50 text-slate-100"
-                        : "bg-[#0D121C] border-slate-800 text-slate-300 hover:bg-[#111827]"
+                        ? "bg-accent-500/10 border-accent-500/50 text-slate-100"
+                        : "bg-surface border-slate-800 text-slate-300 hover:bg-elevated"
                     }`}
                   >
                     <div className="font-medium truncate">{persona.name}</div>
@@ -1643,8 +1627,8 @@ export const GenieWorldView: React.FC<GenieWorldViewProps> = ({
                 onClick={() => setSelectedPersonaId("none")}
                 className={`text-left px-2.5 py-2 rounded-md border text-xs transition-colors cursor-pointer disabled:opacity-50 ${
                   selectedPersonaId === "none"
-                    ? "bg-cyan-500/10 border-cyan-500/50 text-slate-100"
-                    : "bg-[#0D121C] border-slate-800 text-slate-300 hover:bg-[#111827]"
+                    ? "bg-accent-500/10 border-accent-500/50 text-slate-100"
+                    : "bg-surface border-slate-800 text-slate-300 hover:bg-elevated"
                 }`}
               >
                 <div className="font-medium truncate">Custom World</div>
@@ -1659,7 +1643,7 @@ export const GenieWorldView: React.FC<GenieWorldViewProps> = ({
                 htmlFor="character-transform-prompt"
                 className="block text-[11px] font-medium text-slate-400 mb-1"
               >
-                Character Transformation Prompt
+                Describe your character
               </label>
               <textarea
                 id="character-transform-prompt"
@@ -1668,7 +1652,7 @@ export const GenieWorldView: React.FC<GenieWorldViewProps> = ({
                 value={characterPrompt}
                 onChange={(e) => setCharacterPrompt(e.target.value)}
                 placeholder="e.g., Turn me into a cyberpunk explorer in a neon alley modeled on my room"
-                className="w-full px-3 py-1.5 text-xs bg-[#111827] text-slate-100 border border-slate-700 rounded-md focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-cyan-500 disabled:opacity-60"
+                className="w-full px-3 py-1.5 text-xs bg-elevated text-slate-100 border border-slate-700 rounded-md focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent-500 disabled:opacity-60"
               />
             </div>
 
@@ -1676,7 +1660,7 @@ export const GenieWorldView: React.FC<GenieWorldViewProps> = ({
               type="button"
               disabled={!selfieBase64 || isTransforming || running}
               onClick={() => void handleTransformIntoCharacter()}
-              className="w-full inline-flex items-center justify-center gap-2 px-3 py-2 text-xs font-medium bg-cyan-500/15 hover:bg-cyan-500/25 text-cyan-300 border border-cyan-500/50 rounded-md transition-colors cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+              className="w-full inline-flex items-center justify-center gap-2 px-3 py-2 text-xs font-medium bg-accent-500/15 hover:bg-accent-500/25 text-accent-300 border border-accent-500/50 rounded-md transition-colors cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
             >
               {isTransforming ? (
                 <Loader2 className="w-3.5 h-3.5 animate-spin" />
@@ -1689,14 +1673,14 @@ export const GenieWorldView: React.FC<GenieWorldViewProps> = ({
                   ? "Regenerate Character Seed"
                   : "Transform Me into Character"}
             </button>
-          </div>
+          </div></details>
 
-          <div>
+          {worldEngine === 'genie' && <div>
             <label
               htmlFor="genie-world-prompt"
               className="block text-xs font-medium text-slate-200 mb-1.5"
             >
-              2. Genie 4 World Motion Prompt
+              Describe the motion
             </label>
             <textarea
               id="genie-world-prompt"
@@ -1704,15 +1688,15 @@ export const GenieWorldView: React.FC<GenieWorldViewProps> = ({
               disabled={running}
               value={worldPrompt}
               onChange={(e) => setWorldPrompt(e.target.value)}
-              className="w-full px-3 py-2 text-xs bg-[#111827] text-slate-100 border border-slate-700 rounded-md focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-cyan-500 disabled:opacity-60"
+              className="w-full px-3 py-2 text-xs bg-elevated text-slate-100 border border-slate-700 rounded-md focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent-500 disabled:opacity-60"
             />
-          </div>
+          </div>}
 
           {seedPreviewUrl && (
-            <div className="flex items-center justify-between gap-2 px-3 py-2 bg-[#0D121C] border border-slate-800 rounded-md text-xs">
+            <div className="flex items-center justify-between gap-2 px-3 py-2 bg-surface border border-slate-800 rounded-md text-xs">
               <span className="text-slate-300">
                 {transformedImageUrl ? "Character seed attached" : "Seed attached"}{" "}
-                <span className="font-mono text-cyan-400">
+                <span className="font-mono text-accent-400">
                   ({Math.round((seedBytes ?? 0) / 1024)} KB)
                 </span>
               </span>
@@ -1734,7 +1718,7 @@ export const GenieWorldView: React.FC<GenieWorldViewProps> = ({
           <div className="pt-3 border-t border-slate-800 space-y-2">
             <div className="flex items-center justify-between gap-2">
               <span className="text-xs font-medium text-slate-200">
-                3. Mid-Session Steering & Voice Chat
+                Guide the world
               </span>
               {voiceConnected && (
                 <span className="text-[11px] font-mono text-emerald-400">
@@ -1752,15 +1736,16 @@ export const GenieWorldView: React.FC<GenieWorldViewProps> = ({
               <input
                 type="text"
                 disabled={!canSteerWorld}
+                aria-label="Guide the world"
                 value={steerInput}
                 onChange={(e) => setSteerInput(e.target.value)}
                 placeholder="Steer event (e.g., Torchlight flickers on)"
-                className="flex-1 min-w-0 px-3 py-1.5 text-xs bg-[#111827] text-slate-100 placeholder:text-slate-500 border border-slate-700 rounded-md focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-cyan-500 disabled:opacity-40"
+                className="flex-1 min-w-0 px-3 py-1.5 text-xs bg-elevated text-slate-100 placeholder:text-slate-500 border border-slate-700 rounded-md focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent-500 disabled:opacity-40"
               />
               <button
                 type="submit"
                 disabled={!canSteerWorld || !steerInput.trim()}
-                className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-medium bg-[#111827] hover:bg-slate-800 text-cyan-400 border border-slate-700 rounded-md cursor-pointer disabled:opacity-40"
+                className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-medium bg-elevated hover:bg-slate-800 text-accent-400 border border-slate-700 rounded-md cursor-pointer disabled:opacity-40"
               >
                 <Send className="w-3.5 h-3.5" />
                 Steer
@@ -1777,7 +1762,7 @@ export const GenieWorldView: React.FC<GenieWorldViewProps> = ({
                   type="button"
                   disabled={!canSteerWorld}
                   onClick={() => void handleSteerSubmit(impulse)}
-                  className="px-2.5 py-1 text-[11px] bg-[#0D121C] hover:bg-[#111827] text-slate-300 border border-slate-800 rounded cursor-pointer disabled:opacity-40"
+                  className="px-2.5 py-1 text-[11px] bg-surface hover:bg-elevated text-slate-300 border border-slate-800 rounded cursor-pointer disabled:opacity-40"
                 >
                   {impulse}
                 </button>
@@ -1785,13 +1770,13 @@ export const GenieWorldView: React.FC<GenieWorldViewProps> = ({
             </div>
 
             {voiceTranscripts.length > 0 && (
-              <div className="mt-2 max-h-36 overflow-y-auto space-y-1.5 p-2.5 bg-[#07090E] border border-slate-800 rounded-md text-xs">
+              <div className="mt-2 max-h-36 overflow-y-auto space-y-1.5 p-2.5 bg-canvas border border-slate-800 rounded-md text-xs">
                 {voiceTranscripts.map((entry) => (
                   <div key={entry.id} className="leading-snug">
                     <span
                       className={`font-mono text-[10px] uppercase mr-1.5 ${
                         entry.speaker === "user"
-                          ? "text-cyan-400"
+                          ? "text-accent-400"
                           : entry.speaker === "gemini"
                             ? "text-emerald-400"
                             : "text-slate-400"

@@ -60,7 +60,9 @@ export default function App() {
   useEffect(() => {
     const sync = () => {
       const route = window.location.pathname === '/museum' ? 'museum' : window.location.hash.slice(1);
-      setWorkspaceView(['home', 'live', 'character', 'museum', 'genie', 'notebook', 'log', 'compare'].includes(route) ? route as LearningView : 'home');
+      // In-page anchors (including the skip link) must not change workspaces.
+      if (!route) setWorkspaceView('home');
+      else if (['home', 'live', 'character', 'museum', 'genie', 'notebook', 'log', 'compare'].includes(route)) setWorkspaceView(route as LearningView);
     };
     window.addEventListener('popstate', sync);
     window.addEventListener('hashchange', sync);
@@ -389,18 +391,18 @@ export default function App() {
   const isCameraStageView = workspaceView === "live" || workspaceView === "character";
 
   return (
-    <div className={`${workspaceView === 'museum' ? 'h-dvh overflow-hidden' : 'min-h-screen'} flex flex-col bg-[#07090E] text-slate-100`}>
+    <div className={`${workspaceView === 'museum' ? 'h-dvh overflow-hidden' : 'min-h-screen'} app-shell flex flex-col bg-canvas text-slate-100`}>
       {workspaceView !== 'museum' && <JourneyHeader view={workspaceView} onNavigate={navigate} />}
 
       <RuntimeStatus />
 
       {/* Main Content */}
-      <main id="learning-main" className={workspaceView === 'museum' ? "flex-1 min-h-0 w-full" : "flex-1 w-full max-w-[1440px] mx-auto px-4 sm:px-6 py-5"}>
+      <main id="learning-main" tabIndex={-1} className={workspaceView === 'museum' ? "flex-1 min-h-0 w-full" : "flex-1 w-full max-w-[1440px] mx-auto px-4 sm:px-6 py-5"}>
         {workspaceView === 'home' && <LearningHome onNavigate={navigate} />}
-        {workspaceView !== 'museum' && <LearningGuide view={workspaceView} onNavigate={navigate} onPrompt={setPromptText} />}
+        {workspaceView !== 'museum' && <LearningGuide view={workspaceView} onPrompt={setPromptText} />}
         {workspaceView === 'museum' && <div className="museum-workspace"><MuseumApp onExit={() => navigate('home')} /></div>}
         {workspaceView === 'notebook' && <LearningNotebook />}
-        {['live', 'character', 'log', 'compare'].includes(workspaceView) && <nav className="research-tools" aria-label="Exploration tools"><span>Research tools</span><button onClick={() => navigate('live')} aria-current={workspaceView === 'live' ? 'page' : undefined}>Viewfinder</button><button onClick={() => navigate('log')} aria-current={workspaceView === 'log' ? 'page' : undefined}>Observation log</button><button onClick={() => navigate('compare')} aria-current={workspaceView === 'compare' ? 'page' : undefined}>Compare responses</button></nav>}
+        {['live', 'log', 'compare'].includes(workspaceView) && <nav className="research-tools" aria-label="Exploration tools"><button onClick={() => navigate('live')} aria-current={workspaceView === 'live' ? 'page' : undefined}>Visual discovery</button><button onClick={() => navigate('log')} aria-current={workspaceView === 'log' ? 'page' : undefined}>Observation log</button><button onClick={() => navigate('compare')} aria-current={workspaceView === 'compare' ? 'page' : undefined}>Session overview</button></nav>}
         {/* Keep the capture elements mounted so World can reuse the active feed. */}
         <section className={isCameraStageView ? "" : "hidden"} aria-hidden={!isCameraStageView}>
           <div className="flex flex-col lg:flex-row items-stretch gap-5">
@@ -423,15 +425,11 @@ export default function App() {
               onStartScreen={startScreenShare}
               onUploadFile={handleUploadFile}
               onStopMedia={handleStopMedia}
-              visionModel={visionModel}
-              onChangeVisionModel={setVisionModel}
               characterMode={workspaceView === "character"}
               characterPersona={characterPersona}
               onChangeCharacterPersona={setCharacterPersona}
               autoDetect={autoDetect}
               onToggleAutoDetect={() => setAutoDetect((v) => !v)}
-              intervalMs={intervalMs}
-              onChangeInterval={setIntervalMs}
               isDetecting={isDetecting}
               onAnalyzeOnce={() => void analyzeCurrentFrame()}
               liveConnected={liveConnected}
@@ -444,7 +442,6 @@ export default function App() {
               selectedBoxId={selectedBoxId}
               onSelectBox={setSelectedBoxId}
               latestSummary={latestSummary}
-              latestLatencyMs={latestLatencyMs}
               promptText={promptText}
               onChangePromptText={setPromptText}
               onSubmitPrompt={() => void handleSubmitPrompt()}
@@ -496,7 +493,6 @@ export default function App() {
             hasActiveCamera={
               mediaActive || Boolean(uploadedImageUrl) || Boolean(uploadedVideoUrl)
             }
-            onBackToCamera={() => navigate("character")}
           />
         )}
 

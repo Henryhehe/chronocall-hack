@@ -31,15 +31,14 @@ export const DetectionLogView: React.FC<DetectionLogViewProps> = ({
   }, [history, query, sourceFilter]);
 
   return (
-    <section className="space-y-4">
+    <section className="session-page space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-4 pb-4 border-b border-slate-800">
         <div>
-          <h1 className="text-xl font-semibold text-slate-100">
-            Session Detection Log
+          <h1 className="workspace-title">
+            Observation log
           </h1>
           <p className="text-sm text-slate-400 mt-0.5">
-            Chronological record of Gemini object detections, bounding boxes, and
-            measured inference latency.
+            Review the objects and scenes you discovered in this session.
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -47,7 +46,7 @@ export const DetectionLogView: React.FC<DetectionLogViewProps> = ({
             type="button"
             onClick={onExportJson}
             disabled={history.length === 0}
-            className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-medium bg-[#111827] hover:bg-slate-800 text-slate-200 border border-slate-700 rounded-md transition-colors whitespace-nowrap shrink-0 cursor-pointer disabled:opacity-40"
+            className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-medium bg-elevated hover:bg-slate-800 text-slate-200 border border-slate-700 rounded-md transition-colors whitespace-nowrap shrink-0 cursor-pointer disabled:opacity-40"
           >
             <Download className="w-3.5 h-3.5" />
             Export JSON
@@ -56,10 +55,10 @@ export const DetectionLogView: React.FC<DetectionLogViewProps> = ({
             type="button"
             onClick={onClearHistory}
             disabled={history.length === 0}
-            className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-medium bg-[#111827] hover:bg-rose-950/50 text-rose-300 border border-slate-700 rounded-md transition-colors whitespace-nowrap shrink-0 cursor-pointer disabled:opacity-40"
+            className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-medium bg-elevated hover:bg-rose-950/50 text-rose-300 border border-slate-700 rounded-md transition-colors whitespace-nowrap shrink-0 cursor-pointer disabled:opacity-40"
           >
             <Trash2 className="w-3.5 h-3.5" />
-            Clear Log
+            Clear observations
           </button>
         </div>
       </div>
@@ -70,19 +69,20 @@ export const DetectionLogView: React.FC<DetectionLogViewProps> = ({
           <Search className="w-4 h-4 text-slate-500 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
           <input
             type="text"
+            aria-label="Search observations"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="Filter by object label or scene summary..."
-            className="w-full pl-9 pr-3 py-2 text-xs bg-[#0B0F17] text-slate-100 placeholder:text-slate-500 border border-slate-800 rounded-md focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-cyan-500"
+            placeholder="Search observations…"
+            className="w-full pl-9 pr-3 py-2 text-xs bg-surface text-slate-100 placeholder:text-slate-500 border border-slate-800 rounded-md focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent-500"
           />
         </div>
 
-        <div className="flex items-center gap-1 p-1 bg-[#0B0F17] border border-slate-800 rounded-md">
+        <div className="flex items-center gap-1 p-1 bg-surface border border-slate-800 rounded-md">
           {(
             [
-              { id: "all", label: "All Events" },
-              { id: "detect", label: "Frame Detection" },
-              { id: "live-tool", label: "Live Tool Calls" },
+              { id: "all", label: "All observations" },
+              { id: "detect", label: "Image analysis" },
+              { id: "live-tool", label: "Conversation" },
             ] as const
           ).map((tab) => (
             <button
@@ -91,7 +91,7 @@ export const DetectionLogView: React.FC<DetectionLogViewProps> = ({
               onClick={() => setSourceFilter(tab.id)}
               className={`px-3 py-1 text-xs font-medium rounded transition-colors whitespace-nowrap shrink-0 cursor-pointer ${
                 sourceFilter === tab.id
-                  ? "bg-[#161E2E] text-cyan-400"
+                  ? "bg-elevated text-accent-400"
                   : "text-slate-400 hover:text-slate-200"
               }`}
             >
@@ -102,29 +102,28 @@ export const DetectionLogView: React.FC<DetectionLogViewProps> = ({
       </div>
 
       {filtered.length === 0 ? (
-        <div className="py-14 px-6 text-center bg-[#0B0F17] border border-slate-800 rounded-lg space-y-3">
+        <div className="py-14 px-6 text-center bg-surface border border-slate-800 rounded-lg space-y-3">
           <p className="text-sm font-medium text-slate-200">
             {history.length === 0
-              ? "No detections recorded in this session yet"
-              : "No detection events match your filter"}
+              ? "No observations yet"
+              : "No matching observations"}
           </p>
           <p className="text-xs text-slate-400 max-w-md mx-auto">
-            Run Auto Detect or Analyze Frame in the Live Vision view to populate
-            frame-by-frame object detections.
+            Add an image in Visual discovery to start collecting observations.
           </p>
           <button
             type="button"
             onClick={onBackToLive}
-            className="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-medium bg-cyan-500 hover:bg-cyan-400 text-slate-950 rounded-md transition-colors whitespace-nowrap shrink-0 cursor-pointer"
+            className="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-medium bg-accent-500 hover:bg-accent-400 text-slate-950 rounded-md transition-colors whitespace-nowrap shrink-0 cursor-pointer"
           >
-            Open Live Vision
+            Open visual discovery
           </button>
         </div>
       ) : (
-        <div className="bg-[#0B0F17] border border-slate-800 rounded-lg overflow-x-auto">
+        <div className="bg-surface border border-slate-800 rounded-lg overflow-x-auto">
           <table className="w-full text-left border-collapse text-xs">
             <thead>
-              <tr className="border-b border-slate-800 text-slate-400 bg-[#0D121C]">
+              <tr className="border-b border-slate-800 text-slate-400 bg-surface">
                 <th className="py-2.5 px-4 font-medium">Time</th>
                 <th className="py-2.5 px-4 font-medium">Engine</th>
                 <th className="py-2.5 px-4 font-medium">Detected Labels</th>
@@ -135,7 +134,7 @@ export const DetectionLogView: React.FC<DetectionLogViewProps> = ({
             </thead>
             <tbody className="divide-y divide-slate-800/80">
               {filtered.map((item) => (
-                <tr key={item.frameId} className="hover:bg-[#111827]/70">
+                <tr key={item.frameId} className="hover:bg-elevated/70">
                   <td className="py-2.5 px-4 font-mono tabular-nums text-slate-300 whitespace-nowrap">
                     {new Date(item.timestamp).toLocaleTimeString([], {
                       hour12: false,
@@ -163,7 +162,7 @@ export const DetectionLogView: React.FC<DetectionLogViewProps> = ({
                   <td className="py-2.5 px-4 font-mono tabular-nums text-right text-slate-200">
                     {item.objects.length}
                   </td>
-                  <td className="py-2.5 px-4 font-mono tabular-nums text-right text-cyan-400 whitespace-nowrap">
+                  <td className="py-2.5 px-4 font-mono tabular-nums text-right text-accent-400 whitespace-nowrap">
                     {item.latencyMs > 0 ? `${item.latencyMs} ms` : "Live"}
                   </td>
                 </tr>
