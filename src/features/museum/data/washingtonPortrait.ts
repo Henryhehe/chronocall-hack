@@ -1,5 +1,5 @@
-import { PortraitArtwork } from '../types/portrait';
-import { resolvePersona } from './personas';
+import { PortraitArtwork } from '../types/portrait.ts';
+import { resolvePersona } from './personas.ts';
 
 export const WASHINGTON_PORTRAIT: PortraitArtwork = {
   id: 'washington-equestrian-1777',
@@ -19,7 +19,7 @@ export const WASHINGTON_PORTRAIT: PortraitArtwork = {
   historicalContext:
     'Painted in the grand equestrian tradition depicting General George Washington mounted upon his dapple-gray charger Blueskin during the winter campaigns of 1776–1777 around Trenton and Princeton. Wearing his blue-and-buff Continental dress coat with gold epaulets, he extends his sword toward the distant lines while storm clouds break into clear light behind him.',
   // Starts from the general character guide only; /api/research-figure upgrades it with live research.
-  // See src/data/personas.ts and src/data/liveResearch.ts.
+  // See src/features/museum/data/personas.ts and src/features/museum/data/liveResearch.ts.
   systemPersona: resolvePersona({
     characterName: 'George Washington',
     title: 'General George Washington on Horseback',

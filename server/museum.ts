@@ -1,18 +1,18 @@
-import 'dotenv/config';
 import express from 'express';
-import http from 'http';
-import path from 'path';
-import { fileURLToPath } from 'url';
+import type { Server } from 'node:http';
 import { WebSocketServer, WebSocket } from 'ws';
-import { GoogleGenAI, LiveServerMessage, Modality, ThinkingLevel, Type } from '@google/genai';
-import { resolvePersona } from './src/data/personas';
-import { liveResearchPrompt, structurePrompt, LIVE_PROFILE_SCHEMA, factCheckQuestions, dropFailed, livePersona, type LiveProfile, type IdentifiedSubject } from './src/data/liveResearch';
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-
-const PORT = Number(process.env.PORT) || 3000;
-
+import { GoogleGenAI, type LiveServerMessage, Modality, ThinkingLevel, Type } from '@google/genai';
+import { resolvePersona } from '../src/features/museum/data/personas.ts';
+import {
+  liveResearchPrompt,
+  structurePrompt,
+  LIVE_PROFILE_SCHEMA,
+  factCheckQuestions,
+  dropFailed,
+  livePersona,
+  type LiveProfile,
+  type IdentifiedSubject,
+} from '../src/features/museum/data/liveResearch.ts';
 function createGeminiClient(apiVersion?: string) {
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) {
@@ -57,14 +57,9 @@ function parseApiError(err: unknown): { status: number; message: string } {
   return { status: 500, message: msg || 'Unexpected server error communicating with Gemini.' };
 }
 
-async function startServer() {
-  const app = express();
-  app.use(express.json({ limit: '15mb' }));
-
-  app.get('/api/health', (_req, res) => {
-    res.json({ ok: true });
-  });
-
+export function createMuseumRouter(demoMode = false) {
+ const app = express.Router();
+ app.use((req, res, next) => { if (demoMode && req.method === "POST" && ["/api/identify-portrait", "/api/character/respond", "/api/research-figure"].includes(req.path)) { res.status(503).json({ error: "Museum AI requires a Gemini API key; unavailable in demo mode." }); return; } next(); });
   app.get('/api/app-url', (req, res) => {
     const envUrl = process.env.APP_URL;
     const isPlaceholder = !envUrl || envUrl === 'MY_APP_URL';
@@ -72,7 +67,7 @@ async function startServer() {
     const proto = req.get('x-forwarded-proto') || req.protocol || 'https';
     const inferredUrl = hostHeader ? `${proto}://${hostHeader}` : '';
     const appUrl = !isPlaceholder ? envUrl : inferredUrl;
-    res.json({ appUrl });
+    res.json({ appUrl: appUrl ? new URL("/museum", appUrl).href : appUrl });
   });
 
   // Identify a painting or historical portrait from a smartphone camera frame or uploaded image
@@ -373,10 +368,13 @@ If no portrait or figure is clearly visible, set detected to false and explain b
     }
   });
 
-  const server = http.createServer(app);
-  const wss = new WebSocketServer({ server, path: '/ws/live' });
-
+return app;
+}
+export function attachMuseumBridge(server: Server, demoMode = false) {
+ const wss = new WebSocketServer({ noServer: true });
+ server.on("upgrade", (request, socket, head) => { if ((request.url ?? "").split("?")[0] === "/ws/museum") wss.handleUpgrade(request, socket, head, ws => wss.emit("connection", ws, request)); });
   wss.on('connection', (clientWs: WebSocket) => {
+    if (demoMode) { clientWs.send(JSON.stringify({ type: 'error', message: 'Museum voice requires a Gemini API key; unavailable in demo mode.' })); clientWs.close(); return; }
     let sessionPromise: Promise<Awaited<ReturnType<GoogleGenAI['live']['connect']>>> | null = null;
     let liveSession: Awaited<ReturnType<GoogleGenAI['live']['connect']>> | null = null;
     let isClosing = false;
@@ -512,27 +510,5 @@ If no portrait or figure is clearly visible, set detected to false and explain b
     });
   });
 
-  if (process.env.NODE_ENV !== 'production') {
-    const { createServer: createViteServer } = await import('vite');
-    const vite = await createViteServer({
-      server: { middlewareMode: true },
-      appType: 'spa',
-    });
-    app.use(vite.middlewares);
-  } else {
-    const distDir = path.resolve(__dirname, 'dist');
-    app.use(express.static(distDir));
-    app.get('*', (_req, res) => {
-      res.sendFile(path.join(distDir, 'index.html'));
-    });
-  }
-
-  server.listen(PORT, '0.0.0.0', () => {
-    console.log(`Tableau Vivant server listening on http://0.0.0.0:${PORT}`);
-  });
+return wss;
 }
-
-startServer().catch((err) => {
-  console.error('Failed to start server:', err);
-  process.exit(1);
-});

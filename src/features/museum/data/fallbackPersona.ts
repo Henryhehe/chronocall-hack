@@ -1,7 +1,7 @@
-// Guidance for any speaker who is NOT in src/data/dossiers — a person in a famous painting, and also
-// anything else in it: the horse Washington rides, a dog, a teacup, a ship, the river, the sky, or the
-// painting itself. It sets tendencies and limits, not a script: the model improvises inside them.
-// If the speaker IS in the dossiers (e.g. Leonardo, Cleopatra), use the dossier instead.
+// The general character guide for every speaker in a painting: a person, and also anything else in it
+// (the horse Washington rides, a dog, a teacup, a ship, the river, the sky, or the painting itself).
+// It sets tendencies and limits, not a script: the model improvises inside them. Facts about the
+// speaker come from live research (liveResearch.ts), not from pre-loaded data.
 //
 // Who is being addressed can change mid-call ("can I talk to the horse?"). Re-build the prompt with the
 // new subject when that happens. A closed-set check (e.g. gemini-decision-1 over the visible elements)

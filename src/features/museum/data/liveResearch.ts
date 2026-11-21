@@ -11,7 +11,7 @@
 // Research and structuring are split because search grounding and a strict JSON schema may not work in
 // the same call; splitting also keeps the model's reading unconstrained (structure after, not before).
 
-import { characterGuide, type SubjectKind } from './fallbackPersona';
+import { characterGuide, type SubjectKind } from './fallbackPersona.ts';
 
 /** What live research produces: only the person-specific layer. Behaviour comes from the general guide. */
 export interface LiveProfile {

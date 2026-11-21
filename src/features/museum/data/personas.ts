@@ -1,10 +1,10 @@
 // Builds the `systemPersona` string the app already uses (PortraitArtwork.systemPersona, /ws/live,
 // /api/character/respond) from the general character guide in fallbackPersona.ts.
 // Live mode: nothing about a figure is pre-loaded. A figure starts on the guide alone, and
-// /api/research-figure (src/data/liveResearch.ts) upgrades it with checked live research.
+// /api/research-figure (src/features/museum/data/liveResearch.ts) upgrades it with checked live research.
 
-import { buildFallbackPrompt, type SubjectKind } from './fallbackPersona';
-import type { ARHotspot, PortraitArtwork } from '../types/portrait';
+import { buildFallbackPrompt, type SubjectKind } from './fallbackPersona.ts';
+import type { ARHotspot, PortraitArtwork } from '../types/portrait.ts';
 
 export interface ResolvedPersona {
   systemPersona: string;

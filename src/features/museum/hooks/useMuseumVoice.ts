@@ -259,7 +259,7 @@ export function useMuseumVoice({ artwork, onAnimationCue }: UseMuseumVoiceOption
       micStreamRef.current = stream;
 
       const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-      const ws = new WebSocket(`${protocol}//${window.location.host}/ws/live`);
+      const ws = new WebSocket(`${protocol}//${window.location.host}/ws/museum`);
       wsRef.current = ws;
 
       ws.onopen = () => {

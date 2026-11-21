@@ -25,7 +25,7 @@ export const MobilePreviewModal: React.FC<MobilePreviewModalProps> = ({ open, on
         setMobileUrl(resolved);
       })
       .catch(() => {
-        if (active) setMobileUrl(window.location.origin);
+        if (active) setMobileUrl(window.location.origin + "/museum");
       });
     return () => {
       active = false;

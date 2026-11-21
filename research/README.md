@@ -13,9 +13,9 @@ The visitor points a phone at any painting. Nothing about the figure is stored i
 5. **Speak** (`gemini-3.8-live`): the checked profile plus the general guide.
 
 Files:
-- `src/data/fallbackPersona.ts`: `characterGuide()` is the **general guide**, which sets how every speaker behaves. They act as that person would in their own world, not as a guide or teacher. They have no hindsight, read the visitor by their era's codes, and admit the painter's liberties honestly. They say "no one wrote that down" rather than invent. Any part of a painting can speak: a person, an animal, an object, a place or the painting itself.
-- `src/data/liveResearch.ts` holds the research and structuring prompts, the profile schema, the fact-check questions and `livePersona()`.
-- `src/data/personas.ts` builds the persona for an identified figure, or for a hotspot such as the horse.
+- `src/features/museum/data/fallbackPersona.ts`: `characterGuide()` is the **general guide**, which sets how every speaker behaves. They act as that person would in their own world, not as a guide or teacher. They have no hindsight, read the visitor by their era's codes, and admit the painter's liberties honestly. They say "no one wrote that down" rather than invent. Any part of a painting can speak: a person, an animal, an object, a place or the painting itself.
+- `src/features/museum/data/liveResearch.ts` holds the research and structuring prompts, the profile schema, the fact-check questions and `livePersona()`.
+- `src/features/museum/data/personas.ts` builds the persona for an identified figure, or for a hotspot such as the horse.
 
 ## Proof it works
 
