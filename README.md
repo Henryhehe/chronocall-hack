@@ -8,13 +8,25 @@ Chronocall lets you call someone inside a painting. Scan an artwork, start a liv
 
 **Evidence status:** automated checks validate code paths. External-image comparison and venue camera/audio rehearsal are still pending; no measured model-accuracy claim is made. Confirm the experience's eligibility with an organizer because the event excludes education chatbots and image analyzers.
 
-[Local setup](#start-locally) · [Features](#whats-in-the-app) · [Deployment](#deploy) · [Demo runbook](docs/DEMO_RUNBOOK.md) · [Architecture/API](docs/ARCHITECTURE.md) · [Contributing](CONTRIBUTING.md)
+[Team](#team) · [Local setup](#start-locally) · [Features](#whats-in-the-app) · [Deployment](#deploy) · [Demo runbook](docs/DEMO_RUNBOOK.md) · [Architecture/API](docs/ARCHITECTURE.md) · [Contributing](CONTRIBUTING.md)
+
+## Team
+
+Built for the Gemini 4 Hackathon by:
+
+| Member | Focus areas |
+| --- | --- |
+| **Henry He** (`@Henryhehe`) | Repo architecture, Live Vision, 3D & Genie 4 World, unified learning UI, CI & deployment |
+| **Demi Hu** | Museum AR living portrait (`/museum`), perspective-tracked camera AR, curatorial hotspots & mobile QR |
+| **Marcelo Lafleur** (`@marcelolafleur`) | Live historical research pipeline, Google Search grounding & Decisions API reply verification |
+| **Henry Wei** (`@henryweimd`) | Historical FaceTime video calls (`/facetime`), artwork camera scanner, online museum art search & hybrid full-motion video |
 
 ## What's in the app
 
 | Screen / feature | Implemented behavior | Demo mode without a key |
 | --- | --- | --- |
-| **Discover / learning home** | Featured portrait, look → ask → reflect introduction, and four concise experience entry points | Available without model calls |
+| **Discover / learning home** | Featured portrait, look → ask → reflect introduction, and five concise experience entry points | Available without model calls |
+| **Video calls (`/facetime`)** | FaceTime-style live calls with any historical figure: dial by name, curated museum contacts, camera artwork/statue scanner, online famous art search, PiP self-camera, live Gemini voice/vision, and hybrid full-motion video (living portrait → Genie 4 / Veo) | Contacts, dialer, scanner/artwork fixtures, animated portrait, captions, and text replies work without a key |
 | **Portrait gallery / Museum AR** | Washington portrait, animated layers, camera anchor tracking, camera/upload identification, hotspots, typed questions with optional TTS, live character voice, mobile QR | Bundled portrait/visual controls work; identification, character replies, and voice explicitly unavailable |
 | **Live Vision** | Camera selection, screen sharing, image/video upload; one-shot or timed detection; focus prompt, confidence filtering, clickable boxes, frame Q&A, annotated snapshot download | Media preview and controls work; detection returns no inferred boxes; Q&A returns a labeled placeholder |
 | **Live voice** | Microphone + sampled video over WebSocket; spoken replies, transcripts, interruption, model-triggered object highlights; standard/extended-thinking model selection | Explicitly unavailable |
@@ -76,7 +88,9 @@ Core model IDs live in [`shared/models.ts`](shared/models.ts); Museum currently 
 | Live voice/video | `gemini-3.8-live` |
 | Extended-thinking live voice/video | `gemini-3.8-live-extended-thinking` |
 | Museum spoken response (TTS) | `gemini-3.8-flash-lite-tts` |
-| Genie video world | `models/genie-4` |
+| Decisions API historical/character verification | `gemini-decision-1` |
+| Full-motion video generation (FaceTime) | `veo-3.1-fast-generate-preview` |
+| Genie video world & live stream | `models/genie-4` |
 
 These are code configuration values, not a claim that every public Gemini key can access them. A configured key or healthy server does not verify model entitlement. Test each model-backed feature with the event key before presenting.
 
@@ -153,6 +167,8 @@ Use the [three-minute demo runbook](docs/DEMO_RUNBOOK.md) for exact actions, pro
 | Historical personas and costume overlays | `src/features/character/` |
 | World workspace, Three.js scenes, Genie transport | `src/features/world/` |
 | Museum AR, portrait tracking, character voice | `src/features/museum/`, `server/museum.ts` |
+| Historical FaceTime calls, artwork scanner & online art search | `src/features/facetime/`, `server/routes/facetime.ts`, `server/live/facetime-bridge.ts` |
+| Live character research & Decisions API verification | `research/`, `server/services/character/` |
 | Shared microphone/audio/voice lifecycle | `src/features/live/` |
 | HTTP validation and responses | `server/routes/` |
 | Gemini prompts, schemas, model calls | `server/services/gemini/` |
@@ -214,6 +230,7 @@ Chronocall opens on a discovery page that connects the existing features into a 
 | --- | --- | --- |
 | Discover | `/#home` | Choose an experience; begin with the included portrait without camera permission |
 | Portrait gallery | `/museum` | Inspect artwork, explore hotspots, and ask the character questions |
+| Video calls | `/facetime` | Dial any historical figure, scan an artwork, or pull famous museum art online for a live call |
 | Visual discovery | `/#live` | Use camera, screen share, or uploads for observation and frame questions |
 | Character studio | `/#character` | Select a historical persona and compare perspectives |
 | World explorer | `/#genie` | Explore preset or generated scenes with the existing Three.js / Genie tools |
