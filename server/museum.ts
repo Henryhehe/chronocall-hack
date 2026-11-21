@@ -220,8 +220,9 @@ If no portrait or figure is clearly visible, set detected to false and explain b
     try {
       const s = (req.body ?? {}) as IdentifiedSubject;
       if (!s.name && !s.subject) return res.status(400).json({ error: 'name or subject is required.' });
-      const key = JSON.stringify([s.kind, s.name, s.subject, s.paintingTitle]).toLowerCase();
-      if (researchCache.has(key)) return res.json({ ...(researchCache.get(key) as object), cached: true });
+      const b = req.body ?? {};
+      const key = JSON.stringify([s.kind, s.name, s.subject, s.paintingTitle, b.researchModel, b.thinking, b.depth]).toLowerCase();
+      if (!b.noCache && researchCache.has(key)) return res.json({ ...(researchCache.get(key) as object), cached: true });
 
       const ai = createGeminiClient();
       const timings: Record<string, number> = {};
@@ -229,26 +230,35 @@ If no portrait or figure is clearly visible, set detected to false and explain b
 
       // 1. Research with Google Search grounding (free prose, sources after each fact).
       // gemini-4-neon with Google Search did not answer within 5 minutes in testing; Hydrogen took ~30 s.
-      const researchModel = process.env.RESEARCH_MODEL || 'gemini-4-hydrogen';
+      // Per-request overrides (model, thinking, depth) are for benchmarking; defaults come from env.
+      const body = req.body ?? {};
+      const researchModel = ['gemini-4-hydrogen', 'gemini-4-neon'].includes(body.researchModel)
+        ? body.researchModel
+        : process.env.RESEARCH_MODEL || 'gemini-4-hydrogen';
+      const thinking = (['MINIMAL', 'LOW', 'MEDIUM'].includes(body.thinking) ? body.thinking : process.env.RESEARCH_THINKING || 'LOW') as keyof typeof ThinkingLevel;
+      const depth = body.depth === 'full' || body.depth === 'quick' ? body.depth : (process.env.RESEARCH_DEPTH as 'quick' | 'full') || 'quick';
       const research = await ai.models.generateContent({
         model: researchModel,
-        contents: liveResearchPrompt(s),
+        contents: liveResearchPrompt(s, depth),
         config: {
           tools: [{ googleSearch: {} }],
-          thinkingConfig: { thinkingLevel: ThinkingLevel.LOW },
+          thinkingConfig: { thinkingLevel: ThinkingLevel[thinking] },
           abortSignal: AbortSignal.timeout(Number(process.env.RESEARCH_TIMEOUT_MS) || 60_000),
         },
       });
       const notes = research.text ?? '';
-      console.log(`[research-figure] ${researchModel} research done in ${Date.now() - t0} ms (${notes.length} chars)`);
+      console.log(`[research-figure] ${researchModel}/${thinking}/${depth} research done in ${Date.now() - t0} ms (${notes.length} chars)`);
       const sources = (research.candidates?.[0]?.groundingMetadata?.groundingChunks ?? [])
         .map((c) => ({ title: c.web?.title, uri: c.web?.uri }))
         .filter((c) => c.uri);
       timings.researchMs = Date.now() - t0;
 
       // 2. Structure the notes (only what the notes support).
+      const structureModel = ['gemini-4-hydrogen', 'gemini-4-neon'].includes(body.structureModel)
+        ? body.structureModel
+        : process.env.STRUCTURE_MODEL || 'gemini-4-hydrogen';
       const structured = await ai.models.generateContent({
-        model: 'gemini-4-hydrogen',
+        model: structureModel,
         contents: structurePrompt(notes, s),
         config: {
           thinkingConfig: { thinkingLevel: ThinkingLevel.LOW },
@@ -299,6 +309,7 @@ If no portrait or figure is clearly visible, set detected to false and explain b
         dropped: [...failed],
         sources,
         timings: { ...timings, totalMs: Date.now() - t0 },
+        settings: { researchModel, structureModel, thinking, depth },
       };
       researchCache.set(key, result);
       res.json(result);
