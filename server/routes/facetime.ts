@@ -818,8 +818,12 @@ export function createFaceTimeRouter(
         return;
       }
 
-      // Data URLs or local checked-in assets can pass through directly
-      if (imageUrl.startsWith("data:image/") || imageUrl.startsWith("/assets/")) {
+      // Data URLs, local checked-in assets and our own same-origin artwork proxy pass through directly
+      if (
+        imageUrl.startsWith("data:image/") ||
+        imageUrl.startsWith("/assets/") ||
+        imageUrl.startsWith("/api/facetime/artwork-proxy?")
+      ) {
         res.json({
           imageDataUrl: imageUrl,
           mimeType: imageUrl.startsWith("data:image/svg+xml")

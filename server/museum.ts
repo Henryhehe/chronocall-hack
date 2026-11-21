@@ -495,6 +495,9 @@ export function attachMuseumBridge(server: Server, demoMode = false) {
               // ignore cleanup errors
             }
             liveSession = null;
+          } else if (sessionPromise) {
+            // A previous session is still connecting: close it when it arrives.
+            sessionPromise.then((s) => { try { s.close(); } catch { /* ignore */ } }).catch(() => {});
           }
           sessionPromise = null;
 
@@ -589,10 +592,12 @@ export function attachMuseumBridge(server: Server, demoMode = false) {
             },
           });
 
-          liveSession = await sessionPromise;
-          if (!isClosing) {
-            safeSend({ type: 'ready' });
-          }
+          const thisConnection = sessionPromise;
+          const connected = await thisConnection;
+          // A newer start, or the visitor leaving, replaced this connection while it was opening.
+          if (isClosing || sessionPromise !== thisConnection) return;
+          liveSession = connected;
+          safeSend({ type: 'ready' });
 
           // Background research for the museum figure, as in FaceTime calls: quick (Hydrogen, ~20 s)
           // then deep (Neon). Each result is added as private context, without prompting a reply.
@@ -652,8 +657,14 @@ export function attachMuseumBridge(server: Server, demoMode = false) {
           // ignore
         }
         liveSession = null;
+      } else if (sessionPromise) {
+        // Still connecting: close the session as soon as it arrives, so it doesn't stay open on Gemini.
+        sessionPromise.then((s) => { try { s.close(); } catch { /* ignore */ } }).catch(() => {});
       }
+      sessionPromise = null;
     });
+    // Without an error listener, a malformed frame would throw and stop the whole server.
+    clientWs.on('error', (err) => console.warn('Museum voice socket error:', err instanceof Error ? err.message : err));
   });
 
 return wss;

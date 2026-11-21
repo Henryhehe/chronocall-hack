@@ -121,3 +121,10 @@ Validation: TypeScript, 57 unit tests, build, and whitespace checks passed in an
 Merged `fix/decisions-and-print-delay` at `3bbe185`: print search waits 20 seconds and downsizes photos, typed names receive a Decisions API gate, text fallback replies receive character checks, and museum voice receives background research. Evaluation reuse requires matching speaker, instructions, prompt, and utterance; different conversation contexts do not reuse a verdict, and unavailable results are not cached. Name-gate provider errors currently allow the call with an error field, so this is not a guaranteed identity restriction.
 
 Validation: TypeScript, 70 unit tests, production build, and whitespace checks pass. Name-gate HTTP tests were moved into the API integration suite and now await server readiness. HTTP/browser/live-provider validation still requires a normal terminal and browser.
+
+
+## Museum print candidate — 2026-11-21
+
+Prepared `integration/museum-print-safe` from main `07c40f0`, merging `fix/museum-print-offer` at `de0d19a`. Preserved the prominent Scan AR button, compact right-side Conversation control, visible AR face movement, enabled painting tags and removed speech rings. Added museum prints and the branch's artwork/voice fixes. Print offers open only after explicitly ending a connected conversation or choosing Prints, not after camera loss, switching artwork or cancelling connection. Pending searches cannot replace the selected painting's cached results. Historical verdict reuse now includes the speaker's moment, with a regression test.
+
+Validation: TypeScript, 74 unit tests, production build and whitespace checks pass. All 14 API integration tests are blocked by localhost `listen EPERM`; production server and real camera/voice/checkout rehearsal remain unverified. The candidate remains separate from main, and ongoing learning/transcript edits in the main checkout are untouched. Before promotion, run `npm run check` from this checkout in a normal terminal and rehearse scanning, tags, voice start/end/cancel, camera loss, artwork switching and print checkout fallback.

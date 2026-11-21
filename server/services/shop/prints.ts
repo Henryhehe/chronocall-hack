@@ -20,6 +20,8 @@ export interface PrintOffer {
   checkoutUrl?: string; // the merchant's direct checkout link, if Shop provides one
   available: boolean;
   printScore: number | null; // P(this is a reproduction print of the artwork), from the Decisions API
+  figureScore?: number | null; // P(this is wall art depicting the figure), from the same call
+  match?: 'exact' | 'figure'; // 'figure': a print of the same person, not of this exact artwork
 }
 
 export interface PrintSearchResult {
@@ -29,6 +31,8 @@ export interface PrintSearchResult {
   warnings: string[];
   decisions: { used: boolean; latencyMs: number; error?: string };
   searchMs: number;
+  /** 'figure' when no print of this exact artwork exists and the offers depict the same figure instead. */
+  matchedBy?: 'exact' | 'figure';
 }
 
 const money = (amount: number, currency: string) => {
@@ -59,7 +63,7 @@ function toOffer(p: ShopProduct, printScore: number | null): PrintOffer | null {
 
 export async function findPrints(
   ai: GoogleGenAI | null,
-  p: { artworkTitle: string; artist?: string; imageBase64?: string; imageMimeType?: string; country?: string; currency?: string },
+  p: { artworkTitle: string; artist?: string; figure?: string; imageBase64?: string; imageMimeType?: string; country?: string; currency?: string },
 ): Promise<PrintSearchResult> {
   const t0 = Date.now();
   const query = `${p.artworkTitle}${p.artist ? ` ${p.artist}` : ''} art print`;
@@ -77,6 +81,7 @@ export async function findPrints(
   // Decisions API: is each product a reproduction print of this specific artwork (not a mug, a T-shirt,
   // or a different painting)? One call, one yes/no question per product.
   const scores = new Map<string, number>();
+  const figureScores = new Map<string, number>();
   let decisions: PrintSearchResult['decisions'] = { used: false, latencyMs: 0 };
   if (ai && products.length) {
     const t1 = Date.now();
@@ -89,18 +94,33 @@ export async function findPrints(
           .map((x, i) => `[${i}] ${x.title} — ${plain(x.description)}`)
           .join('\n')}`,
         questions: Object.fromEntries(
-          products.map((_, i) => [
-            `p${i}`,
-            {
-              type: 'noul' as const,
-              instructions: `Is product [${i}] a print, poster or canvas reproduction of the ARTWORK ${artwork} itself, to hang on a wall (not a mug, apparel, puzzle, book, or a different artwork)?`,
-            },
+          products.flatMap((_, i) => [
+            [
+              `p${i}`,
+              {
+                type: 'noul' as const,
+                instructions: `Is product [${i}] a print, poster or canvas reproduction of the ARTWORK ${artwork} itself, to hang on a wall (not a mug, apparel, puzzle, book, or a different artwork)?`,
+              },
+            ],
+            ...(p.figure
+              ? [
+                  [
+                    `f${i}`,
+                    {
+                      type: 'noul' as const,
+                      instructions: `Is product [${i}] a print, poster or canvas of a painting or portrait depicting ${p.figure}, to hang on a wall (not a mug, apparel, puzzle, book or figurine)?`,
+                    },
+                  ],
+                ]
+              : []),
           ]),
         ),
       });
       products.forEach((_, i) => {
         const a = r.answers?.[`p${i}`] as { noul?: number } | undefined;
         if (typeof a?.noul === 'number') scores.set(products[i].id, a.noul);
+        const f = r.answers?.[`f${i}`] as { noul?: number } | undefined;
+        if (typeof f?.noul === 'number') figureScores.set(products[i].id, f.noul);
       });
       decisions = { used: true, latencyMs: Date.now() - t1 };
     } catch (err) {
@@ -109,15 +129,29 @@ export async function findPrints(
   }
 
   const all = products
-    .map((x) => toOffer(x, scores.get(x.id) ?? null))
+    .map((x) => {
+      const o = toOffer(x, scores.get(x.id) ?? null);
+      if (o) o.figureScore = figureScores.get(x.id) ?? null;
+      return o;
+    })
     .filter((o): o is PrintOffer => !!o && !!o.shop && o.available);
-  const offers = decisions.used ? all.filter((o) => (o.printScore ?? 0) >= KEEP_AT) : all;
-  offers.sort((a, b) => (b.printScore ?? 0) - (a.printScore ?? 0) || a.price.amount - b.price.amount);
+  // Prints of this exact artwork first; if there are none, prints depicting the same figure.
+  let offers = decisions.used ? all.filter((o) => (o.printScore ?? 0) >= KEEP_AT) : all;
+  let matchedBy: PrintSearchResult['matchedBy'] = 'exact';
+  offers.forEach((o) => (o.match = 'exact'));
+  if (decisions.used && offers.length === 0 && p.figure) {
+    offers = all.filter((o) => (o.figureScore ?? 0) >= KEEP_AT);
+    offers.forEach((o) => (o.match = 'figure'));
+    matchedBy = 'figure';
+  }
+  const rank = (o: PrintOffer) => (matchedBy === 'figure' ? o.figureScore : o.printScore) ?? 0;
+  offers.sort((a, b) => rank(b) - rank(a) || a.price.amount - b.price.amount);
   return {
+    matchedBy,
     offers: offers.slice(0, 6),
     considered: products.length,
     rejected: decisions.used
-      ? all.filter((o) => (o.printScore ?? 0) < KEEP_AT).map((o) => ({ title: o.title, printScore: o.printScore ?? 0 }))
+      ? all.filter((o) => !offers.includes(o)).map((o) => ({ title: o.title, printScore: o.printScore ?? 0 }))
       : [],
     warnings,
     decisions,

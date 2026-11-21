@@ -39,6 +39,7 @@ export function createShopRouter(demoMode = false) {
       const result = await findPrints(demoMode ? null : safeClient(), {
         artworkTitle,
         artist: typeof req.body?.artist === "string" ? req.body.artist : undefined,
+        figure: typeof req.body?.figure === "string" && req.body.figure.trim() ? req.body.figure.trim() : undefined,
         imageBase64,
         imageMimeType: typeof req.body?.mimeType === "string" ? req.body.mimeType : "image/jpeg",
         country: COUNTRY.test(req.body?.country) ? req.body.country : "US",

@@ -121,3 +121,15 @@ test("identical words with different instructions or visitor prompts are checked
   ]) await evaluateTurn(ai, { utterance: 'Seventeen seventy-six.', speaker: 'Washington', ...p });
   assert.equal(calls.length, 3);
 });
+
+
+test("different historical moments do not reuse a turn verdict", async () => {
+  const calls: Array<Record<string, any>> = [];
+  const ai = fakeAi({}, "verified", calls);
+  for (const moment of ["1776", "1789"]) {
+    await evaluateTurn(ai, { utterance: "I am leading this nation.", speaker: "Washington", moment });
+  }
+  assert.equal(calls.length, 2);
+  assert.match(calls[0].input, /SPEAKER'S MOMENT: around 1776/);
+  assert.match(calls[1].input, /SPEAKER'S MOMENT: around 1789/);
+});

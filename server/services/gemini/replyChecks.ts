@@ -26,7 +26,7 @@ export const REPLY_CHECKS: ReplyCheck[] = [
     id: 'hindsight',
     question:
       "Does the REPLY show the speaker knowing about an event, person, invention or idea from after their own time (as set in the INSTRUCTIONS) as if it were familiar to them? Puzzlement or wonder at the visitor's modern things does not count.",
-    threshold: 0.7,
+    threshold: 0.5,
     correction:
       'You spoke of something from after your own time as if you knew it. Take it back naturally, in character: you cannot know what came after you.',
   },
