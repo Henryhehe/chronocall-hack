@@ -7,6 +7,7 @@ import type { IdentifiedSubject } from '../src/features/museum/data/liveResearch
 import { researchFigure, STAGE_DEFAULTS, type ResearchStage } from './services/gemini/research.ts';
 import { checkReply, correctionNote, DECISIONS_API_VERSION, type ReplyCheckResult } from './services/gemini/replyChecks.ts';
 import { gateImage } from './services/gemini/imageGate.ts';
+import { judgeReply } from './services/gemini/evalJudge.ts';
 function createGeminiClient(apiVersion?: string) {
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) {
@@ -53,7 +54,7 @@ function parseApiError(err: unknown): { status: number; message: string } {
 
 export function createMuseumRouter(demoMode = false) {
  const app = express.Router();
- app.use((req, res, next) => { if (demoMode && req.method === "POST" && ["/api/identify-portrait", "/api/character/respond", "/api/research-figure"].includes(req.path)) { res.status(503).json({ error: "Museum AI requires a Gemini API key; unavailable in demo mode." }); return; } next(); });
+ app.use((req, res, next) => { if (demoMode && req.method === "POST" && ["/api/identify-portrait", "/api/character/respond", "/api/research-figure", "/api/eval/judge"].includes(req.path)) { res.status(503).json({ error: "Museum AI requires a Gemini API key; unavailable in demo mode." }); return; } next(); });
   app.get('/api/app-url', (req, res) => {
     const envUrl = process.env.APP_URL;
     const isPlaceholder = !envUrl || envUrl === 'MY_APP_URL';
@@ -238,6 +239,18 @@ If no portrait or figure is clearly visible, set detected to false and explain b
   // structure, check every fact with the Decisions API, and return a system persona built from the
   // checked profile plus the general character guide. Call it right after /api/identify-portrait;
   // the figure can start talking on the guide alone and switch to this persona when it arrives.
+  // Evaluation judge: scores one reply with the Decisions API. Used by scripts/eval-characters.mjs.
+  app.post('/api/eval/judge', async (req, res) => {
+    try {
+      const { reply, instructions, visitorMessage, figure } = req.body ?? {};
+      if (!reply || typeof reply !== 'string') return res.status(400).json({ error: 'reply is required.' });
+      res.json(await judgeReply(createGeminiClient(), { reply, instructions, visitorMessage, figure }));
+    } catch (err) {
+      const { status, message } = parseApiError(err);
+      res.status(status).json({ error: message });
+    }
+  });
+
   app.post('/api/research-figure', async (req, res) => {
     try {
       const s = (req.body ?? {}) as IdentifiedSubject;
@@ -305,7 +318,11 @@ If no portrait or figure is clearly visible, set detected to false and explain b
 
       // Check the reply with the Decisions API; if a check fails, regenerate once with a correction.
       let replyText = await generate();
-      let checks: ReplyCheckResult = await checkReply(ai, { reply: replyText, instructions, visitorMessage: message });
+      // `checks: false` turns the reply checks off (used by the evaluation to measure the raw persona).
+      const useChecks = req.body?.checks !== false;
+      let checks: ReplyCheckResult = useChecks
+        ? await checkReply(ai, { reply: replyText, instructions, visitorMessage: message })
+        : { passed: false, status: 'unavailable', scores: {}, failed: [], latencyMs: 0, error: 'Checks disabled for evaluation.' };
       let retried = false;
       if (checks.status === 'flagged') {
         const retry = await generate(correctionNote(checks.failed));
