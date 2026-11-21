@@ -6,8 +6,6 @@ import {
   CaptionsOff,
   Compass,
   Feather,
-  BookmarkPlus,
-  Check,
   Loader2,
   MessageSquare,
   Mic,
@@ -165,33 +163,6 @@ export const CallStage: React.FC<CallStageProps> = ({
   const [portalActive, setPortalActive] = useState(false);
   const [actionsOpen, setActionsOpen] = useState(false);
   const [dismissedInvite, setDismissedInvite] = useState(false);
-  const [savedEntryIds, setSavedEntryIds] = useState<Record<string, boolean>>({});
-
-  const saveEntryToNotebook = (entry: CallTranscriptMessage, index: number) => {
-    try {
-      const storageKey = "chronocall-learning-notes-v1";
-      const raw = window.localStorage.getItem(storageKey);
-      const parsed: unknown = raw ? JSON.parse(raw) : [];
-      const existing = Array.isArray(parsed) ? parsed : [];
-      const previousUser = transcripts
-        .slice(0, index)
-        .reverse()
-        .find((item) => item.speaker === "user");
-      const newNote = {
-        id: crypto.randomUUID(),
-        space: "Video calls",
-        observation: `${profile.name} (${profile.era}): "${entry.text}"`,
-        question: previousUser ? previousUser.text : "",
-      };
-      window.localStorage.setItem(
-        storageKey,
-        JSON.stringify([newNote, ...existing])
-      );
-      setSavedEntryIds((prev) => ({ ...prev, [entry.id]: true }));
-    } catch {
-      // Ignore storage quota or private-mode errors gracefully
-    }
-  };
   const [videoTelemetry, setVideoTelemetry] = useState<{
     activeLayer: ActiveVideoLayer;
     label: string;
@@ -694,7 +665,7 @@ export const CallStage: React.FC<CallStageProps> = ({
                     {profile.name}.
                   </p>
                 ) : (
-                  transcripts.map((entry, idx) => (
+                  transcripts.map((entry) => (
                     <div
                       key={entry.id}
                       className={`flex flex-col ${
@@ -705,26 +676,6 @@ export const CallStage: React.FC<CallStageProps> = ({
                         <span className="text-[10px] text-slate-400">
                           {entry.speaker === "user" ? "You" : profile.name}
                         </span>
-                        {entry.speaker === "figure" && !entry.streaming && (
-                          <button
-                            type="button"
-                            onClick={() => saveEntryToNotebook(entry, idx)}
-                            className="inline-flex items-center gap-1 text-[10px] text-slate-400 hover:text-emerald-300 cursor-pointer transition-colors"
-                            title="Save quote to Chronocall Notebook"
-                          >
-                            {savedEntryIds[entry.id] ? (
-                              <>
-                                <Check className="w-3 h-3 text-emerald-400" />
-                                <span className="text-emerald-300">Saved</span>
-                              </>
-                            ) : (
-                              <>
-                                <BookmarkPlus className="w-3 h-3" />
-                                <span>Save to Notebook</span>
-                              </>
-                            )}
-                          </button>
-                        )}
                       </div>
                       <div
                         className={`max-w-[85%] rounded-2xl px-3.5 py-2 text-xs sm:text-sm leading-relaxed ${

@@ -23,9 +23,11 @@ Built for the Gemini 4 Hackathon by:
 
 ## What's in the app
 
+World Explorer and Notebook have been removed from the app navigation and routes. World-related modules and APIs described below remain in the repository; the historical call retains its separate portal and video engine.
+
 | Screen / feature | Implemented behavior | Demo mode without a key |
 | --- | --- | --- |
-| **Discover / learning home** | Featured portrait, look → ask → reflect introduction, and five concise experience entry points | Available without model calls |
+| **Discover** | Featured historical call and four experience entry points | Available without model calls |
 | **Video calls (`/facetime`)** | FaceTime-style live calls with any historical figure: dial by name, curated museum contacts, camera artwork/statue scanner, online famous art search, PiP self-camera, live Gemini voice/vision, and hybrid full-motion video (living portrait → Genie 4 / Veo) | Contacts, dialer, scanner/artwork fixtures, animated portrait, captions, and text replies work without a key |
 | **Portrait gallery / Museum AR** | Washington portrait, animated layers, camera anchor tracking, camera/upload identification, hotspots, typed questions with optional TTS, live character voice, mobile QR | Bundled portrait/visual controls work; identification, character replies, and voice explicitly unavailable |
 | **Live Vision** | Camera selection, screen sharing, image/video upload; one-shot or timed detection; focus prompt, confidence filtering, clickable boxes, frame Q&A, annotated snapshot download | Media preview and controls work; detection returns no inferred boxes; Q&A returns a labeled placeholder |
@@ -39,7 +41,6 @@ Built for the Gemini 4 Hackathon by:
 | **Genie 4 World → Genie 4 Video** | Separate WebRTC video world, text or image seed, keyboard/touch movement, audio toggle, mid-session steering, 120-second UI session timer | Explicitly unavailable |
 | **Detection Log** | Search/filter frame and live-tool detections; JSON export includes detection history, Q&A, and camera-workspace voice transcripts; clear log | Works with sample responses |
 | **Compare Modes** | Current-session counts, average detection/Q&A latency, and a transport/capability comparison | Displays demo/session values; not a model benchmark |
-| **My notebook** | Save observations and questions to verify; browser-local storage; Markdown download | Available without model calls |
 
 **3D controls:** WASD or arrow keys to move, Shift to run, Space to jump, E or click to interact, drag to orbit, scroll/controls to zoom. Click outside a text field before using movement keys. Genie Video has its own movement controls; it does not share the Three.js scene state.
 
@@ -62,7 +63,7 @@ Already in this workspace? Run the commands inside `gemini-live-vision-nov-21-20
 
 ## Museum AR (Demi contribution)
 
-Open **http://localhost:3000/museum** or choose **Portrait gallery** in the learning navigation. This workspace includes the Washington portrait anchor, camera/upload recognition, portrait animation, curatorial hotspots, character conversation, and a mobile QR preview. The shared discovery page is at `/`; direct links to the vision and world workspaces are `/#live` and `/#genie`.
+Open **http://localhost:3000/museum** or choose **Portrait gallery** in the learning navigation. This workspace includes the Washington portrait anchor, camera/upload recognition, portrait animation, curatorial hotspots, character conversation, and a mobile QR preview. The shared discovery page is at `/`; direct links to the visual discovery workspace is `/#live`. World Explorer and Notebook have been removed from navigation and routing; their former links return to Discover.
 
 Museum recognition and conversation require a Gemini key; demo mode returns an explicit unavailable response for these model calls. Camera access on a phone requires an HTTPS deployment. Set `APP_URL` to the public origin if the QR preview cannot infer it correctly. Museum voice uses `/ws/museum`; the original voice bridge remains at `/ws/live`.
 
@@ -233,13 +234,11 @@ Chronocall opens on a discovery page that connects the existing features into a 
 | Video calls | `/facetime` | Dial any historical figure, scan an artwork, or pull famous museum art online for a live call |
 | Visual discovery | `/#live` | Use camera, screen share, or uploads for observation and frame questions |
 | Character studio | `/#character` | Select a historical persona and compare perspectives |
-| World explorer | `/#genie` | Explore preset or generated scenes with the existing Three.js / Genie tools |
-| My notebook | `/#notebook` | Save personal observations and questions to verify; export Markdown |
 | Research tools | `/#log`, `/#compare` | Review session observations and compare responses |
 
-Each experience has a guiding question and a suggested activity. Visual discovery and Character studio can insert that question into the existing prompt composer; the learner still submits it after adding media. Moving to Discover, the gallery, or the notebook stops the shared capture source. Moving out of visual/character exploration stops its live voice connection; the world can still reuse the capture feed. Museum media cleanup remains owned by the museum workspace.
+Each experience has a guiding question and a suggested activity. Visual discovery and Character studio can insert that question into the existing prompt composer; the learner still submits it after adding media. Moving to Discover or the gallery stops the shared capture source. Moving out of visual/character exploration stops its live voice connection. Museum media cleanup remains owned by the museum workspace.
 
-Notebook reflections persist in browser local storage, independently of the in-memory detection and conversation histories. If storage is unavailable, the notebook reports session-only saving and offers a download. These are learner-authored notes, not automatically generated lesson summaries. Generated characters and worlds are explicitly presented as interpretations requiring verification.
+The former Notebook screen and Save to Notebook action have been removed. Existing browser-local notes are not erased. World Explorer is no longer a standalone workspace; historical calls retain their separate world portal and video engine.
 
 ### Presentation focus
 
@@ -247,11 +246,11 @@ Use the single-call [Element 119 runbook](docs/DEMO_RUNBOOK.md). The other works
 
 ### Learning UI smoke check
 
-- Open `/`, `/museum`, and `/#genie` directly; navigate between spaces and use browser Back/Forward.
+- Open `/`, `/museum`, and `/facetime` directly; navigate between spaces and use browser Back/Forward.
 - At phone width, check that the main navigation scrolls within its own row and cards/forms stack.
-- Use keyboard navigation to reach the skip link, experience cards, guiding questions, and notebook fields.
-- Start capture/live voice and leave for the notebook or gallery; confirm the previous media session stops.
-- Save a reflection, reload, and export it; verify that blank observations cannot be saved.
+- Use keyboard navigation to reach the skip link, experience cards and guiding questions.
+- Start capture/live voice and leave for Discover or the gallery; confirm the previous media session stops.
+- Open the old `/#notebook` and `/#genie` links; confirm they return to Discover.
 - Check portrait and world interactions with real provider access separately from demo-mode UI checks.
 
 ### Characters contribution

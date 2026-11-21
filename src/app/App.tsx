@@ -2,7 +2,6 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { CameraStage } from "../features/vision/components/CameraStage";
 import { CompareModesView } from "../features/vision/components/CompareModesView";
 import { DetectionLogView } from "../features/vision/components/DetectionLogView";
-import { GenieWorldView } from "../features/world/components/GenieWorldView";
 import { InspectorPanel } from "../features/vision/components/InspectorPanel";
 import { getVisualFilterPreset } from "../features/vision/components/VisualFilterSelector";
 import {
@@ -24,7 +23,7 @@ import {
 } from "../utils/canvas";
 
 import MuseumApp from "../features/museum/MuseumApp";
-import { JourneyHeader, LearningHome, LearningGuide, LearningNotebook, type LearningView } from "./LearningJourney";
+import { JourneyHeader, LearningHome, LearningGuide, type LearningView } from "./LearningJourney";
 
 interface RawBoxInput {
   label?: string;
@@ -50,7 +49,7 @@ async function parseJsonSafe(res: Response): Promise<Record<string, unknown>> {
 export default function App() {
   const [workspaceView, setWorkspaceView] = useState<LearningView>(() => {
     const route = window.location.pathname === '/museum' ? 'museum' : window.location.hash.slice(1);
-    return ['home', 'live', 'character', 'museum', 'genie', 'notebook', 'log', 'compare'].includes(route) ? route as LearningView : 'home';
+    return ['home', 'live', 'character', 'museum', 'log', 'compare'].includes(route) ? route as LearningView : 'home';
   });
   const navigate = (view: LearningView) => {
     window.history.pushState(null, '', view === 'museum' ? '/museum' : `/#${view}`);
@@ -61,9 +60,13 @@ export default function App() {
     const sync = () => {
       const route = window.location.pathname === '/museum' ? 'museum' : window.location.hash.slice(1);
       // In-page anchors (including the skip link) must not change workspaces.
-      if (!route) setWorkspaceView('home');
-      else if (['home', 'live', 'character', 'museum', 'genie', 'notebook', 'log', 'compare'].includes(route)) setWorkspaceView(route as LearningView);
+      if (route === 'genie' || route === 'notebook') {
+        window.history.replaceState(null, '', '/#home');
+        setWorkspaceView('home');
+      } else if (!route) setWorkspaceView('home');
+      else if (['home', 'live', 'character', 'museum', 'log', 'compare'].includes(route)) setWorkspaceView(route as LearningView);
     };
+    sync();
     window.addEventListener('popstate', sync);
     window.addEventListener('hashchange', sync);
     return () => { window.removeEventListener('popstate', sync); window.removeEventListener('hashchange', sync); };
@@ -270,7 +273,7 @@ export default function App() {
   // Only one microphone session should own input while moving between workspaces.
   useEffect(() => {
     if (workspaceView !== 'live' && workspaceView !== 'character') stopLiveSession();
-    if (['home', 'museum', 'notebook'].includes(workspaceView)) stopMedia();
+    if (['home', 'museum'].includes(workspaceView)) stopMedia();
   }, [workspaceView, stopLiveSession, stopMedia]);
 
   const handleToggleLiveVoice = useCallback(() => {
@@ -401,7 +404,6 @@ export default function App() {
         {workspaceView === 'home' && <LearningHome onNavigate={navigate} />}
         {workspaceView !== 'museum' && <LearningGuide view={workspaceView} onPrompt={setPromptText} />}
         {workspaceView === 'museum' && <div className="museum-workspace"><MuseumApp onExit={() => navigate('home')} /></div>}
-        {workspaceView === 'notebook' && <LearningNotebook />}
         {['live', 'log', 'compare'].includes(workspaceView) && <nav className="research-tools" aria-label="Exploration tools"><button onClick={() => navigate('live')} aria-current={workspaceView === 'live' ? 'page' : undefined}>Visual discovery</button><button onClick={() => navigate('log')} aria-current={workspaceView === 'log' ? 'page' : undefined}>Observation log</button><button onClick={() => navigate('compare')} aria-current={workspaceView === 'compare' ? 'page' : undefined}>Session overview</button></nav>}
         {/* Keep the capture elements mounted so World can reuse the active feed. */}
         <section className={isCameraStageView ? "" : "hidden"} aria-hidden={!isCameraStageView}>
@@ -486,15 +488,6 @@ export default function App() {
             />
           </div>
         </section>
-
-        {workspaceView === "genie" && (
-          <GenieWorldView
-            getCameraElement={getActiveMediaElement}
-            hasActiveCamera={
-              mediaActive || Boolean(uploadedImageUrl) || Boolean(uploadedVideoUrl)
-            }
-          />
-        )}
 
         {workspaceView === "log" && (
           <DetectionLogView
