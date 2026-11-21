@@ -1,9 +1,9 @@
-import { ArrowRight, ScanEye, Users, Landmark, Compass, Video } from 'lucide-react';
+import { ArrowRight, ScanEye, Users, Compass, Video } from 'lucide-react';
 import { WASHINGTON_IMAGE_SOURCE, WASHINGTON_IMAGE_FALLBACK } from '../../shared/artworkAssets.ts';
 
 export type LearningView = 'home' | 'live' | 'character' | 'museum' | 'log' | 'compare';
 export const experiences = [
-  { id: 'museum', number: '01', name: 'Meet a living portrait', label: 'Portrait gallery', icon: Landmark, description: 'Choose a detail. Ask the person in the painting what it means.', goal: 'How does a portrait communicate power?', task: 'Choose a detail in the painting. Ask what it means, then compare the answer with what you can actually see.', tag: 'Art & historical perspective' },
+  { id: 'museum', number: '01', name: 'Meet a living portrait', label: 'AR discovery', icon: ScanEye, description: 'Point your camera at a painting to bring it to life, or explore a portrait from the gallery.', goal: 'How does a portrait communicate power?', task: 'Choose a detail in the painting. Ask what it means, then compare the answer with what you can actually see.', tag: 'Art & historical perspective' },
   { id: 'live', number: '02', name: 'Find stories in the everyday', label: 'Visual discovery', icon: ScanEye, description: 'Bring a photo or camera feed. Discover the stories in everyday objects.', goal: 'What can an object tell us about how people live?', task: 'Upload an image or start your camera. Ask about one visible object and identify a question you would need another source to answer.', tag: 'Observation & inquiry' },
   { id: 'character', number: '03', name: 'Try another point of view', label: 'Character studio', icon: Users, description: 'Show a modern object to a historical persona. See it through their eyes.', goal: 'How might someone from another era see our world?', task: 'Choose a persona, add a photo or camera feed, and ask how they would interpret a modern object.', tag: 'Perspective & imagination' },
 ] as const;
@@ -11,7 +11,7 @@ export const experiences = [
 export function JourneyHeader({ view, onNavigate }: { view: LearningView | 'facetime'; onNavigate?: (view: LearningView) => void }) {
   const items = [
     { id: 'home', label: 'Discover', href: '/#home' },
-    { id: 'museum', label: 'Portrait gallery', href: '/museum' },
+    { id: 'museum', label: 'AR discovery', href: '/museum' },
     { id: 'facetime', label: 'Video calls', href: '/facetime' },
     ...experiences.filter(e => e.id !== 'museum').map(e => ({ id: e.id, label: e.label, href: `/#${e.id}` })),
   ];
@@ -63,7 +63,7 @@ export function LearningHome({ onNavigate }: { onNavigate: (view: LearningView) 
         <div className="experience-grid">{experiences.map(e => <button className="experience-card" key={e.id} onClick={() => onNavigate(e.id)}>
           <div className="card-top"><e.icon size={23} /><span>{e.number}</span></div>
           <h3>{e.label}</h3><p>{e.description}</p>
-          <span className="card-link">Explore <ArrowRight size={17} /></span>
+          <span className="card-link">{e.id === 'museum' ? 'Discover paintings in AR' : 'Explore'} <ArrowRight size={17} /></span>
         </button>)}<a className="experience-card" href="/facetime"><div className="card-top"><Video size={23} /><span>04</span></div><h3>Video calls</h3><p>Choose a historical figure or scan an artwork to start a conversation.</p><span className="card-link">Choose a person <ArrowRight size={17} /></span></a></div>
       </section>
     </div>

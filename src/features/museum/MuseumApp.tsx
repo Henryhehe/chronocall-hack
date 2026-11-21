@@ -1,6 +1,6 @@
 import './portrait-room.css';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Mic, MicOff, MessageSquare, X, ArrowLeft, Smartphone, VolumeX } from 'lucide-react';
+import { Mic, MicOff, MessageSquare, X, ArrowLeft, Smartphone, VolumeX, ScanEye } from 'lucide-react';
 import { WASHINGTON_PORTRAIT } from './data/washingtonPortrait';
 import { useMuseumVoice } from './hooks/useMuseumVoice';
 import { ARHotspot, LensMode, PortraitArtwork } from './types/portrait';
@@ -166,7 +166,7 @@ export default function App({ onExit }: { onExit: () => void }) {
       </div>
       <div className="portrait-room-dock">
         {combinedError && <p role="alert" className="portrait-room-error">{combinedError}</p>}
-        <div className="portrait-room-actions"><button type="button" className="portrait-room-secondary" onClick={() => { stopLiveVoice(); setCameraArtworkLost(true); setLensMode(lensMode === 'camera' ? 'portrait' : 'camera'); }}>{lensMode === 'camera' ? 'View portrait' : 'Scan painting'}</button>
+        <div className="portrait-room-actions"><button type="button" className="portrait-room-secondary portrait-room-ar" aria-pressed={lensMode === 'camera'} onClick={() => { stopLiveVoice(); setCameraArtworkLost(true); setLensMode(lensMode === 'camera' ? 'portrait' : 'camera'); }}><ScanEye size={20} />{lensMode === 'camera' ? 'Back to portrait' : 'Start AR discovery'}</button>
           <button type="button" className="portrait-room-secondary" onClick={() => setMobileSheetOpen(true)} aria-label="Open conversation"><MessageSquare size={20} /><span>Conversation</span></button>
           <button type="button" className={`portrait-room-speak ${isListening || connectionState === 'connecting' ? 'is-active' : ''}`} onClick={handleToggleVoice} disabled={!canSpeak && !isListening}>
             {isListening || connectionState === 'connecting' ? <MicOff size={22} /> : <Mic size={22} />}
@@ -174,7 +174,7 @@ export default function App({ onExit }: { onExit: () => void }) {
           </button>
           {isSpeaking && <button type="button" className="portrait-room-secondary" onClick={stopPlaybackQueue} aria-label="Interrupt speech"><VolumeX size={20} /><span>Interrupt</span></button>}
         </div>
-        <p className="portrait-room-hint">{isListening ? 'Listening · Ask a question or interrupt naturally' : 'Start a conversation. Ask anything about the painting.'}</p>
+        <p className="portrait-room-hint">{isListening ? 'Listening · Ask a question or interrupt naturally' : lensMode === 'camera' ? 'Point your camera at a painting. Once identified, talk to its subject.' : 'Talk to this portrait, or start AR discovery to scan a painting with your camera.'}</p>
       </div>
       <dialog aria-label="Portrait conversation" ref={sheetRef} className="portrait-room-sheet" onCancel={() => setMobileSheetOpen(false)} onClick={(event) => { if (event.target === event.currentTarget) setMobileSheetOpen(false); }}>
         <div className="portrait-room-sheet-body">
