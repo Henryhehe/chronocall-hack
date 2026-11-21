@@ -11,7 +11,7 @@ function demoObject(name: string, x: number, z: number): LowPolyObjectBlueprint 
   };
 }
 
-/** Explicit local fixtures. Camera images never leave the machine in demo mode. */
+/** Explicit fixtures. Requests reach this server but are never sent to Gemini. */
 export const demoServices: AiServices = {
   async detectObjectsInFrame() {
     return { summary: "Demo mode: camera capture works; object detection requires a Gemini API key.", objects: [], latencyMs: 0, model: "demo" };

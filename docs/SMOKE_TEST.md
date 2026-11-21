@@ -25,7 +25,13 @@ Run on the presentation laptop after merging. Record pass/fail and the commit te
 
 ## Production rehearsal
 
-Stop development, run `bun run build`, then `bun run start`. Verify health, navigation, detection, and voice on the same port. Keep a short recording of a successful flow as a fallback.
+Run `bun run check`: it includes a production build and an isolated production-server check using fixtures. To rerun just that check after a build, use `bun run test:production`.
+
+Stop development, then run `DEMO_MODE=true bun run start` for a fixture rehearsal, or `bun run start` with `DEMO_MODE=false` and the real key configured. Verify navigation, detection, and voice on the same port. Keep a short recording of a successful flow as a fallback.
+
+For an already-running production fixture server, run `node scripts/smoke.mjs http://localhost:3000 --demo`. Replace the URL with the hosted HTTPS origin to test the deployed container. The check verifies production HTML/assets, JSON API routing, fixture responses, and the live WebSocket demo error/closure. Without `--demo`, it skips model/voice requests. It is not a browser rendering or real-AI test.
+
+Record commit, environment (local/container/hosted), browser/device, fixture versus real mode, and pass/fail for each manual step. See [DEPLOYMENT.md](DEPLOYMENT.md) and the [presentation runbook](DEMO_RUNBOOK.md).
 
 Model availability, browser permissions, audio hardware, and WebRTC media are not covered by fixture tests.
 
