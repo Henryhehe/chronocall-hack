@@ -1,6 +1,11 @@
 {
-  "name": "Gemini Live Vision",
-  "description": "Real-time multimodal camera object detection and interactive Gemini Live voice and video workbench.",
-  "requestFramePermissions": ["camera", "microphone"],
-  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+  "name": "Tableau Vivant",
+  "description": "Augmented reality museum guide that animates historical portraits and lets visitors speak in real time with painted figures.",
+  "requestFramePermissions": [
+    "camera",
+    "microphone"
+  ],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
 }
