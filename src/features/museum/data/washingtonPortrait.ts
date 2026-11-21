@@ -1,5 +1,6 @@
 import { PortraitArtwork } from '../types/portrait.ts';
 import { resolvePersona } from './personas.ts';
+import { WASHINGTON_IMAGE_URL } from '../../../../shared/artworkAssets.ts';
 
 export const WASHINGTON_PORTRAIT: PortraitArtwork = {
   id: 'washington-equestrian-1777',
@@ -14,7 +15,7 @@ export const WASHINGTON_PORTRAIT: PortraitArtwork = {
   galleryLocation: 'American Wing · Rotunda Gallery II',
   styleMovement: 'American Romanticism · Equestrian Portraiture',
   hasHumanSubject: true,
-  imageUrl: '/assets/aistudio/washington_fd94f6dd.jpeg',
+  imageUrl: WASHINGTON_IMAGE_URL,
   voiceName: 'Charon',
   focalPoint: { x: 45, y: 26 },
   focalBox: { x: 16, y: 15, width: 72, height: 78 },

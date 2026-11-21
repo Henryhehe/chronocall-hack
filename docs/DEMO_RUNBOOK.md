@@ -37,4 +37,4 @@ Do not include made-up benchmark numbers. Demo-mode fixtures and prerecorded por
 
 Research is grounded in retrieved notes; Decisions filters claims against those notes. That does not independently prove the notes are accurate. Live reply checks occur after speech and can request correction. They do not prevent every incorrect claim from being heard. An unavailable checker is displayed as unavailable, never as passed. The UI's “Model-assessed consistency” is an automated assessment, not a verified historical fact.
 
-See [evaluation protocol](../evaluation/README.md) and [submission checklist](SUBMISSION_CHECKLIST.md).
+See [call evidence capture](CALL_EVIDENCE.md), [evaluation protocol](../evaluation/README.md) and [submission checklist](SUBMISSION_CHECKLIST.md).

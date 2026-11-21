@@ -4,6 +4,7 @@ import { getGeminiClient } from "./client.ts";
 import { IMAGE_GEN_MODEL, VISION_MODEL } from "../../../shared/models.ts";
 import {
   buildSelfieEraStamp,
+  withFaceTimeFraming,
   normalizeHistoricalProfile,
   type ArtworkKind,
   type FaceTimeDecisionResult,
@@ -472,7 +473,7 @@ export async function startVeoPortraitVideo(params: {
 
   const operation = await ai.models.generateVideos({
     model: DEFAULT_VEO_MODEL,
-    prompt: `${motionDirective} ${params.profile.videoMotionPrompt}`.trim(),
+    prompt: withFaceTimeFraming(`${motionDirective} ${params.profile.videoMotionPrompt}`),
     image: {
       imageBytes: base64,
       mimeType,

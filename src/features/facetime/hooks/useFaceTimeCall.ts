@@ -1,3 +1,4 @@
+import { appendCallEvidence, createCallTrace, finishCallTrace, type CallTrace } from "../../../../shared/callEvidence.ts";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { downsampleAndEncodePcm16 } from "../../../utils/audio";
 import { captureMediaFrame } from "../../../utils/canvas";
@@ -75,6 +76,7 @@ function readAnalyserLevel(analyser?: AnalyserNode): number {
 }
 
 export function useFaceTimeCall(options: UseFaceTimeCallOptions) {
+  const [evidence, setEvidence] = useState<CallTrace | null>(null);
   const optionsRef = useRef(options);
   optionsRef.current = options;
 
@@ -390,6 +392,7 @@ export function useFaceTimeCall(options: UseFaceTimeCallOptions) {
   );
 
   const stopCall = useCallback(() => {
+    setEvidence(previous => finishCallTrace(previous));
     artifactRequestRef.current?.abort();
     artifactRequestRef.current = null;
     profileRef.current = null;
@@ -443,6 +446,7 @@ export function useFaceTimeCall(options: UseFaceTimeCallOptions) {
   const startCall = useCallback(
     async (profile: HistoricalProfile) => {
       stopCall();
+      setEvidence(createCallTrace(profile.name, optionsRef.current.demoMode));
       profileRef.current = profile;
       setTranscripts([]);
       setLiveCaption("");
@@ -526,6 +530,8 @@ export function useFaceTimeCall(options: UseFaceTimeCallOptions) {
           if (!isCurrent()) return;
           try {
             const msg = JSON.parse(String(event.data)) as FaceTimeServerEvent;
+            const receivedAt = Date.now();
+            setEvidence(previous => previous ? appendCallEvidence(previous, msg, receivedAt) : previous);
             if (msg.type === "status" && msg.status === "connected") {
               if (readyReceived) return;
               readyReceived = true;
@@ -691,6 +697,7 @@ export function useFaceTimeCall(options: UseFaceTimeCallOptions) {
       const text = rawText.trim();
       const profile = profileRef.current;
       if (!text || !profile) return;
+      setEvidence(previous => previous ? appendCallEvidence(previous, { type: "typedInput", text }) : previous);
 
       const s = sessionRef.current;
       if (voiceStatus === "connected" && s?.ws?.readyState === WebSocket.OPEN) {
@@ -732,6 +739,7 @@ export function useFaceTimeCall(options: UseFaceTimeCallOptions) {
         }
         const reply = data.reply?.trim() || "I hear you clearly across time.";
         appendTranscript("figure", reply, false);
+        setEvidence(previous => previous ? appendCallEvidence(previous, { type: "textReply", text: reply, demoMode: optionsRef.current.demoMode }) : previous);
         demoSpeechUntilRef.current =
           performance.now() + Math.min(7000, Math.max(2400, reply.length * 42));
       } catch (err) {
@@ -757,12 +765,17 @@ export function useFaceTimeCall(options: UseFaceTimeCallOptions) {
     setCallerAnnotation(null);
   }, []);
 
+  useEffect(() => {
+    setEvidence(previous => previous ? appendCallEvidence(previous, { type: "clientStatus", status: voiceStatus, cameraEnabled, cameraReady }) : previous);
+  }, [voiceStatus, cameraEnabled, cameraReady]);
+
   const dismissArtifact = useCallback(() => {
     setActiveArtifact(null);
     setIsGeneratingArtifact(false);
   }, []);
 
   return {
+    evidence,
     voiceStatus,
     micMuted,
     setMicMuted,

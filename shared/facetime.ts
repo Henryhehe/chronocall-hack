@@ -4,6 +4,12 @@ export type VideoEngineMode = "hybrid" | "genie" | "veo" | "portrait";
 
 export type ActiveVideoLayer = "portrait" | "genie" | "veo";
 
+// Apply at generation/steering boundaries so custom profiles and reactions
+// retain the same call framing, without constraining world exploration.
+export function withFaceTimeFraming(motionPrompt: string): string {
+  return `${motionPrompt.trim()}\nCamera framing takes priority over any conflicting motion above: fixed eye-level webcam, head-and-shoulders close-up matching the reference portrait. Keep the face centered at the same size and distance throughout. The camera position, focal length, crop, and background remain stationary. No zooming in or out, pulling back, panning, tilting, orbiting, scene changes, or wide establishing shots. The subject stays seated in place; animate only small facial expressions, blinking, and subtle head gestures within the existing frame.`;
+}
+
 export type FigureSourceType = "curated" | "search" | "scanned";
 
 export type ArtworkKind =
@@ -222,7 +228,23 @@ export type FaceTimeClientMessage =
   | { type: "audio" | "video"; data: string }
   | { type: "text"; text: string };
 
+export type ResearchEvidenceEvent =
+  | { type: "researchStarted"; stage: "quick" | "deep"; model: string }
+  | { type: "researchFailed"; stage: "quick" | "deep"; model: string; message: string; ms: number }
+  | { type: "research"; stage: "quick" | "deep"; model: string; structureModel: string;
+      facts: number; sources: number; grounded: boolean; dropped: number; ms: number;
+      cached: boolean; generationMs: number; sourceLinks: { title?: string; uri?: string }[];
+      retainedFacts: { fact: string; source: string }[];
+      droppedClaims: { id: string; question: string; source: string; score: number }[] };
+export type ReplyEvidenceEvent = {
+  type: "replyCheck"; status: "passed" | "flagged" | "unavailable"; passed: boolean;
+  failed: string[]; scores: Record<string, number>; latencyMs: number;
+  utterance: string; visitorMessage: string; turnId: number; correctionRequested: boolean;
+};
+
 export type FaceTimeServerEvent =
+  | ResearchEvidenceEvent
+  | ReplyEvidenceEvent
   | {
       type: "status";
       status: "connecting" | "connected" | "closed";

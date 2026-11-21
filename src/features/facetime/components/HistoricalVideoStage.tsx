@@ -4,7 +4,7 @@ import {
   startGenieWorld,
   type GenieWorldController,
 } from "../../world/lib/genie";
-import { resolveActiveVideoLayer } from "../../../../shared/facetime.ts";
+import { resolveActiveVideoLayer, withFaceTimeFraming } from "../../../../shared/facetime.ts";
 import type {
   ActiveVideoLayer,
   FaceTimeReactionCue,
@@ -70,8 +70,6 @@ export const HistoricalVideoStage: React.FC<HistoricalVideoStageProps> = ({
   const [veoSpeakUrl, setVeoSpeakUrl] = useState<string | null>(null);
   const [veoWarming, setVeoWarming] = useState(false);
 
-  const isSpeakingRef = useRef(isSpeaking);
-  isSpeakingRef.current = isSpeaking;
   const lastReactionRef = useRef(lastReaction);
   lastReactionRef.current = lastReaction;
 
@@ -159,7 +157,6 @@ export const HistoricalVideoStage: React.FC<HistoricalVideoStageProps> = ({
       const h = canvas.height;
       const elapsed = (now - startedAt) / 1000;
       const speech = speechLevelRef.current;
-      const speaking = isSpeakingRef.current;
       const reaction = lastReactionRef.current;
 
       ctx.save();
@@ -182,7 +179,8 @@ export const HistoricalVideoStage: React.FC<HistoricalVideoStageProps> = ({
 
       const img = portraitImgRef.current;
       if (img && img.naturalWidth > 0 && img.naturalHeight > 0) {
-        // Compute cover framing with subtle headroom for realistic camera drift
+        // Keep a fixed cover crop: moving the entire portrait looks like a
+        // camera zoom/pan, especially when speech starts and stops.
         const imgRatio = img.naturalWidth / img.naturalHeight;
         const viewRatio = w / h;
         let drawW = w;
@@ -195,23 +193,8 @@ export const HistoricalVideoStage: React.FC<HistoricalVideoStageProps> = ({
           drawH = drawW / imgRatio;
         }
 
-        // Lifelike camera breathing, conversational head sway, and speech liveliness
-        const breath = 1 + Math.sin(elapsed * 1.35) * 0.008 + speech * 0.014;
-        const swayX =
-          Math.sin(elapsed * 0.52) * w * 0.008 +
-          Math.sin(elapsed * 3.1) * speech * w * 0.005;
-        const swayY =
-          Math.cos(elapsed * 0.78) * h * 0.006 -
-          speech * h * 0.009 +
-          (speaking ? -h * 0.004 : 0);
-        const tiltRad =
-          Math.sin(elapsed * 0.65) * 0.007 +
-          Math.sin(elapsed * 4.4) * speech * 0.011;
-
         ctx.save();
-        ctx.translate(w / 2 + swayX, h / 2 + swayY);
-        ctx.rotate(tiltRad);
-        ctx.scale(breath, breath);
+        ctx.translate(w / 2, h / 2);
         ctx.drawImage(img, -drawW / 2, -drawH / 2, drawW, drawH);
 
         // Subtle periodic blink + soft vocal lighting near face anchor
@@ -345,7 +328,7 @@ export const HistoricalVideoStage: React.FC<HistoricalVideoStageProps> = ({
           videoEl: genieVideoRef.current,
           interactionId: sessionData.interactionId,
           authToken: sessionData.authToken,
-          worldPrompt: profile.genieWorldPrompt,
+          worldPrompt: withFaceTimeFraming(profile.genieWorldPrompt),
           referenceImageBase64: seed.base64,
           onError: () => {
             if (!cancelled) {
@@ -390,7 +373,7 @@ export const HistoricalVideoStage: React.FC<HistoricalVideoStageProps> = ({
   useEffect(() => {
     if (!lastReaction || !genieHasFrame || !genieControllerRef.current) return;
     void genieControllerRef.current
-      .steerWorld(lastReaction.videoCue)
+      .steerWorld(withFaceTimeFraming(lastReaction.videoCue))
       .catch(() => {});
   }, [genieHasFrame, lastReaction]);
 

@@ -1,3 +1,5 @@
+import { latestResearch, type CallTrace } from "../../../../shared/callEvidence.ts";
+import { CallEvidencePanel } from "./CallEvidencePanel";
 import React, { useMemo, useState } from "react";
 import {
   Activity,
@@ -18,6 +20,7 @@ import type {
 } from "../types";
 
 interface GeminiTelemetryHudProps {
+  evidence: CallTrace | null;
   events: GeminiPipelineEvent[];
   latestDecision: FaceTimeDecisionResult | null;
   verifyingDecision: boolean;
@@ -30,12 +33,13 @@ interface GeminiTelemetryHudProps {
 interface ModelRow {
   id: string;
   role: string;
-  status: "Streaming" | "Verifying" | "Active" | "Ready" | "Standby";
+  status: "Streaming" | "Verifying" | "Active" | "Ready" | "Standby" | "Unavailable";
   latencyMs?: number;
   highlight?: boolean;
 }
 
 export const GeminiTelemetryHud: React.FC<GeminiTelemetryHudProps> = ({
+  evidence,
   events,
   latestDecision,
   verifyingDecision,
@@ -57,10 +61,18 @@ export const GeminiTelemetryHud: React.FC<GeminiTelemetryHudProps> = ({
     const visionEv = latestByStage.get("vision") ?? latestByStage.get("persona");
     const portraitEv = latestByStage.get("portrait");
     const decisionEv = latestByStage.get("decisions");
+    const liveStatus = [...(evidence?.events ?? [])].reverse().find(entry => entry.event.type === "status" && entry.event.model);
 
+    const researchRows: ModelRow[] = latestResearch(evidence).map(event => ({
+      id: event.model, role: event.stage === "quick" ? "Quick Research" : "Deep Research",
+      status: event.type === "researchStarted" ? "Verifying" : event.type === "researchFailed" ? "Unavailable" : "Ready",
+      latencyMs: event.type === "researchStarted" ? undefined : event.ms,
+      highlight: event.type === "researchStarted",
+    }));
     return [
+      ...researchRows,
       {
-        id: "gemini-3.8-live",
+        id: liveStatus ? String(liveStatus.event.model) : "Live model pending",
         role: "Real-Time Voice + Vision",
         status:
           voiceStatus === "connected"
@@ -75,25 +87,27 @@ export const GeminiTelemetryHud: React.FC<GeminiTelemetryHudProps> = ({
         role: "Decisions API Grounding",
         status: verifyingDecision
           ? "Verifying"
-          : latestDecision
-            ? "Active"
+          : latestDecision?.verdict === "unavailable"
+            ? "Unavailable"
+            : latestDecision
+            ? "Ready"
             : "Standby",
         latencyMs: latestDecision?.latencyMs ?? decisionEv?.latencyMs,
         highlight: verifyingDecision || Boolean(latestDecision),
       },
       {
-        id: "gemini-4-hydrogen",
+        id: visionEv?.model || "gemini-4-hydrogen",
         role: "Artwork Scan & Persona",
-        status: visionEv?.status === "running" ? "Verifying" : visionEv ? "Ready" : "Standby",
+        status: visionEv?.status === "running" ? "Verifying" : visionEv?.status === "done" || visionEv?.status === "active" ? "Ready" : "Standby",
         latencyMs: visionEv?.latencyMs,
       },
       {
-        id: "gemini-3.1-flash-lite-image",
+        id: portraitEv?.model || "gemini-3.1-flash-lite-image",
         role: "Living Portrait Synthesis",
         status:
           portraitEv?.status === "running"
             ? "Verifying"
-            : portraitEv
+            : portraitEv?.status === "done" || portraitEv?.status === "active"
               ? "Ready"
               : "Standby",
         latencyMs: portraitEv?.latencyMs,
@@ -114,6 +128,7 @@ export const GeminiTelemetryHud: React.FC<GeminiTelemetryHudProps> = ({
       },
     ];
   }, [
+    evidence,
     activeVideoLayer,
     events,
     latestDecision,
@@ -122,9 +137,9 @@ export const GeminiTelemetryHud: React.FC<GeminiTelemetryHudProps> = ({
     voiceStatus,
   ]);
 
-  const activeCount = modelRows.filter(
-    (m) => m.status === "Streaming" || m.status === "Active" || m.status === "Verifying"
-  ).length;
+  const activeCount = demoMode ? 0 : new Set(modelRows.filter(
+    (m) => m.status === "Streaming" || m.status === "Verifying"
+  ).map(m => m.id)).size;
 
   const isPulsing =
     verifyingDecision ||
@@ -176,8 +191,8 @@ export const GeminiTelemetryHud: React.FC<GeminiTelemetryHudProps> = ({
           {verifyingDecision
             ? "Decisions API…"
             : latestDecision
-              ? `${formatConfidencePercent(latestDecision.confidence)} Verified`
-              : `${Math.max(1, activeCount)} Active`}
+              ? formatDecisionVerdictLabel(latestDecision.verdict)
+              : `${activeCount} Active`}
         </span>
 
         <ChevronDown
@@ -189,7 +204,7 @@ export const GeminiTelemetryHud: React.FC<GeminiTelemetryHudProps> = ({
 
       {/* Expandable Frosted-Glass Live Gemini Pipeline Inspector */}
       {expanded && (
-        <div className="absolute right-0 mt-2 w-80 sm:w-96 rounded-3xl bg-[#0A0E17]/95 border border-white/15 backdrop-blur-2xl shadow-2xl p-4 space-y-4 z-50 text-left">
+        <div className="absolute right-0 mt-2 w-[min(24rem,calc(100vw-2rem))] max-h-[75vh] overflow-y-auto rounded-3xl bg-[#0A0E17]/95 border border-white/15 backdrop-blur-2xl shadow-2xl p-4 space-y-4 z-50 text-left">
           {/* Header */}
           <div className="flex items-center justify-between gap-2">
             <div className="flex items-center gap-2">
@@ -206,7 +221,7 @@ export const GeminiTelemetryHud: React.FC<GeminiTelemetryHudProps> = ({
               </div>
             </div>
             <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-white/[0.08] text-slate-300 border border-white/10">
-              {Math.max(1, activeCount)} live
+              {demoMode ? 'Demo' : `${activeCount} active models`}
             </span>
           </div>
 
@@ -214,7 +229,7 @@ export const GeminiTelemetryHud: React.FC<GeminiTelemetryHudProps> = ({
           <div className="space-y-1.5">
             {modelRows.map((row) => (
               <div
-                key={row.id}
+                key={`${row.id}-${row.role}`}
                 className={`flex items-center justify-between gap-2 px-3 py-2 rounded-xl border transition-colors ${
                   row.highlight
                     ? "bg-white/[0.07] border-white/15"
@@ -362,6 +377,8 @@ export const GeminiTelemetryHud: React.FC<GeminiTelemetryHudProps> = ({
           </div>
 
           <p className="text-[10px] text-slate-400">Checks run after speech. Model assessments can be wrong and do not independently verify sources.</p>
+
+          <CallEvidencePanel trace={evidence} />
 
           {/* Compact Recent Trace */}
           {latestEvent && (

@@ -21,11 +21,11 @@ export interface TurnEvaluation {
 // the same words within SHARE_MS gets the same result. Failed evaluations are not shared.
 const SHARE_MS = 120_000;
 const shared = new Map<string, { at: number; result: Promise<TurnEvaluation> }>();
-// Keyed by the figure's name (the part of `speaker` before any bracket) plus their words, so two
-// different figures saying "Good day." never share a verdict.
-const norm = (t: string) => t.replace(/\s+/g, ' ').trim().toLowerCase();
-const shareKey = (p: { utterance: string; speaker?: string }) =>
-  norm(p.utterance) ? `${norm((p.speaker ?? '').split('(')[0])}|${norm(p.utterance)}` : '';
+// Reuse only identical evaluation contexts; the same words can mean different things
+// for different eras, instructions, or visitor prompts.
+const norm = (t: string) => t.replace(/\s+/g, ' ').trim();
+const shareKey = (p: { utterance: string; speaker?: string; instructions?: string; userPrompt?: string }) =>
+  norm(p.utterance) ? JSON.stringify([norm(p.utterance), p.speaker ?? '', p.instructions ?? '', p.userPrompt ?? '']) : '';
 
 export function evaluateTurn(
   ai: GoogleGenAI,
@@ -37,7 +37,7 @@ export function evaluateTurn(
   const existing = key ? shared.get(key) : undefined;
   if (existing) return existing.result;
   const result = runEvaluation(ai, p).then((r) => {
-    if (!r.decision) shared.delete(key);
+    if (!r.decision || r.decision.verdict === 'unavailable' || r.checks.status === 'unavailable') shared.delete(key);
     return r;
   });
   if (key) shared.set(key, { at: now, result });

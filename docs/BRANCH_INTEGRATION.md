@@ -115,3 +115,9 @@ Validation: TypeScript, 57 unit tests, frontend build, and whitespace checks pas
 Integrated `a7087f9` into the museum feature paths. Added perspective rectification, face overlay and anchor-tracking updates, richer artwork metadata, and fenced JSON parsing. Preserved the existing artwork gate, persona checks, explicit voice start, portrait/upload view, and simplified navigation. Camera loss stops voice; camera scanning starts without a preselected artwork. `portraitAnchorTracker.ts` retains the previous tracker API for the portrait/upload component; camera AR uses the new tracker.
 
 Validation: TypeScript, 57 unit tests, build, and whitespace checks passed in an isolated worktree. Browser camera/overlay and live-service behavior remain unverified. Existing local typography and evidence edits were left untouched.
+
+## Decisions and print delay — 2026-11-21
+
+Merged `fix/decisions-and-print-delay` at `3bbe185`: print search waits 20 seconds and downsizes photos, typed names receive a Decisions API gate, text fallback replies receive character checks, and museum voice receives background research. Evaluation reuse requires matching speaker, instructions, prompt, and utterance; different conversation contexts do not reuse a verdict, and unavailable results are not cached. Name-gate provider errors currently allow the call with an error field, so this is not a guaranteed identity restriction.
+
+Validation: TypeScript, 70 unit tests, production build, and whitespace checks pass. Name-gate HTTP tests were moved into the API integration suite and now await server readiness. HTTP/browser/live-provider validation still requires a normal terminal and browser.

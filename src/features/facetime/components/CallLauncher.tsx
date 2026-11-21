@@ -3,8 +3,15 @@ import { ArrowRight, Camera, Landmark, Loader2, Search, Video } from "lucide-rea
 import { JourneyHeader } from "../../../app/LearningJourney";
 import { CURATED_HISTORICAL_CONTACTS } from "../data/contacts";
 import type { HistoricalProfile, RuntimeHealth } from "../types";
+import type { InquiryId } from '../../../../shared/inquiry.ts';
+import { InquiryChooser } from './InquiryControls';
 
 interface CallLauncherProps {
+  inquiry: InquiryId;
+  prediction: string;
+  onInquiryChange: (id: InquiryId) => void;
+  onPredictionChange: (value: string) => void;
+  reflection?: React.ReactNode;
   health: RuntimeHealth | null;
   resolvingQuery: boolean;
   errorMessage: string | null;
@@ -15,7 +22,7 @@ interface CallLauncherProps {
   onOpenArtworkSearch: (initialQuery?: string) => void;
 }
 
-export const CallLauncher: React.FC<CallLauncherProps> = ({ health, resolvingQuery, errorMessage, onDismissError, onDialCustomName, onSelectContact, onOpenScanner, onOpenArtworkSearch }) => {
+export const CallLauncher: React.FC<CallLauncherProps> = ({ inquiry, prediction, onInquiryChange, onPredictionChange, reflection, health, resolvingQuery, errorMessage, onDismissError, onDialCustomName, onSelectContact, onOpenScanner, onOpenArtworkSearch }) => {
   const [query, setQuery] = useState("");
   const [failedImages, setFailedImages] = useState<Record<string, boolean>>({});
   const filteredContacts = useMemo(() => {
@@ -26,7 +33,9 @@ export const CallLauncher: React.FC<CallLauncherProps> = ({ health, resolvingQue
   return <div className="call-launcher min-h-screen bg-canvas text-slate-100">
     <JourneyHeader view="facetime" />
     <main id="learning-main" tabIndex={-1} className="call-launcher-main">
-      <section className="page-intro"><p className="eyebrow">VIDEO CALLS</p><h1>Who would you ask?</h1><p>Choose a person from history, search by name, scan an artwork, or pull a famous painting or sculpture online.</p></section>
+      <section className="page-intro"><p className="eyebrow">Conversations across time</p><h1>Who would you ask?</h1><p>Meet someone from history. Choose a person below, or find them in a work of art.</p></section>
+      {reflection}
+      <InquiryChooser inquiry={inquiry} prediction={prediction} onInquiryChange={onInquiryChange} onPredictionChange={onPredictionChange} />
       {health?.demoMode && <p className="ui-notice" role="status">Demo mode · Conversations use sample responses.</p>}
       {health && !health.demoMode && !health.apiKeyConfigured && <p className="ui-notice" role="status">Calling is unavailable until the server’s AI connection is configured.</p>}
       {errorMessage && <div className="ui-alert" role="alert"><span>{errorMessage}</span><button className="ui-button" onClick={onDismissError}>Dismiss</button></div>}

@@ -55,6 +55,8 @@ export interface ResearchResult {
   systemPersona: string;
   checks: Record<string, number>;
   dropped: string[];
+  droppedClaims?: { id: string; question: string; source: string; score: number }[];
+  cached?: boolean;
   sources: { title?: string; uri?: string }[];
   /** False when the search returned no sources: the facts may come from the model's memory alone. */
   grounded: boolean;
@@ -77,7 +79,7 @@ export function researchFigure(
 ): Promise<ResearchResult> {
   const o = typeof stage === 'string' ? STAGE_DEFAULTS[stage] : { ...STAGE_DEFAULTS.quick, ...stage };
   const key = researchKey(s, JSON.stringify([o.model, o.depth, o.thinking]));
-  if (!opts.noCache && cache.has(key)) return cache.get(key)!;
+  if (!opts.noCache && cache.has(key)) return cache.get(key)!.then(result => ({ ...result, cached: true }));
   const job = run(ai, s, o).catch((err) => {
     cache.delete(key); // don't cache failures
     throw err;
@@ -176,6 +178,8 @@ async function run(
     systemPersona: livePersona(profile, { title: s.paintingTitle, artist: s.artist }),
     checks,
     dropped: [...failed],
+    droppedClaims: qs.filter(q => failed.has(q.id)).map(q => ({ ...q, score: checks[q.id] })),
+    cached: false,
     sources,
     grounded,
     timings,

@@ -1,6 +1,7 @@
 import { ThinkingLevel, Type } from "@google/genai";
 import { getGeminiClient } from "./gemini/client.ts";
 import { VISION_MODEL } from "../../shared/models.ts";
+import { WASHINGTON_IMAGE_URL } from "../../shared/artworkAssets.ts";
 import {
   classifyArtworkMedium,
   rankArtworkCandidates,
@@ -424,7 +425,7 @@ export function buildDemoArtworkSearch(
       <text x="400" y="542" text-anchor="middle" font-family="system-ui, sans-serif" font-size="15" fill="#D6D3D1">${artist.replace(/[<>&"']/g, "")} · ${year.replace(/[<>&"']/g, "")}</text>
     </svg>`;
     const imgUrl = useWashingtonAsset
-      ? "/assets/aistudio/washington_fd94f6dd.jpeg"
+      ? WASHINGTON_IMAGE_URL
       : `data:image/svg+xml;base64,${Buffer.from(svg, "utf8").toString("base64")}`;
     return {
       id,

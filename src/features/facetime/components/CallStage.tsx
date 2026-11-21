@@ -1,3 +1,6 @@
+import type { CallTrace } from "../../../../shared/callEvidence.ts";
+import { getInquiry, type InquiryId } from '../../../../shared/inquiry.ts';
+import { InquiryInCall } from './InquiryControls';
 import React, { useEffect, useRef, useState } from "react";
 import {
   Camera,
@@ -47,9 +50,14 @@ import type {
 } from "../types";
 
 interface CallStageProps {
+  inquiry: InquiryId;
+  prediction: string;
+  originalImage: string | null;
+  evidence: CallTrace | null;
   phase: Exclude<FaceTimePhase, "launcher">;
   profile: HistoricalProfile;
   portraitDataUrl: string | null;
+  portraitPreparing: boolean;
   ringingSubtitle: string;
   demoMode: boolean;
   voiceStatus: "idle" | "connecting" | "connected" | "demo" | "text-only";
@@ -112,6 +120,9 @@ function formatDuration(seconds: number): string {
 }
 
 export const CallStage: React.FC<CallStageProps> = ({
+  inquiry,
+  prediction,
+  originalImage,
   phase,
   profile,
   portraitDataUrl,
@@ -137,6 +148,8 @@ export const CallStage: React.FC<CallStageProps> = ({
   onSendMessage,
   videoEngineMode,
   onChangeVideoEngineMode,
+  evidence,
+  portraitPreparing,
   pipelineEvents,
   latestDecision,
   verifyingDecision,
@@ -261,7 +274,7 @@ export const CallStage: React.FC<CallStageProps> = ({
         isSpeaking={isSpeaking}
         speechLevelRef={speechLevelRef}
         lastReaction={lastReaction}
-        callActive={phase === "in-call"}
+        callActive={phase === "in-call" && !portraitPreparing}
         onStatusChange={setVideoTelemetry}
       />
 
@@ -372,6 +385,7 @@ export const CallStage: React.FC<CallStageProps> = ({
             {/* Gemini 4 Live Telemetry + Video Engine Controls */}
             <div className="pointer-events-auto flex items-center gap-2">
               <GeminiTelemetryHud
+                evidence={evidence}
                 events={pipelineEvents}
                 latestDecision={latestDecision}
                 verifyingDecision={verifyingDecision}
@@ -418,7 +432,7 @@ export const CallStage: React.FC<CallStageProps> = ({
                       {
                         id: "portrait",
                         label: "Animated portrait",
-                        desc: "Responsive animated portrait",
+                        desc: "Steady framing with subtle reactions",
                       },
                     ] as const
                   ).map((opt) => (
@@ -501,13 +515,10 @@ export const CallStage: React.FC<CallStageProps> = ({
             </div>
           )}
 
-          {/* Subtle Live Mood / Gesture Pill */}
-          {lastReaction && (
-            <div className="absolute top-20 left-6 z-20 hidden sm:inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-black/40 border border-white/10 backdrop-blur-xl text-[11px] text-slate-200">
-              <Sparkles className="w-3 h-3 text-amber-300" />
-              <span>{lastReaction.gesture}</span>
-            </div>
-          )}
+          <button type="button" onClick={() => setChatOpen(true)} aria-expanded={chatOpen}
+            className="absolute top-20 left-4 sm:left-6 z-20 max-w-[55vw] truncate px-3 py-2 rounded-full bg-black/60 border border-white/20 text-xs text-slate-100">
+            Explore · {getInquiry(inquiry).title}
+          </button>
 
           {/* Draggable / Corner-Snapping Picture-in-Picture Self-View */}
           <div
@@ -638,7 +649,7 @@ export const CallStage: React.FC<CallStageProps> = ({
               <div className="px-4 py-3 border-b border-white/10 flex items-center justify-between">
                 <div>
                   <h3 className="text-sm font-semibold text-white">
-                    Call Transcript
+                    Conversation & investigation
                   </h3>
                   <p className="text-[11px] text-slate-400">
                     {voiceStatus === "connected"
@@ -659,6 +670,8 @@ export const CallStage: React.FC<CallStageProps> = ({
               </div>
 
               <div className="flex-1 overflow-y-auto p-4 space-y-3 select-text">
+                <InquiryInCall inquiry={inquiry} prediction={prediction} originalImage={originalImage}
+                  onDraftQuestion={question => setDraftMessage(question)} />
                 {transcripts.length === 0 ? (
                   <p className="text-xs text-slate-400 text-center py-6">
                     Conversation captions will appear here as you speak with{" "}

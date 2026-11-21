@@ -96,7 +96,7 @@ test("the call bridge and the display share one Decisions API call for the same 
   const ai = fakeAi({}, "verified", calls);
   const [a, b] = await Promise.all([
     evaluateTurn(ai, { utterance: "The ice on the river grows thicker by the hour." }),
-    evaluateTurn(ai, { utterance: "  the ice on the river   grows thicker by the hour. " }),
+    evaluateTurn(ai, { utterance: "  The ice on the river   grows thicker by the hour. " }),
   ]);
   assert.equal(calls.length, 1);
   assert.equal(a, b);
@@ -108,5 +108,16 @@ test("the same words from different figures are evaluated separately", async () 
   await evaluateTurn(ai, { utterance: "Who goes there?", speaker: "George Washington (1776, Delaware)" });
   await evaluateTurn(ai, { utterance: "Who goes there?", speaker: "Frida Kahlo (1953, Coyoacán)" });
   await evaluateTurn(ai, { utterance: "Who goes there?", speaker: "George Washington (Commander, 1776, Delaware)" });
-  assert.equal(calls.length, 2);
+  assert.equal(calls.length, 3);
+});
+
+test("identical words with different instructions or visitor prompts are checked separately", async () => {
+  const calls: Array<Record<string, any>> = [];
+  const ai = fakeAi({}, "verified", calls);
+  for (const p of [
+    { instructions: 'You live in 1776.', userPrompt: 'What year is it?' },
+    { instructions: 'You live in 1789.', userPrompt: 'What year is it?' },
+    { instructions: 'You live in 1776.', userPrompt: 'When were you born?' },
+  ]) await evaluateTurn(ai, { utterance: 'Seventeen seventy-six.', speaker: 'Washington', ...p });
+  assert.equal(calls.length, 3);
 });

@@ -1,4 +1,5 @@
 import type { HistoricalProfile } from "../types";
+import { WASHINGTON_IMAGE_URL } from "../../../../shared/artworkAssets.ts";
 
 const proxyMuseumUrl = (url: string) =>
   `/api/facetime/artwork-proxy?url=${encodeURIComponent(url)}`;
@@ -125,7 +126,7 @@ export const CURATED_HISTORICAL_CONTACTS: HistoricalProfile[] = [
     gradientFrom: "#1E3A5F",
     gradientTo: "#090D16",
     initials: "GW",
-    previewImageUrl: "/assets/aistudio/washington_fd94f6dd.jpeg",
+    previewImageUrl: WASHINGTON_IMAGE_URL,
     starterQuestions: [
       "How are spirits among the troops this winter?",
       "Why did you decide to step down after two terms?",

@@ -7,17 +7,16 @@
 
 import { WebSocket } from 'ws';
 import { getGeminiClient } from '../services/gemini/client.ts';
-import { researchFigure, researchNote, type ResearchStage } from '../services/gemini/research.ts';
-import { correctionNote, type ReplyCheckResult } from '../services/gemini/replyChecks.ts';
+import { researchFigure, researchNote, STAGE_DEFAULTS, type ResearchStage } from '../services/gemini/research.ts';
+import { correctionNote } from '../services/gemini/replyChecks.ts';
 import { evaluateTurn, type TurnDecision } from '../services/gemini/turnDecision.ts';
 import { characterGuide } from '../../src/features/museum/data/fallbackPersona.ts';
-import type { HistoricalProfile } from '../../shared/facetime.ts';
+import type { HistoricalProfile, ResearchEvidenceEvent, ReplyEvidenceEvent } from '../../shared/facetime.ts';
 
 /** Extra server events from the character layer (in addition to FaceTimeServerEvent). */
 export type CharacterServerEvent =
-  | { type: 'research'; stage: ResearchStage; facts: number; sources: number; grounded: boolean; dropped: number; ms: number }
-  | { type: 'researchFailed'; stage: ResearchStage; message: string }
-  | ({ type: 'replyCheck' } & ReplyCheckResult)
+  | ResearchEvidenceEvent
+  | ReplyEvidenceEvent
   | { type: 'turnDecisionPending' }
   | { type: 'turnDecision'; decision: TurnDecision | null };
 
@@ -82,7 +81,7 @@ export function createCharacterLayer(opts: {
           speaker: `${currentProfile.name} (${currentProfile.title}, ${currentProfile.era}, ${currentProfile.location})`,
         })).then(({ checks, decision }) => {
           if (seq !== evaluationSeq || opts.isClosed()) return;
-          send({ type: 'replyCheck', ...checks });
+          send({ type: 'replyCheck', status: checks.status, passed: checks.passed, failed: checks.failed, scores: checks.scores, latencyMs: checks.latencyMs, utterance, visitorMessage: userPrompt, turnId: seq, correctionRequested: checks.status === 'flagged' && !correctionRequested });
           send({ type: 'turnDecision', decision });
           if (checks.status === 'flagged' && !correctionRequested) {
             correctionRequested = true;
@@ -105,7 +104,10 @@ export function createCharacterLayer(opts: {
         year: profile.era,
       };
       for (const stage of ['quick', 'deep'] as ResearchStage[]) {
-        researchFigure(getGeminiClient(), subject, stage)
+        const startedAt = Date.now();
+        const model = STAGE_DEFAULTS[stage].model;
+        send({ type: 'researchStarted', stage, model });
+        Promise.resolve().then(() => researchFigure(getGeminiClient(), subject, stage))
           .then((r) => {
             if (opts.isClosed()) return;
             note(researchNote(r, stage), false);
@@ -116,10 +118,13 @@ export function createCharacterLayer(opts: {
               sources: r.sources.length,
               grounded: r.grounded,
               dropped: r.dropped.length,
-              ms: r.timings.totalMs,
+              ms: Date.now() - startedAt,
+              model: r.settings.model, structureModel: r.settings.structureModel,
+              cached: !!r.cached, generationMs: r.timings.totalMs,
+              sourceLinks: r.sources, retainedFacts: r.profile.keyFacts, droppedClaims: r.droppedClaims ?? [],
             });
           })
-          .catch((err) => send({ type: 'researchFailed', stage, message: err instanceof Error ? err.message : String(err) }));
+          .catch(() => send({ type: 'researchFailed', stage, model, ms: Date.now() - startedAt, message: 'Research unavailable; the conversation can continue without this update.' }));
       }
     },
   };
