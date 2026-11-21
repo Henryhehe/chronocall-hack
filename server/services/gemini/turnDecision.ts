@@ -2,7 +2,7 @@
 //   - the five reply checks (hindsight, breaking character, advice, modern-guide voice, safety), which
 //     drive self-correction in the call
 //   - a grounding verdict and an era-fidelity score, in the shape the FaceTime telemetry display uses
-//     (FaceTimeDecisionResult on feat/gemini-live-telemetry-cues), so both can share this one call.
+//     (FaceTimeDecisionResult), so the bridge and the display share this one call.
 import type { GoogleGenAI } from '@google/genai';
 import { DECISION_MODEL, DECISIONS_API_VERSION, REPLY_CHECKS, parseReplyChecks, type ReplyCheckResult } from './replyChecks.ts';
 
@@ -16,7 +16,36 @@ export interface TurnEvaluation {
   decision: TurnDecision | null;
 }
 
-export async function evaluateTurn(
+// The call bridge (self-correction) and the telemetry display (/api/facetime/decision) both evaluate
+// each spoken turn. They share one Decisions API call: the first caller starts it, and any caller with
+// the same words within SHARE_MS gets the same result. Failed evaluations are not shared.
+const SHARE_MS = 120_000;
+const shared = new Map<string, { at: number; result: Promise<TurnEvaluation> }>();
+// Reuse only identical evaluation contexts; the same words can mean different things
+// for different eras, instructions, or visitor prompts.
+const norm = (t: string) => t.replace(/\s+/g, ' ').trim();
+const shareKey = (p: { utterance: string; speaker?: string; instructions?: string; userPrompt?: string }) =>
+  norm(p.utterance) ? JSON.stringify([norm(p.utterance), p.speaker ?? '', p.instructions ?? '', p.userPrompt ?? '']) : '';
+
+export function evaluateTurn(
+  ai: GoogleGenAI,
+  p: { utterance: string; instructions?: string; userPrompt?: string; speaker?: string },
+): Promise<TurnEvaluation> {
+  const key = shareKey(p);
+  const now = Date.now();
+  for (const [k, v] of shared) if (now - v.at > SHARE_MS) shared.delete(k);
+  const existing = key ? shared.get(key) : undefined;
+  if (existing) return existing.result;
+  const result = runEvaluation(ai, p).then((r) => {
+    if (!r.decision || r.decision.verdict === 'unavailable' || r.checks.status === 'unavailable') shared.delete(key);
+    return r;
+  });
+  if (key) shared.set(key, { at: now, result });
+  if (shared.size > 50) shared.delete(shared.keys().next().value as string);
+  return result;
+}
+
+async function runEvaluation(
   ai: GoogleGenAI,
   p: { utterance: string; instructions?: string; userPrompt?: string; speaker?: string },
 ): Promise<TurnEvaluation> {

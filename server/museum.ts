@@ -4,7 +4,7 @@ import { WebSocketServer, WebSocket } from 'ws';
 import { GoogleGenAI, type LiveServerMessage, Modality, ThinkingLevel, Type } from '@google/genai';
 import { resolvePersona } from '../src/features/museum/data/personas.ts';
 import type { IdentifiedSubject } from '../src/features/museum/data/liveResearch.ts';
-import { researchFigure, STAGE_DEFAULTS, type ResearchStage } from './services/gemini/research.ts';
+import { researchFigure, researchNote, STAGE_DEFAULTS, type ResearchStage } from './services/gemini/research.ts';
 import { checkReply, correctionNote, DECISIONS_API_VERSION, type ReplyCheckResult } from './services/gemini/replyChecks.ts';
 import { gateImage } from './services/gemini/imageGate.ts';
 import { judgeReply } from './services/gemini/evalJudge.ts';
@@ -592,6 +592,30 @@ export function attachMuseumBridge(server: Server, demoMode = false) {
           liveSession = await sessionPromise;
           if (!isClosing) {
             safeSend({ type: 'ready' });
+          }
+
+          // Background research for the museum figure, as in FaceTime calls: quick (Hydrogen, ~20 s)
+          // then deep (Neon). Each result is added as private context, without prompting a reply.
+          const figureName = typeof msg.characterName === 'string' ? msg.characterName.trim() : '';
+          if (figureName) {
+            const subject = {
+              kind: 'person' as const,
+              name: figureName,
+              paintingTitle: typeof msg.paintingTitle === 'string' ? msg.paintingTitle : undefined,
+            };
+            const researchSession = liveSession;
+            for (const stage of ['quick', 'deep'] as ResearchStage[]) {
+              researchFigure(checker, subject, stage)
+                .then((r) => {
+                  if (isClosing || liveSession !== researchSession) return;
+                  researchSession.sendClientContent({
+                    turns: [{ role: 'user', parts: [{ text: researchNote(r, stage) }] }],
+                    turnComplete: false,
+                  });
+                  safeSend({ type: 'research', stage, facts: r.profile.keyFacts.length, sources: r.sources.length, grounded: r.grounded, dropped: r.dropped.length, ms: r.timings.totalMs });
+                })
+                .catch((err) => safeSend({ type: 'researchFailed', stage, message: err instanceof Error ? err.message : String(err) }));
+            }
           }
           return;
         }

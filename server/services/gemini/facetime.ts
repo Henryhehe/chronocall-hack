@@ -16,8 +16,9 @@ import {
   type HistoricalProfile,
 } from "../../../shared/facetime.ts";
 
-import { DECISION_MODEL } from "./replyChecks.ts";
+import { DECISION_MODEL, correctionNote } from "./replyChecks.ts";
 import { evaluateTurn } from "./turnDecision.ts";
+import { characterGuide } from "../../../src/features/museum/data/fallbackPersona.ts";
 
 const DEFAULT_VEO_MODEL =
   process.env.VEO_MODEL?.trim() || "veo-3.1-fast-generate-preview";
@@ -58,6 +59,12 @@ function stripDataUrlPrefix(value: string): { base64: string; mimeType: string }
     return { mimeType: match[1], base64: match[2] };
   }
   return { mimeType: "image/jpeg", base64: value };
+}
+
+// Name gate (Decisions API): refuses living people before a call is built from a typed name.
+import { checkFigureName as gateFigureName, type NameGateResult } from "./figureGate.ts";
+export async function checkFigureName(query: string): Promise<NameGateResult> {
+  return gateFigureName(getGeminiClient(), query);
 }
 
 export async function resolveHistoricalFigure(params: {
@@ -629,7 +636,7 @@ export async function respondToFaceTimeText(params: {
   profile: HistoricalProfile;
   message: string;
   history?: Array<{ speaker: "user" | "figure"; text: string }>;
-}): Promise<{ reply: string; latencyMs: number; model: string }> {
+}): Promise<{ reply: string; latencyMs: number; model: string; checked?: { status: string; failed: string[]; retried: boolean } }> {
   const ai = getGeminiClient();
   const startedAt = Date.now();
   const history = (params.history ?? []).slice(-10);
@@ -642,19 +649,46 @@ export async function respondToFaceTimeText(params: {
     { role: "user", parts: [{ text: params.message }] },
   ];
 
-  const response = await ai.models.generateContent({
-    model: VISION_MODEL,
-    contents,
-    config: {
-      thinkingConfig: { thinkingLevel: ThinkingLevel.LOW },
-      systemInstruction: `${params.profile.systemPersona}\nYou are live on a FaceTime video call with someone from the modern day. Reply naturally in 2–3 vivid, conversational spoken sentences without stage directions or markdown formatting.`,
-    },
-  });
+  // Same character rules as live calls: the general guide, then a Decisions API check on the reply,
+  // with one self-correction if it fails. The speaker label matches the telemetry display's, so the
+  // display's own assessment of this reply reuses the same call.
+  const persona = params.profile.systemPersona.includes("How you behave:")
+    ? params.profile.systemPersona
+    : `${params.profile.systemPersona}\n\nHow you behave: ${characterGuide("person")}`;
+  const instructions = `${persona}\nYou are live on a FaceTime video call with someone from the modern day. Reply naturally in 2–3 conversational spoken sentences without stage directions or markdown formatting.`;
+  const generate = async (extra = "") =>
+    (
+      (
+        await ai.models.generateContent({
+          model: VISION_MODEL,
+          contents,
+          config: {
+            thinkingConfig: { thinkingLevel: ThinkingLevel.LOW },
+            systemInstruction: extra ? `${instructions}\n\n${extra}` : instructions,
+          },
+        })
+      ).text ?? ""
+    ).trim();
+  const speaker = `${params.profile.name} (${params.profile.era}, ${params.profile.location})`;
+
+  let reply = await generate();
+  let { checks } = await evaluateTurn(ai, { utterance: reply, userPrompt: params.message, instructions: persona, speaker });
+  let retried = false;
+  if (checks.status === "flagged") {
+    const retry = await generate(correctionNote(checks.failed));
+    const second = await evaluateTurn(ai, { utterance: retry, userPrompt: params.message, instructions: persona, speaker });
+    retried = true;
+    if (retry && second.checks.failed.length < checks.failed.length) {
+      reply = retry;
+      checks = second.checks;
+    }
+  }
 
   return {
-    reply: (response.text ?? "").trim(),
+    reply,
     latencyMs: Date.now() - startedAt,
     model: VISION_MODEL,
+    checked: { status: checks.status, failed: checks.failed, retried },
   };
 }
 
