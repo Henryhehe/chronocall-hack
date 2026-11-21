@@ -70,6 +70,16 @@ export interface FaceTimePortraitResult {
   demoMode?: boolean;
 }
 
+export interface FaceTimeSelfieResult {
+  imageDataUrl: string;
+  mimeType: string;
+  caption: string;
+  eraStamp: string;
+  model: string;
+  latencyMs: number;
+  demoMode?: boolean;
+}
+
 export interface FaceTimeVideoJobStatus {
   jobId: string;
   status: "queued" | "running" | "ready" | "error";
@@ -232,6 +242,28 @@ export function normalizeHistoricalProfile(
       mouthY: 0.44,
     },
   };
+}
+
+export function buildSelfieEraStamp(profile: HistoricalProfile): string {
+  const era = (profile.era || "").trim();
+  const location = (profile.location || "").trim();
+  if (era && location) {
+    if (era.includes("·")) {
+      return era;
+    }
+    if (era.toLowerCase().includes(location.toLowerCase())) {
+      return era;
+    }
+    if (
+      location === "Historic Study" &&
+      era !== "Historical Era" &&
+      era !== "Across History"
+    ) {
+      return era;
+    }
+    return `${era} · ${location}`;
+  }
+  return era || location || "Across Time";
 }
 
 /**

@@ -1,19 +1,24 @@
-import type {
-  ActiveVideoLayer,
-  FaceTimeIdentifyResult,
-  FaceTimePortraitResult,
-  FaceTimeReactionCue,
-  FaceTimeVideoJobStatus,
-  FaceTimeVoiceName,
-  HistoricalProfile,
-  VideoEngineMode,
+import {
+  buildSelfieEraStamp,
+  type ActiveVideoLayer,
+  type FaceTimeIdentifyResult,
+  type FaceTimePortraitResult,
+  type FaceTimeReactionCue,
+  type FaceTimeSelfieResult,
+  type FaceTimeVideoJobStatus,
+  type FaceTimeVoiceName,
+  type HistoricalProfile,
+  type VideoEngineMode,
 } from "../../../shared/facetime.ts";
+
+export { buildSelfieEraStamp };
 
 export type {
   ActiveVideoLayer,
   FaceTimeIdentifyResult,
   FaceTimePortraitResult,
   FaceTimeReactionCue,
+  FaceTimeSelfieResult,
   FaceTimeVideoJobStatus,
   FaceTimeVoiceName,
   HistoricalProfile,
