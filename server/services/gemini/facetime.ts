@@ -154,12 +154,12 @@ export async function identifyFigureFromImage(params: {
         },
         {
           text: `Inspect this camera frame or photo from a user who wants to FaceTime a historical figure by pointing their camera at a painting, portrait, photograph, book illustration, or statue/bust.
-Determine if a recognizable historical figure (or notable artwork depicting a historical figure) is visible.
+Determine if a historical figure, or a person shown in a notable artwork, is visible. People in artworks count even when they are anonymous, imagined, or an artist's model (for example the farmer and daughter in American Gothic, or the Girl with a Pearl Earring).
 If detected=true:
-- Identify the historical figure (name, title, era, location, concise bio).
+- Identify the figure (name, title, era, location, concise bio). For an anonymous or imagined figure, name them as the painting presents them (e.g. "The farmer in American Gothic"), use the time and place the artwork depicts, and mention the real model in the bio only if documented.
 - Identify the artworkType ("painting" | "statue" | "photograph" | "illustration" | "unknown"), artworkTitle, artist (or probable school), and year.
 - Craft an authentic first-person systemPersona, a warm FaceTime openingLine, the best prebuilt voiceName (one of: Charon, Fenrir, Kore, Zephyr, Puck), 3 starterQuestions, and vivid photorealistic webcam-call prompts (portraitPrompt, videoMotionPrompt, genieWorldPrompt) that bring the depicted person to life in flesh-and-blood photorealism matching the likeness and period clothing seen in the artwork.
-If no historical figure, painting, portrait, or statue is clearly visible, set detected=false and explain briefly in reason.`,
+If no person (historical, or shown in an artwork), painting, portrait, or statue is clearly visible, set detected=false and explain briefly in reason.`,
         },
       ],
     },

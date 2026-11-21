@@ -74,7 +74,7 @@ export async function gateImage(
         hasCharacter: {
           type: 'noul',
           instructions:
-            'Is there a person or an animal in this image that a museum visitor could plausibly talk to as a character from an artwork or from history?',
+            'Does this image clearly show at least one person or animal (painted, drawn, sculpted or photographed), large enough to see their face or body? Anonymous, imagined or unnamed people count. Tiny distant figures in a landscape do not.',
         },
       },
     });
