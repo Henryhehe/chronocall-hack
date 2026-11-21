@@ -1,3 +1,4 @@
+import { Modal } from "../../../app/components/Modal";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
   Check,
@@ -55,7 +56,7 @@ export const OnlineArtworkModal: React.FC<OnlineArtworkModalProps> = ({
   const [mediumFilter, setMediumFilter] = useState<
     "all" | "painting" | "sculpture"
   >("all");
-  const [autoPickEnabled, setAutoPickEnabled] = useState(true);
+  const [autoPickEnabled, setAutoPickEnabled] = useState(false);
   const [isSearching, setIsSearching] = useState(false);
   const [isFetchingImage, setIsFetchingImage] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -67,6 +68,8 @@ export const OnlineArtworkModal: React.FC<OnlineArtworkModalProps> = ({
   const [autoCountdown, setAutoCountdown] = useState<number | null>(null);
 
   const searchSeqRef = useRef(0);
+  const launchCallbackRef = useRef(onLaunchWithArtwork);
+  launchCallbackRef.current = onLaunchWithArtwork;
   const autoTimerRef = useRef<number | null>(null);
 
   const cancelAutoTimer = useCallback(() => {
@@ -82,6 +85,7 @@ export const OnlineArtworkModal: React.FC<OnlineArtworkModalProps> = ({
       artwork: OnlineArtworkCandidate | null,
       baseProfile: HistoricalProfile
     ) => {
+      const seq = searchSeqRef.current;
       cancelAutoTimer();
       setIsFetchingImage(true);
       setErrorMessage(null);
@@ -116,18 +120,20 @@ export const OnlineArtworkModal: React.FC<OnlineArtworkModalProps> = ({
           sourceType: "scanned",
         };
 
-        onLaunchWithArtwork(enrichedProfile, referenceDataUrl);
+        if (searchSeqRef.current !== seq) return;
+        launchCallbackRef.current(enrichedProfile, referenceDataUrl);
       } catch (err) {
+        if (searchSeqRef.current !== seq) return;
         setErrorMessage(
           err instanceof Error
             ? err.message
             : "Could not retrieve the selected artwork."
         );
       } finally {
-        setIsFetchingImage(false);
+        if (searchSeqRef.current === seq) setIsFetchingImage(false);
       }
     },
-    [cancelAutoTimer, onLaunchWithArtwork]
+    [cancelAutoTimer]
   );
 
   const runSearch = useCallback(
@@ -202,6 +208,9 @@ export const OnlineArtworkModal: React.FC<OnlineArtworkModalProps> = ({
     [autoPickEnabled, cancelAutoTimer, launchCallWithSelection, mediumFilter]
   );
 
+  const runSearchRef = useRef(runSearch);
+  runSearchRef.current = runSearch;
+
   useEffect(() => {
     if (!open) {
       cancelAutoTimer();
@@ -212,9 +221,13 @@ export const OnlineArtworkModal: React.FC<OnlineArtworkModalProps> = ({
     }
     if (initialQuery.trim()) {
       setQuery(initialQuery.trim());
-      void runSearch(initialQuery.trim());
+      void runSearchRef.current(initialQuery.trim());
     }
-  }, [open, initialQuery, cancelAutoTimer, runSearch]);
+    return () => {
+      searchSeqRef.current++;
+      cancelAutoTimer();
+    };
+  }, [open, initialQuery, cancelAutoTimer]);
 
   useEffect(() => {
     return () => cancelAutoTimer();
@@ -230,26 +243,20 @@ export const OnlineArtworkModal: React.FC<OnlineArtworkModalProps> = ({
     : [];
 
   return (
-    <div
-      className="fixed inset-0 z-50 bg-black/85 backdrop-blur-xl flex items-center justify-center p-4 sm:p-6"
-      role="dialog"
-      aria-modal="true"
-      aria-label="Search famous paintings and sculptures online"
-    >
-      <div className="w-full max-w-3xl rounded-3xl overflow-hidden bg-[#0C1018] border border-white/15 shadow-2xl flex flex-col max-h-[92vh]">
+    <Modal open={open} onClose={onClose} label="Find artwork">
+      <div className="w-full max-w-3xl rounded-3xl overflow-hidden bg-[#151411] border border-white/15 shadow-2xl flex flex-col max-h-[92vh]">
         {/* Header */}
         <div className="px-5 py-4 border-b border-white/10 flex items-center justify-between gap-4">
           <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-xl bg-sky-400/15 border border-sky-300/30 flex items-center justify-center text-sky-300">
+            <div className="w-9 h-9 rounded-xl bg-accent-400/15 border border-accent-300/30 flex items-center justify-center text-accent-300">
               <Landmark className="w-5 h-5" />
             </div>
             <div>
               <h2 className="text-base font-semibold text-white">
-                Find Famous Art &amp; Sculptures Online
+                Find artwork
               </h2>
               <p className="text-xs text-slate-400">
-                Retrieves real museum paintings &amp; statues and animates them
-                live on your FaceTime call
+                Choose a museum portrait or sculpture for your call.
               </p>
             </div>
           </div>
@@ -270,7 +277,7 @@ export const OnlineArtworkModal: React.FC<OnlineArtworkModalProps> = ({
               e.preventDefault();
               void runSearch(query);
             }}
-            className="flex items-center gap-2 rounded-full bg-white/[0.07] border border-white/15 focus-within:border-sky-400/60 px-4 py-1.5"
+            className="flex items-center gap-2 rounded-full bg-white/[0.07] border border-white/15 focus-within:border-accent-400/60 px-4 py-1.5"
           >
             <Search className="w-4 h-4 text-slate-400 shrink-0" />
             <input
@@ -318,7 +325,7 @@ export const OnlineArtworkModal: React.FC<OnlineArtworkModalProps> = ({
                   }}
                   className={`px-3 py-1 rounded-full border transition-colors cursor-pointer ${
                     mediumFilter === tab.id
-                      ? "bg-sky-500/20 border-sky-400/40 text-sky-200 font-medium"
+                      ? "bg-accent-500/20 border-accent-400/40 text-accent-200 font-medium"
                       : "bg-white/[0.04] border-white/10 text-slate-400 hover:text-white"
                   }`}
                 >
@@ -364,7 +371,7 @@ export const OnlineArtworkModal: React.FC<OnlineArtworkModalProps> = ({
           {/* Initial quick suggestions before first search */}
           {!isSearching && !result && (
             <div className="py-6 text-center space-y-4">
-              <div className="w-12 h-12 rounded-2xl bg-sky-500/10 border border-sky-400/20 flex items-center justify-center mx-auto text-sky-300">
+              <div className="w-12 h-12 rounded-2xl bg-accent-500/10 border border-accent-400/20 flex items-center justify-center mx-auto text-accent-300">
                 <Palette className="w-6 h-6" />
               </div>
               <div className="space-y-1">
@@ -398,7 +405,7 @@ export const OnlineArtworkModal: React.FC<OnlineArtworkModalProps> = ({
           {/* Searching state */}
           {isSearching && (
             <div className="py-12 flex flex-col items-center justify-center gap-3 text-center">
-              <Loader2 className="w-8 h-8 animate-spin text-sky-400" />
+              <Loader2 className="w-8 h-8 animate-spin text-accent-400" />
               <div className="space-y-1">
                 <p className="text-sm font-medium text-white">
                   Searching museum collections for “{query}”…
@@ -490,7 +497,7 @@ export const OnlineArtworkModal: React.FC<OnlineArtworkModalProps> = ({
                       }}
                       className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-full bg-white/10 hover:bg-white/18 border border-white/15 text-white text-xs font-medium cursor-pointer"
                     >
-                      <Palette className="w-3.5 h-3.5 text-sky-300" />
+                      <Palette className="w-3.5 h-3.5 text-accent-300" />
                       <span>
                         {showAlternatives
                           ? "Hide Other Art"
@@ -594,6 +601,6 @@ export const OnlineArtworkModal: React.FC<OnlineArtworkModalProps> = ({
           )}
         </div>
       </div>
-    </div>
+    </Modal>
   );
 };

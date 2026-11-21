@@ -3,38 +3,17 @@
 //     drive self-correction in the call
 //   - a grounding verdict and an era-fidelity score, in the shape the FaceTime telemetry display uses
 //     (FaceTimeDecisionResult on feat/gemini-live-telemetry-cues), so both can share this one call.
-// Results are kept briefly by utterance, so an HTTP route can return the bridge's result instead of
-// asking again: see getTurnDecision().
-
 import type { GoogleGenAI } from '@google/genai';
 import { DECISION_MODEL, DECISIONS_API_VERSION, REPLY_CHECKS, type ReplyCheckResult } from './replyChecks.ts';
 
-export type TurnVerdict = 'verified' | 'plausible_persona' | 'anachronism';
+import type { FaceTimeDecisionResult, DecisionVerdict } from '../../../shared/facetime.ts';
 
-/** Same fields as FaceTimeDecisionResult on the telemetry branch. */
-export interface TurnDecision {
-  verdict: TurnVerdict;
-  confidence: number;
-  probabilities: Record<string, number>;
-  eraFidelityScore: number;
-  eraFidelityMax: number;
-  suggestedCue: string;
-  summary: string;
-  model: string;
-  latencyMs: number;
-}
+export type TurnVerdict = DecisionVerdict;
+export type TurnDecision = FaceTimeDecisionResult;
 
 export interface TurnEvaluation {
   checks: ReplyCheckResult;
   decision: TurnDecision | null;
-}
-
-const recent = new Map<string, TurnEvaluation>();
-const key = (utterance: string) => utterance.replace(/\s+/g, ' ').trim().toLowerCase();
-
-/** The latest evaluation of this utterance, if the call bridge already made one. */
-export function getTurnDecision(utterance: string): TurnEvaluation | undefined {
-  return recent.get(key(utterance));
 }
 
 export async function evaluateTurn(
@@ -121,8 +100,6 @@ export async function evaluateTurn(
       latencyMs,
     };
     const result: TurnEvaluation = { checks: { passed: failed.length === 0, scores, failed, latencyMs }, decision };
-    recent.set(key(p.utterance), result);
-    if (recent.size > 50) recent.delete(recent.keys().next().value as string);
     return result;
   } catch (err) {
     return {

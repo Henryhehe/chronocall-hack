@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import {
   Camera,
+  MoreHorizontal,
   Captions,
   CaptionsOff,
   Compass,
@@ -19,6 +20,7 @@ import {
   VideoOff,
   X,
 } from "lucide-react";
+import { Modal } from "../../../app/components/Modal";
 import { captureMediaFrame } from "../../../utils/canvas";
 import { HistoricalVideoStage } from "./HistoricalVideoStage";
 import { ShowAndTellOverlay } from "./ShowAndTellOverlay";
@@ -159,6 +161,7 @@ export const CallStage: React.FC<CallStageProps> = ({
   const [pipExpanded, setPipExpanded] = useState(false);
   const [draftMessage, setDraftMessage] = useState("");
   const [portalActive, setPortalActive] = useState(false);
+  const [actionsOpen, setActionsOpen] = useState(false);
   const [dismissedInvite, setDismissedInvite] = useState(false);
   const [videoTelemetry, setVideoTelemetry] = useState<{
     activeLayer: ActiveVideoLayer;
@@ -795,27 +798,6 @@ export const CallStage: React.FC<CallStageProps> = ({
 
             <button
               type="button"
-              onClick={onFlipCamera}
-              aria-label="Flip camera"
-              title="Flip Camera"
-              className="w-12 h-12 rounded-full bg-white/15 hover:bg-white/25 text-white flex items-center justify-center transition-all cursor-pointer"
-            >
-              <RefreshCw className="w-5 h-5" />
-            </button>
-
-            {/* Take Photo Together (Chrono-Selfie) */}
-            <button
-              type="button"
-              onClick={handleTakePhotoTogether}
-              aria-label="Take Photo Together"
-              title="Take Photo Together (Chrono-Selfie)"
-              className="w-12 h-12 rounded-full bg-gradient-to-tr from-amber-400 to-amber-300 hover:from-amber-300 hover:to-amber-200 text-slate-950 flex items-center justify-center transition-all cursor-pointer shadow-lg shadow-amber-400/25 active:scale-95"
-            >
-              <Camera className="w-5 h-5 text-slate-950" />
-            </button>
-
-            <button
-              type="button"
               onClick={() => setCaptionsEnabled((v) => !v)}
               aria-label={captionsEnabled ? "Hide captions" : "Show captions"}
               title={captionsEnabled ? "Hide Captions" : "Show Captions"}
@@ -849,31 +831,11 @@ export const CallStage: React.FC<CallStageProps> = ({
               )}
             </button>
 
-            {/* Step Inside World Portal Button */}
-            <button
-              type="button"
-              onClick={() => setPortalActive((v) => !v)}
-              aria-label={portalActive ? "Return to FaceTime view" : "Step inside world"}
-              title="Step Inside World Portal"
-              className={`group relative h-12 px-3 sm:px-4 rounded-full flex items-center gap-2 transition-all cursor-pointer ${
-                portalActive
-                  ? "bg-amber-400 text-slate-950 font-semibold shadow-lg shadow-amber-400/30"
-                  : "bg-gradient-to-r from-amber-500/20 to-emerald-500/20 hover:from-amber-500/30 hover:to-emerald-500/30 border border-amber-400/40 text-amber-200"
-              }`}
-            >
-              <Compass
-                className={`w-5 h-5 ${
-                  portalActive
-                    ? "animate-spin text-slate-950"
-                    : "text-amber-300 group-hover:rotate-45 transition-transform"
-                }`}
-              />
-              <span className="text-xs font-semibold whitespace-nowrap hidden sm:inline">
-                Step Inside
-              </span>
-              {portalInvite && !portalActive && (
-                <span className="absolute -top-1 -right-1 w-3 h-3 rounded-full bg-amber-400 animate-ping" />
-              )}
+            <button type="button" onClick={() => setActionsOpen(true)}
+              aria-label="More call actions" title="More call actions"
+              className="relative w-12 h-12 rounded-full bg-white/15 hover:bg-white/25 text-white flex items-center justify-center cursor-pointer">
+              <MoreHorizontal className="w-5 h-5" />
+              {portalInvite && <span className="absolute top-2 right-2 w-2 h-2 rounded-full bg-accent-400" />}
             </button>
 
             <div className="w-px h-7 bg-white/15 mx-0.5" />
@@ -889,6 +851,21 @@ export const CallStage: React.FC<CallStageProps> = ({
               <span className="hidden sm:inline">End</span>
             </button>
           </div>
+
+          <Modal open={actionsOpen} onClose={() => setActionsOpen(false)} label="More call actions">
+            <div className="w-full max-w-sm rounded-3xl border border-white/15 bg-[#151411] p-5 shadow-2xl">
+              <div className="flex items-center justify-between mb-3">
+                <h2 className="font-semibold text-white">More call actions</h2>
+                <button type="button" onClick={() => setActionsOpen(false)} aria-label="Close call actions" className="ui-button"><X className="w-5 h-5" /></button>
+              </div>
+              <div className="grid gap-2">
+                <button type="button" className="ui-button justify-start" onClick={() => { setActionsOpen(false); handleTakePhotoTogether(); }}><Camera className="w-4 h-4" />Take a photo together</button>
+                <button type="button" className="ui-button justify-start" onClick={() => { setActionsOpen(false); setPortalActive(true); }}><Compass className="w-4 h-4" />Step into their world</button>
+                {onAskForSketch && <button type="button" disabled={isGeneratingArtifact} className="ui-button justify-start" onClick={() => { setActionsOpen(false); onAskForSketch(); }}><Feather className="w-4 h-4" />Ask for a sketch</button>}
+                <button type="button" className="ui-button justify-start" onClick={() => { setActionsOpen(false); onFlipCamera(); }}><RefreshCw className="w-4 h-4" />Flip camera</button>
+              </div>
+            </div>
+          </Modal>
 
           {/* Fullscreen Interactive World Portal Overlay */}
           {portalActive && (

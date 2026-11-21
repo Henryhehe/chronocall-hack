@@ -38,3 +38,13 @@ Model availability, browser permissions, audio hardware, and WebRTC media are no
 ## Museum AR
 
 Open `/museum`; verify the Washington portrait and curatorial controls load, and the link back opens the original workspaces. In demo mode, check that AI requests show the unavailable message. With a real key, test a portrait upload, camera anchor tracking, text response, voice start/stop, and a mobile QR link that opens `/museum` over HTTPS. Confirm the original `/ws/live` voice still works independently. These real-model and browser checks have not been automated.
+
+
+## Integrated historical call features
+
+1. Restart the server after merging. In demo mode, open `/facetime`, choose **Find artwork**, search Washington, switch artwork filters, and select an alternative. The call should start only after selection by default. Close the dialog during search/download and confirm no late call opens. Test Escape and keyboard focus restoration.
+2. Start a demo call. At a 375px viewport, confirm the six primary controls fit. Open **More call actions**, take a photo together, retake it, download it, and close with Escape. Confirm retake produces one request and pending work stops updating the dialog after closure.
+3. Use **Step into their world** and return to the call. Demo mode must explain any unavailable live streaming. Ask for a sketch and confirm the local sample appears and downloads. End the call during generation; no late keepsake should appear.
+4. Open chat and use **Show Object (Demo)**. Confirm the camera annotation is visible and dismissible. Check captions, chat, mic, camera, flip camera, and end-call behavior independently.
+5. With a real key, rehearse museum artwork retrieval, caller camera inspection, the world portal, selfie and sketch generation. Expand the call details to inspect grounding. Verify one Decisions API request per completed live turn, with no duplicate `/api/facetime/decision` request from the browser. Text fallback should still use the HTTP endpoint. Model failures must leave the call usable.
+6. Confirm `/`, `/workspaces`, `/museum`, and `/facetime` remain reachable after the rollup. Repeat the production check with `npm run check` outside restricted environments.

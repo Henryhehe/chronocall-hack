@@ -269,3 +269,10 @@ Historical video calls are available at `/facetime` (also linked from Discover),
 - Keep one main action per section. Model/cadence options live in visual discovery’s **Settings**; visual effects, guiding questions, scene settings, and character appearance expand on demand.
 - Use `Modal` for pop-ups to retain native focus containment, Escape dismissal, and focus restoration. Give icon-only controls accessible names and aim for 44px touch targets.
 - Check desktop and phone widths for navigation, camera empty states, world controls, notebook, conversation drawers, and dialogs. Provider-dependent voice/video needs a separate live check.
+
+
+### Historical call feature rollup
+
+At `/facetime`, use **Find artwork** to choose a museum portrait or sculpture. During a call, **More call actions** offers a photo together, a world portal, a keepsake sketch, and camera flipping. Show & Tell annotates objects seen by the character; call details expose grounding telemetry. Live grounding shares one evaluation with character reply checks. Demo mode uses sample artwork, postcards, and sketches; live voice, vision, and world streaming require the configured services.
+
+Restart the development server after merging these features so the new HTTP routes load. See [feature integration notes](docs/BRANCH_INTEGRATION.md#feature-rollup--2026-11-21) and [manual checks](docs/SMOKE_TEST.md#integrated-historical-call-features) for branch sources and remaining validation.

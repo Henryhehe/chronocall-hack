@@ -53,7 +53,7 @@ git merge --no-ff --no-commit origin/demi
 
 Resolve conflicts by comparing intended behavior on both sides. For updates still using Demi's old paths, compare its new commits against the already integrated Demi commit (`git diff 70cb42e..origin/demi -- <path>` for the first follow-up), then apply those changes to the mapped paths. Use the newest integrated Demi commit as the comparison baseline on subsequent merges. Do not resurrect obsolete root app/server files or drop existing workspaces to make the merge pass. Do not use a blanket `ours`/`theirs` resolution: it can silently discard new work.
 
-If dependencies changed, combine package requirements and run `npm install` to regenerate the single Bun lockfile. Otherwise use a frozen install. Avoid hand-editing dependency versions to work around connectivity failures.
+If dependencies changed, combine package requirements and run `npm install` to regenerate `package-lock.json`. Otherwise use `npm ci`. Avoid hand-editing dependency versions to work around connectivity failures.
 
 ```bash
 npm install
@@ -83,3 +83,23 @@ Validation: TypeScript, eight Node regression tests, production frontend build, 
 Merged main `ce14671`, characters `48f1c77`, FaceTime `ff06f36`, and Demi `fa46fdc`. Demi perspective tracking is in the museum feature; `PortraitStage.tsx` retains portrait/upload mode and `ARPortraitStage.tsx` provides the new camera mode. Voice remains at `/ws/museum`; QR links retain `/museum`. FaceTime is at `/facetime`, preserving the discovery root. npm setup, CI, and Docker are aligned; Node 24 remains the tested runtime. Removed the unused direct esbuild 0.25 dependency, which conflicted with Vite 8’s optional peer range.
 
 Validation: TypeScript, all 16 regression tests, and production build pass. Generated the npm lockfile from installed dependencies. HTTP/WebSocket checks remain blocked by the sandbox localhost restriction; camera, audio, and live models still need browser rehearsal.
+
+
+## Feature rollup — 2026-11-21
+
+Integrated the following fetched branch tips on top of main `2759709`, preserving the simplified launcher, shared navigation, and all existing routes:
+
+| Branch | Source commit | Integrated capability |
+| --- | --- | --- |
+| `characters` | `fbe868d` | Background character research, artwork validation, reply evaluation |
+| `feat/gemini-live-telemetry-cues` | `6b69b95` | Collapsed call telemetry and historical grounding feedback |
+| `feat/facetime-step-into-world` | `404486c` | In-call world portal and invitations |
+| `feat/facetime-chrono-selfie` | `c59aece` | Generated photo postcards with the caller and character |
+| `feat/facetime-show-and-tell` | `7c44ce6` | Camera object annotations and keepsake sketches |
+| `feat/facetime-online-artwork-search` | `8d3292a` | Museum artwork discovery and selection |
+
+`demi`, `feat/facetime-historical-call`, and `chore/contributor-setup` were already included. Source branches are retained.
+
+Conflicts were resolved semantically across shared contracts, the live bridge, HTTP routes, call state, and controls. Live telemetry consumes the character layer's existing Decisions API evaluation, avoiding a duplicate HTTP evaluation. Additional call actions use **More call actions**; artwork selection defaults to manual. The new dialogs use the shared native dialog for keyboard focus and Escape. Closing a search or call invalidates pending work. Artwork downloads validate every redirect, restrict image types, and cap streamed bytes.
+
+Validation: TypeScript, 43 unit tests, production frontend build, and whitespace checks pass. Ten HTTP integration tests cannot bind localhost in the agent environment (`listen EPERM`); production HTTP/WebSocket and camera/real-model behavior still require rehearsal. GitHub DNS is unavailable here, so these are the last fetched branch versions, not a guarantee that the remote has no newer commits. Run `git fetch origin`, integrate any newer remote work, and run `npm run check` in a normal terminal before deployment. Restart the development server after merging to load the new server routes.

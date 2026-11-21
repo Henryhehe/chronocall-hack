@@ -95,6 +95,16 @@ export default function FaceTimeApp() {
   const call = useFaceTimeCall({
     demoMode,
     onError: setErrorMessage,
+    onDecisionPending: () => setVerifyingDecision(true),
+    onDecision: result => {
+      setVerifyingDecision(false);
+      setLatestDecision(result);
+      if (result) recordPipelineEvent({
+        stage: "decisions", model: result.model,
+        label: `${Math.round(result.confidence * 100)}% ${result.verdict.replace("_", " ")}`,
+        status: "done", latencyMs: result.latencyMs,
+      });
+    },
   });
 
   const beginCall = useCallback(
@@ -243,7 +253,9 @@ export default function FaceTimeApp() {
 
   // Asynchronous Decisions API historical grounding whenever the figure finishes a spoken turn
   useEffect(() => {
-    if (phase !== "in-call" || !activeProfile) return;
+    // Live calls receive the shared character evaluation over the socket.
+    if (phase !== "in-call" || !activeProfile ||
+        (call.voiceStatus !== "demo" && call.voiceStatus !== "text-only")) return;
     const latestFigureEntry = [...call.transcripts]
       .reverse()
       .find((t) => t.speaker === "figure" && !t.streaming && t.text.trim().length > 12);
@@ -290,7 +302,7 @@ export default function FaceTimeApp() {
     return () => {
       cancelled = true;
     };
-  }, [activeProfile, call.transcripts, phase, recordPipelineEvent]);
+  }, [activeProfile, call.transcripts, call.voiceStatus, phase, recordPipelineEvent]);
 
   const handleEndCall = useCallback(() => {
     callSeqRef.current++;
@@ -329,7 +341,7 @@ export default function FaceTimeApp() {
         // Fallback gracefully if frame capture fails
       }
     }
-    setSelfieCallerFrame(freshFrame);
+    return freshFrame;
   }, [call.cameraEnabled, call.cameraReady]);
 
   useEffect(() => {

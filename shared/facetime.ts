@@ -225,6 +225,8 @@ export type FaceTimeServerEvent =
       status: "connecting" | "connected" | "closed";
       model?: string;
     }
+  | { type: "turnDecisionPending" }
+  | { type: "turnDecision"; decision: FaceTimeDecisionResult | null }
   | { type: "audio"; data: string }
   | {
       type: "inputTranscript" | "outputTranscript" | "modelText";

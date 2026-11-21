@@ -4,6 +4,7 @@ import { captureMediaFrame } from "../../../utils/canvas";
 import type {
   CallTranscriptMessage,
   FaceTimePortalInvite,
+  FaceTimeDecisionResult,
   FaceTimeArtifactRequest,
   FaceTimeArtifactResult,
   FaceTimeCallerAnnotation,
@@ -31,6 +32,8 @@ interface UseFaceTimeCallOptions {
   onReaction?: (cue: FaceTimeReactionCue) => void;
   onPortalInvite?: (portal: FaceTimePortalInvite) => void;
   onConnected?: () => void;
+  onDecisionPending?: () => void;
+  onDecision?: (decision: FaceTimeDecisionResult | null) => void;
   onError?: (msg: string | null) => void;
 }
 
@@ -76,6 +79,7 @@ export function useFaceTimeCall(options: UseFaceTimeCallOptions) {
   optionsRef.current = options;
 
   const sessionRef = useRef<ActiveCallSession | null>(null);
+  const artifactRequestRef = useRef<AbortController | null>(null);
   const profileRef = useRef<HistoricalProfile | null>(null);
   const speechLevelRef = useRef<number>(0);
   const demoSpeechUntilRef = useRef<number>(0);
@@ -287,10 +291,14 @@ export function useFaceTimeCall(options: UseFaceTimeCallOptions) {
     async (artifactReq: FaceTimeArtifactRequest) => {
       const profile = profileRef.current;
       if (!profile) return;
+      artifactRequestRef.current?.abort();
+      const controller = new AbortController();
+      artifactRequestRef.current = controller;
       setIsGeneratingArtifact(true);
       setArtifactLoadingTitle(artifactReq.title);
       try {
         const res = await fetch("/api/facetime/artifact", {
+          signal: controller.signal,
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -309,6 +317,7 @@ export function useFaceTimeCall(options: UseFaceTimeCallOptions) {
           );
         }
         const data = (await res.json()) as FaceTimeArtifactResult;
+        if (controller.signal.aborted) return;
         setActiveArtifact(data);
         appendTranscript(
           "figure",
@@ -316,13 +325,14 @@ export function useFaceTimeCall(options: UseFaceTimeCallOptions) {
           false
         );
       } catch (err) {
+        if (controller.signal.aborted) return;
         optionsRef.current.onError?.(
           err instanceof Error
             ? err.message
             : "Could not complete keepsake sketch."
         );
       } finally {
-        setIsGeneratingArtifact(false);
+        if (!controller.signal.aborted) setIsGeneratingArtifact(false);
       }
     },
     [appendTranscript]
@@ -380,6 +390,9 @@ export function useFaceTimeCall(options: UseFaceTimeCallOptions) {
   );
 
   const stopCall = useCallback(() => {
+    artifactRequestRef.current?.abort();
+    artifactRequestRef.current = null;
+    profileRef.current = null;
     const s = sessionRef.current;
     sessionRef.current = null; // Synchronous detach prevents stale callbacks
     demoSpeechUntilRef.current = 0;
@@ -595,6 +608,10 @@ export function useFaceTimeCall(options: UseFaceTimeCallOptions) {
                   idx === prev.length - 1 ? { ...m, streaming: false } : m
                 )
               );
+            } else if (msg.type === "turnDecisionPending") {
+              optionsRef.current.onDecisionPending?.();
+            } else if (msg.type === "turnDecision") {
+              optionsRef.current.onDecision?.(msg.decision);
             } else if (msg.type === "reaction") {
               setLastReaction(msg.cue);
               optionsRef.current.onReaction?.(msg.cue);
@@ -666,7 +683,7 @@ export function useFaceTimeCall(options: UseFaceTimeCallOptions) {
         optionsRef.current.onConnected?.();
       }
     },
-    [appendTranscript, startUserCamera, stopCall]
+    [appendTranscript, requestArtifact, startUserCamera, stopCall]
   );
 
   const sendMessage = useCallback(

@@ -318,7 +318,7 @@ export async function searchOnlineArtworksForFigure(params: {
 export function isAllowedArtworkUrl(rawUrl: string): boolean {
   try {
     const parsed = new URL(rawUrl);
-    if (parsed.protocol !== "https:") return false;
+    if (parsed.protocol !== "https:" || parsed.username || parsed.password || parsed.port) return false;
     return ALLOWED_IMAGE_HOSTS.has(parsed.hostname.toLowerCase());
   } catch {
     return false;
@@ -334,24 +334,58 @@ export async function fetchAllowedArtworkImage(
     );
   }
 
-  const res = await fetchWithTimeout(rawUrl, 8000);
-  if (!res.ok) {
-    throw new Error(`Could not download artwork image (HTTP ${res.status}).`);
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 8000);
+  const maxBytes = 8 * 1024 * 1024;
+  try {
+    let url = rawUrl;
+    for (let redirects = 0; redirects <= 3; redirects++) {
+      if (!isAllowedArtworkUrl(url)) throw new Error("Artwork redirect is not from an allowed museum host.");
+      const res = await fetch(url, {
+        redirect: "manual",
+        signal: controller.signal,
+        headers: { "User-Agent": USER_AGENT, Accept: "image/jpeg, image/png, image/webp" },
+      });
+      if (res.status >= 300 && res.status < 400) {
+        await res.body?.cancel();
+        const location = res.headers.get("location");
+        if (!location) throw new Error("Artwork redirect has no location.");
+        url = new URL(location, url).href;
+        continue;
+      }
+      const contentType = (res.headers.get("content-type") ?? "").split(";")[0].trim().toLowerCase();
+      if (!res.ok || !["image/jpeg", "image/png", "image/webp"].includes(contentType)) {
+        await res.body?.cancel();
+        throw new Error("Artwork URL must return a JPEG, PNG, or WebP image.");
+      }
+      if (Number(res.headers.get("content-length")) > maxBytes) {
+        await res.body?.cancel();
+        throw new Error("Artwork image exceeds the 8MB limit.");
+      }
+      if (!res.body) throw new Error("Artwork image is empty.");
+      const reader = res.body.getReader();
+      const chunks: Uint8Array[] = [];
+      let size = 0;
+      try {
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          size += value.byteLength;
+          if (size > maxBytes) throw new Error("Artwork image exceeds the 8MB limit.");
+          chunks.push(value);
+        }
+      } finally {
+        await reader.cancel().catch(() => {});
+        reader.releaseLock();
+      }
+      if (!size) throw new Error("Artwork image is empty.");
+      const buffer = Buffer.concat(chunks);
+      return { buffer, mimeType: contentType, dataUrl: `data:${contentType};base64,${buffer.toString("base64")}` };
+    }
+    throw new Error("Artwork image has too many redirects.");
+  } finally {
+    clearTimeout(timer);
   }
-
-  const contentType = (res.headers.get("content-type") ?? "image/jpeg").split(";")[0].trim();
-  if (!contentType.startsWith("image/")) {
-    throw new Error("Remote artwork URL did not return an image.");
-  }
-
-  const arr = await res.arrayBuffer();
-  if (arr.byteLength === 0 || arr.byteLength > 8 * 1024 * 1024) {
-    throw new Error("Artwork image size is empty or exceeds the 8MB limit.");
-  }
-
-  const buffer = Buffer.from(arr);
-  const dataUrl = `data:${contentType};base64,${buffer.toString("base64")}`;
-  return { buffer, mimeType: contentType, dataUrl };
 }
 
 export function buildDemoArtworkSearch(

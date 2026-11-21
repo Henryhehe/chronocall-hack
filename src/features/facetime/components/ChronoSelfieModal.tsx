@@ -1,3 +1,4 @@
+import { Modal } from "../../../app/components/Modal";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
   Camera,
@@ -16,7 +17,7 @@ export interface ChronoSelfieModalProps {
   profile: HistoricalProfile;
   callerImageBase64?: string;
   figureImageBase64?: string;
-  onTakeAnother?: () => void;
+  onTakeAnother?: () => string | undefined;
 }
 
 function playShutterSound() {
@@ -140,6 +141,7 @@ export const ChronoSelfieModal: React.FC<ChronoSelfieModalProps> = ({
         }
       } finally {
         window.clearTimeout(flashTimeout);
+        if (!ac.signal.aborted) setFlash(false);
       }
     },
     [profile, callerImageBase64, figureImageBase64]
@@ -157,11 +159,12 @@ export const ChronoSelfieModal: React.FC<ChronoSelfieModalProps> = ({
       setError(null);
       setDownloaded(false);
     }
+    return () => { abortControllerRef.current?.abort(); };
   }, [open, takeSelfie]);
 
   const handleRetake = () => {
-    onTakeAnother?.();
-    void takeSelfie();
+    const freshFrame = onTakeAnother?.();
+    void takeSelfie(freshFrame ?? "");
   };
 
   const handleDownload = () => {
@@ -188,7 +191,7 @@ export const ChronoSelfieModal: React.FC<ChronoSelfieModalProps> = ({
   if (!open) return null;
 
   return (
-    <>
+    <Modal open={open} onClose={onClose} label="Photo together">
       {/* Full-bleed Camera Flash Animation */}
       <div
         className={`fixed inset-0 z-50 bg-white pointer-events-none transition-opacity duration-300 ease-out ${
@@ -197,7 +200,7 @@ export const ChronoSelfieModal: React.FC<ChronoSelfieModalProps> = ({
       />
 
       {/* Modal Backdrop */}
-      <div className="fixed inset-0 z-40 bg-black/80 backdrop-blur-2xl flex items-center justify-center p-4 sm:p-6 select-none overflow-y-auto">
+      <div className="w-full flex items-center justify-center select-none">
         <div className="relative w-full max-w-sm sm:max-w-md my-auto flex flex-col items-center">
           {/* Top Bar with Dismiss and Title */}
           <div className="w-full flex items-center justify-between mb-3 px-2 text-white">
@@ -356,6 +359,6 @@ export const ChronoSelfieModal: React.FC<ChronoSelfieModalProps> = ({
           )}
         </div>
       </div>
-    </>
+    </Modal>
   );
 };

@@ -3,8 +3,7 @@
 //   1. observe(event)   inside sendSafe: reads transcripts and turn ends from events already sent
 //   2. prepare(profile) after the profile is read: adds the general character guide to the persona
 //   3. start()          after the greeting: starts background research (quick, then deep)
-// Its own events go to the client directly, so shared/facetime.ts is unchanged; clients that don't
-// know them ignore them.
+// Events go directly to the client; grounding events also feed the shared call telemetry.
 
 import { WebSocket } from 'ws';
 import { getGeminiClient } from '../services/gemini/client.ts';
@@ -19,7 +18,8 @@ export type CharacterServerEvent =
   | { type: 'research'; stage: ResearchStage; facts: number; sources: number; grounded: boolean; dropped: number; ms: number }
   | { type: 'researchFailed'; stage: ResearchStage; message: string }
   | { type: 'replyCheck'; passed: boolean; failed: string[]; scores: Record<string, number>; latencyMs: number }
-  | { type: 'turnDecision'; decision: TurnDecision };
+  | { type: 'turnDecisionPending' }
+  | { type: 'turnDecision'; decision: TurnDecision | null };
 
 interface LiveSessionLike {
   sendClientContent(params: { turns: { role: string; parts: { text: string }[] }[]; turnComplete: boolean }): void;
@@ -35,9 +35,11 @@ export function createCharacterLayer(opts: {
   let profile: HistoricalProfile | null = null;
   let spoken = '';
   let heard = '';
+  let evaluationSeq = 0;
+  let correctionRequested = false;
 
   const send = (event: CharacterServerEvent) => {
-    if (opts.clientWs.readyState === WebSocket.OPEN) opts.clientWs.send(JSON.stringify(event));
+    if (!opts.isClosed() && opts.clientWs.readyState === WebSocket.OPEN) opts.clientWs.send(JSON.stringify(event));
   };
   const note = (text: string, turnComplete: boolean) => {
     const session = opts.getSession();
@@ -59,7 +61,10 @@ export function createCharacterLayer(opts: {
 
     /** Called with every event the bridge sends: collects transcripts and evaluates each finished turn. */
     observe(event: { type: string; text?: string }) {
-      if (event.type === 'inputTranscript' && event.text) heard += event.text;
+      if (event.type === 'inputTranscript' && event.text) {
+        heard += event.text;
+        correctionRequested = false;
+      }
       else if (event.type === 'outputTranscript' && event.text) spoken += event.text;
       else if (event.type === 'turnComplete') {
         const utterance = spoken.trim();
@@ -67,15 +72,24 @@ export function createCharacterLayer(opts: {
         spoken = '';
         heard = '';
         if (!utterance || !profile) return;
-        void evaluateTurn(getGeminiClient(), {
+        const currentProfile = profile;
+        const seq = ++evaluationSeq;
+        send({ type: 'turnDecisionPending' });
+        void Promise.resolve().then(() => evaluateTurn(getGeminiClient(), {
           utterance,
           userPrompt,
-          instructions: profile.systemPersona,
-          speaker: `${profile.name} (${profile.title}, ${profile.era}, ${profile.location})`,
-        }).then(({ checks, decision }) => {
+          instructions: currentProfile.systemPersona,
+          speaker: `${currentProfile.name} (${currentProfile.title}, ${currentProfile.era}, ${currentProfile.location})`,
+        })).then(({ checks, decision }) => {
+          if (seq !== evaluationSeq || opts.isClosed()) return;
           send({ type: 'replyCheck', passed: checks.passed, failed: checks.failed, scores: checks.scores, latencyMs: checks.latencyMs });
-          if (decision) send({ type: 'turnDecision', decision });
-          if (!checks.passed) note(correctionNote(checks.failed), true);
+          send({ type: 'turnDecision', decision });
+          if (!checks.passed && !correctionRequested) {
+            correctionRequested = true;
+            note(correctionNote(checks.failed), true);
+          }
+        }).catch(() => {
+          if (seq === evaluationSeq) send({ type: 'turnDecision', decision: null });
         });
       }
     },
