@@ -231,13 +231,13 @@ export default function FaceTimeApp() {
         />
       )}
 
-      <PrintOfferModal {...printOffer} />
-
       <ArtworkScannerModal
         open={scannerOpen}
         onClose={() => setScannerOpen(false)}
         onConfirmCall={handleConfirmScannedCall}
       />
+
+      <PrintOfferModal {...printOffer} />
     </>
   );
 }
