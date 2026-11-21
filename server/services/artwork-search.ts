@@ -10,6 +10,7 @@ import {
 
 const ALLOWED_IMAGE_HOSTS = new Set([
   "upload.wikimedia.org",
+  "thumb.wikimedia.org",
   "commons.wikimedia.org",
   "images.metmuseum.org",
   "www.artic.edu",

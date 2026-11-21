@@ -51,6 +51,10 @@ test("isAllowedArtworkUrl allows trusted museum HTTPS hosts and blocks arbitrary
     true
   );
   assert.equal(
+    isAllowedArtworkUrl("https://thumb.wikimedia.org/wikipedia/commons/thumb/3/3a/Caesar_by_Rubens.jpg/960px-Caesar_by_Rubens.jpg"),
+    true
+  );
+  assert.equal(
     isAllowedArtworkUrl("https://images.metmuseum.org/CRDImages/ep/original/DP123.jpg"),
     true
   );
