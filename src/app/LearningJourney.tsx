@@ -21,7 +21,7 @@ export function LearningHome({ onNavigate }: { onNavigate: (view: LearningView) 
           <p className="eyebrow">HISTORY, OPEN FOR CONVERSATION</p>
           <h1 id="discovery-title">Meet the past.<br /><em>Ask it anything.</em></h1>
           <p className="hero-description">Explore a portrait, ask its subject a question, and discover the story behind a detail.</p>
-          <div className="hero-actions">
+          <div className="hero-actions"><a href="/facetime">Historical video call <ArrowRight size={17} /></a>
             <button className="learning-primary" onClick={() => onNavigate('museum')}>Explore the portrait <ArrowRight size={18} /></button>
             <a href="#experiences">See all experiences <span aria-hidden="true">↗</span></a>
           </div>

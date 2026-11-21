@@ -1,4 +1,5 @@
 import { attachMuseumBridge } from "./museum.ts";
+import { attachFaceTimeBridge } from "./live/facetime-bridge.ts";
 import http from "node:http";
 import { existsSync } from "node:fs";
 import path from "node:path";
@@ -18,6 +19,7 @@ async function startServer() {
   const server = http.createServer(app);
   const live = attachLiveBridge(server, config.demoMode);
   const museumLive = attachMuseumBridge(server, config.demoMode);
+  const facetimeLive = attachFaceTimeBridge(server, config.demoMode);
   let closeVite: (() => Promise<void>) | undefined;
 
   if (!config.production) {
@@ -49,6 +51,8 @@ async function startServer() {
     live.close();
     for (const socket of museumLive.clients) socket.close(1001, "Server shutting down");
     museumLive.close();
+    for (const socket of facetimeLive.clients) socket.close(1001, "Server shutting down");
+    facetimeLive.close();
     await closeVite?.();
     server.close(() => process.exit(0));
     setTimeout(() => process.exit(0), 3000).unref();
