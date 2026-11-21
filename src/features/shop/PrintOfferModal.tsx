@@ -17,14 +17,17 @@ export function PrintOfferModal(props: PrintOfferState) {
   const [buying, setBuying] = useState<string | null>(null);
   const [checkout, setCheckout] = useState<{ offer: PrintOffer; view: CheckoutView } | null>(null);
   const [buyError, setBuyError] = useState<string | null>(null);
+  // When the checkout can't be opened here, a link the visitor taps (phones block tabs opened after a wait).
+  const [storeLink, setStoreLink] = useState<{ url: string; seller: string } | null>(null);
 
   useEffect(() => {
-    if (open) { setCheckout(null); setBuyError(null); setBuying(null); }
+    if (open) { setCheckout(null); setBuyError(null); setBuying(null); setStoreLink(null); }
   }, [open, artworkTitle]);
 
   const buy = async (offer: PrintOffer) => {
     setBuying(offer.variantId);
     setBuyError(null);
+    setStoreLink(null);
     try {
       const res = await fetch("/api/shop/checkout", {
         method: "POST",
@@ -37,8 +40,8 @@ export function PrintOfferModal(props: PrintOfferState) {
     } catch (err) {
       // Fall back to the store's own checkout link or product page from the catalog.
       const url = offer.checkoutUrl || offer.productUrl;
-      if (url) window.open(url, "_blank", "noopener,noreferrer");
-      else setBuyError(err instanceof Error ? err.message : String(err));
+      setBuyError(url ? "This store's checkout couldn't open here." : err instanceof Error ? err.message : String(err));
+      if (url) setStoreLink({ url, seller: offer.seller });
     } finally {
       setBuying(null);
     }
@@ -182,6 +185,16 @@ export function PrintOfferModal(props: PrintOfferState) {
                 ))}
               </ul>
               {buyError && <p className="mt-3 text-xs text-amber-200">{buyError}</p>}
+              {storeLink && (
+                <a
+                  href={storeLink.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="mt-2 inline-flex items-center gap-2 px-4 py-2.5 rounded-lg bg-white text-slate-950 font-semibold text-sm"
+                >
+                  Buy on {storeLink.seller}'s site <ExternalLink className="w-4 h-4" />
+                </a>
+              )}
               {result?.warnings.map((w, i) => (
                 <p key={i} className="mt-2 text-xs text-amber-200">{w}</p>
               ))}

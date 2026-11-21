@@ -672,11 +672,11 @@ export async function respondToFaceTimeText(params: {
   const speaker = `${params.profile.name} (${params.profile.era}, ${params.profile.location})`;
 
   let reply = await generate();
-  let { checks } = await evaluateTurn(ai, { utterance: reply, userPrompt: params.message, instructions: persona, speaker });
+  let { checks } = await evaluateTurn(ai, { utterance: reply, userPrompt: params.message, instructions: persona, speaker, moment: params.profile.era });
   let retried = false;
   if (checks.status === "flagged") {
     const retry = await generate(correctionNote(checks.failed));
-    const second = await evaluateTurn(ai, { utterance: retry, userPrompt: params.message, instructions: persona, speaker });
+    const second = await evaluateTurn(ai, { utterance: retry, userPrompt: params.message, instructions: persona, speaker, moment: params.profile.era });
     retried = true;
     if (retry && second.checks.failed.length < checks.failed.length) {
       reply = retry;
@@ -705,6 +705,7 @@ export async function evaluateHistoricalTurnDecision(params: {
     userPrompt: params.userPrompt,
     instructions: profile.systemPersona,
     speaker: `${profile.name} (${profile.era}, ${profile.location})`,
+    moment: profile.era,
   });
   return result.decision ?? {
     verdict: 'unavailable', confidence: 0, probabilities: {},

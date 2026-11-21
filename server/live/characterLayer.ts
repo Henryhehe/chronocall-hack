@@ -79,6 +79,7 @@ export function createCharacterLayer(opts: {
           userPrompt,
           instructions: currentProfile.systemPersona,
           speaker: `${currentProfile.name} (${currentProfile.title}, ${currentProfile.era}, ${currentProfile.location})`,
+          moment: currentProfile.era,
         })).then(({ checks, decision }) => {
           if (seq !== evaluationSeq || opts.isClosed()) return;
           send({ type: 'replyCheck', status: checks.status, passed: checks.passed, failed: checks.failed, scores: checks.scores, latencyMs: checks.latencyMs, utterance, visitorMessage: userPrompt, turnId: seq, correctionRequested: checks.status === 'flagged' && !correctionRequested });

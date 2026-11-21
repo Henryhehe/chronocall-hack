@@ -92,6 +92,7 @@ export const OnlineArtworkModal: React.FC<OnlineArtworkModalProps> = ({
 
       try {
         let referenceDataUrl: string | undefined;
+        let previewFromFetch: string | undefined;
         if (artwork?.imageUrl) {
           const fetchRes = await fetch("/api/facetime/artwork-fetch", {
             method: "POST",
@@ -102,8 +103,12 @@ export const OnlineArtworkModal: React.FC<OnlineArtworkModalProps> = ({
             const fetched = (await fetchRes.json()) as {
               imageDataUrl?: string;
             };
-            if (fetched.imageDataUrl) {
+            // Only real image data can be sent as a reference image. A same-origin proxy address
+            // (the demo Washington artwork) is still a valid picture to show, so it goes to the preview.
+            if (fetched.imageDataUrl?.startsWith("data:image/")) {
               referenceDataUrl = fetched.imageDataUrl;
+            } else if (fetched.imageDataUrl) {
+              previewFromFetch = fetched.imageDataUrl;
             }
           }
         }
@@ -114,6 +119,7 @@ export const OnlineArtworkModal: React.FC<OnlineArtworkModalProps> = ({
           artist: artwork?.artist ?? baseProfile.artist,
           previewImageUrl:
             referenceDataUrl ||
+            previewFromFetch ||
             (artwork?.thumbnailUrl
               ? getDisplayImageSrc(artwork.thumbnailUrl)
               : baseProfile.previewImageUrl),

@@ -29,7 +29,7 @@ const shareKey = (p: { utterance: string; speaker?: string; instructions?: strin
 
 export function evaluateTurn(
   ai: GoogleGenAI,
-  p: { utterance: string; instructions?: string; userPrompt?: string; speaker?: string },
+  p: { utterance: string; instructions?: string; userPrompt?: string; speaker?: string; moment?: string },
 ): Promise<TurnEvaluation> {
   const key = shareKey(p);
   const now = Date.now();
@@ -47,7 +47,7 @@ export function evaluateTurn(
 
 async function runEvaluation(
   ai: GoogleGenAI,
-  p: { utterance: string; instructions?: string; userPrompt?: string; speaker?: string },
+  p: { utterance: string; instructions?: string; userPrompt?: string; speaker?: string; moment?: string },
 ): Promise<TurnEvaluation> {
   const t0 = Date.now();
   const none: TurnEvaluation = { checks: { passed: false, status: 'unavailable', scores: {}, failed: [], latencyMs: 0 }, decision: null };
@@ -55,6 +55,7 @@ async function runEvaluation(
   try {
     const input = [
       p.speaker ? `SPEAKER: ${p.speaker}` : '',
+      p.moment ? `SPEAKER'S MOMENT: around ${p.moment}. They know nothing that happened after it, including their own later life.` : '',
       p.instructions ? `INSTRUCTIONS GIVEN TO THE SPEAKER:\n${p.instructions}` : '',
       p.userPrompt ? `VISITOR SAID:\n${p.userPrompt}` : '',
       `REPLY:\n${p.utterance}`,
