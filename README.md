@@ -87,3 +87,5 @@ Read [CONTRIBUTING.md](CONTRIBUTING.md) before branching. See the [architecture 
 The avatar uses a photo texture and keyboard movement; full body/face retargeting is not implemented. Three.js scenes and Genie video worlds are separate engines. Session/history state resets on reload. Authentication and public-use rate limiting are not implemented.
 
 Original AI Studio app: https://ai.studio/apps/a8853fcf-4129-461b-8257-8266d72421cb
+
+Branch maintainers: follow the [integration guide](docs/BRANCH_INTEGRATION.md) for future Demi updates and safe merges into main.
