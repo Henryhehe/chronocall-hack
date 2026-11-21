@@ -13,6 +13,7 @@ import {
   type LiveProfile,
   type IdentifiedSubject,
 } from '../src/features/museum/data/liveResearch.ts';
+import { checkReply, correctionNote, type ReplyCheckResult } from './services/gemini/replyChecks.ts';
 function createGeminiClient(apiVersion?: string) {
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) {
@@ -306,18 +307,36 @@ If no portrait or figure is clearly visible, set detected to false and explain b
         { role: 'user', parts: [{ text: message }] },
       ];
 
-      const textResponse = await ai.models.generateContent({
-        model: 'gemini-4-hydrogen',
-        contents,
-        config: {
-          systemInstruction:
-            systemPersona ||
-            'You are a historical figure speaking from your museum portrait in 2-4 vivid, historically grounded sentences.',
-          thinkingConfig: { thinkingLevel: ThinkingLevel.LOW },
-        },
-      });
+      const instructions =
+        systemPersona ||
+        'You are a historical figure speaking from your museum portrait in 2-4 vivid, historically grounded sentences.';
+      const generate = async (extra = '') =>
+        (
+          (
+            await ai.models.generateContent({
+              model: 'gemini-4-hydrogen',
+              contents,
+              config: {
+                systemInstruction: extra ? `${instructions}\n\n${extra}` : instructions,
+                thinkingConfig: { thinkingLevel: ThinkingLevel.LOW },
+              },
+            })
+          ).text ?? ''
+        ).trim();
 
-      const replyText = (textResponse.text ?? '').trim();
+      // Check the reply with the Decisions API; if a check fails, regenerate once with a correction.
+      let replyText = await generate();
+      let checks: ReplyCheckResult = await checkReply(ai, { reply: replyText, instructions, visitorMessage: message });
+      let retried = false;
+      if (!checks.passed) {
+        const retry = await generate(correctionNote(checks.failed));
+        const retryChecks = await checkReply(ai, { reply: retry, instructions, visitorMessage: message });
+        retried = true;
+        if (retry && (retryChecks.passed || retryChecks.failed.length < checks.failed.length)) {
+          replyText = retry;
+          checks = retryChecks;
+        }
+      }
       let audioBase64: string | null = null;
 
       if (includeAudio && replyText) {
@@ -361,6 +380,7 @@ If no portrait or figure is clearly visible, set detected to false and explain b
         replyText,
         audioBase64,
         mimeType: audioBase64 ? 'audio/wav' : null,
+        replyChecks: { ...checks, retried },
       });
     } catch (err) {
       const { status, message } = parseApiError(err);
@@ -378,6 +398,10 @@ export function attachMuseumBridge(server: Server, demoMode = false) {
     let sessionPromise: Promise<Awaited<ReturnType<GoogleGenAI['live']['connect']>>> | null = null;
     let liveSession: Awaited<ReturnType<GoogleGenAI['live']['connect']>> | null = null;
     let isClosing = false;
+    // Reply checks for live voice: collect each spoken turn's transcript and check it when the turn ends.
+    let sessionInstructions = '';
+    let lastVisitorText = '';
+    let turnText = '';
 
     const safeSend = (payload: Record<string, unknown>) => {
       if (clientWs.readyState === WebSocket.OPEN) {
@@ -407,6 +431,11 @@ export function attachMuseumBridge(server: Server, demoMode = false) {
 
           const systemInstruction = `${msg.systemPersona || ''}\n\nMuseum Context: Artwork "${msg.paintingTitle || 'Portrait'}". ${msg.historicalContext || ''}\nSpeak naturally as the living figure inside this painting. Keep answers concise, engaging, and directly responsive to what the visitor asks or points at.`;
 
+          sessionInstructions = systemInstruction;
+          turnText = '';
+          lastVisitorText = '';
+          const checker = createGeminiClient();
+
           sessionPromise = ai.live.connect({
             model: 'gemini-3.8-live',
             config: {
@@ -424,12 +453,14 @@ export function attachMuseumBridge(server: Server, demoMode = false) {
               onmessage: (message: LiveServerMessage) => {
                 const content = message.serverContent;
                 if (content?.inputTranscription?.text) {
+                  lastVisitorText += content.inputTranscription.text;
                   safeSend({
                     type: 'inputTranscript',
                     text: content.inputTranscription.text,
                   });
                 }
                 if (content?.outputTranscription?.text) {
+                  turnText += content.outputTranscription.text;
                   safeSend({
                     type: 'outputTranscript',
                     text: content.outputTranscription.text,
@@ -448,6 +479,23 @@ export function attachMuseumBridge(server: Server, demoMode = false) {
                 }
                 if (content?.turnComplete) {
                   safeSend({ type: 'turnComplete' });
+                  const spoken = turnText.trim();
+                  const visitor = lastVisitorText.trim();
+                  turnText = '';
+                  lastVisitorText = '';
+                  if (spoken) {
+                    void checkReply(checker, { reply: spoken, instructions: sessionInstructions, visitorMessage: visitor }).then(
+                      (result) => {
+                        safeSend({ type: 'replyCheck', ...result });
+                        if (!result.passed && liveSession && !isClosing) {
+                          liveSession.sendClientContent({
+                            turns: [{ role: 'user', parts: [{ text: correctionNote(result.failed) }] }],
+                            turnComplete: true,
+                          });
+                        }
+                      },
+                    );
+                  }
                 }
               },
               onerror: (err: unknown) => {
