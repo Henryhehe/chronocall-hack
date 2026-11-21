@@ -1,10 +1,12 @@
+import type { AllowedVisionModel } from "../../shared/models.ts";
+
 export type SourceMode = 'camera' | 'screen' | 'image';
 
 export type WorkspaceView = 'live' | 'character' | 'genie' | 'log' | 'compare';
 
 export type InspectorTab = 'detections' | 'transcript' | 'settings';
 
-export type VisionModelId = 'gemini-4-hydrogen' | 'gemini-4-neon';
+export type VisionModelId = AllowedVisionModel;
 
 export type VisualFilterId =
   | 'none'
