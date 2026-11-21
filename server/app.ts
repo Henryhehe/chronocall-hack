@@ -1,3 +1,4 @@
+import { createMuseumRouter } from "./museum.ts";
 import express, { type NextFunction, type Request, type Response } from "express";
 import { createVisionRouter } from "./routes/vision.ts";
 import { createCharacterRouter } from "./routes/character.ts";
@@ -11,6 +12,7 @@ export function createApp(options: { services: AiServices; demoMode: boolean; ap
   app.get("/api/health", (_req, res) => {
     res.json({ ok: true, demoMode: options.demoMode, apiKeyConfigured: options.apiKeyConfigured });
   });
+  app.use(createMuseumRouter(options.demoMode));
   app.use(createVisionRouter(options.services));
   app.use(createCharacterRouter(options.services));
   app.use(createWorldRouter(options.services));

@@ -64,3 +64,7 @@ Optional vision inputs include `model`, `focusPrompt` (detection), and `characte
 `tests/*.test.ts` uses Node 24's TypeScript support and test runner for config, voice lifecycle, and fixtures. Integration tests exercise actual Express routes using fixtures. `bun run check` adds TypeScript and Vite checks. CI needs no Gemini secrets.
 
 References: [Live SDK implementation](https://github.com/googleapis/js-genai/blob/main/src/live.ts), [Bun frozen installs](https://bun.sh/docs/pm/cli/install).
+
+## Museum contribution
+
+Demi’s portrait experience is mounted at `/museum`, with its components, data, hooks, types and utilities under `src/features/museum/`. `server/museum.ts` preserves its portrait identification and character response handlers (`POST /api/identify-portrait`, `POST /api/character/respond`), mobile URL lookup (`GET /api/app-url`), and separate `/ws/museum` voice protocol. It shares the same server, key configuration and lifecycle. Demo mode rejects museum model requests with 503 and closes voice with an explanatory error. Museum voice still has its own lifecycle hook; its protocol differs from the original shared voice hook.

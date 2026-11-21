@@ -28,3 +28,7 @@ Run on the presentation laptop after merging. Record pass/fail and the commit te
 Stop development, run `bun run build`, then `bun run start`. Verify health, navigation, detection, and voice on the same port. Keep a short recording of a successful flow as a fallback.
 
 Model availability, browser permissions, audio hardware, and WebRTC media are not covered by fixture tests.
+
+## Museum AR
+
+Open `/museum`; verify the Washington portrait and curatorial controls load, and the link back opens the original workspaces. In demo mode, check that AI requests show the unavailable message. With a real key, test a portrait upload, camera anchor tracking, text response, voice start/stop, and a mobile QR link that opens `/museum` over HTTPS. Confirm the original `/ws/live` voice still works independently. These real-model and browser checks have not been automated.

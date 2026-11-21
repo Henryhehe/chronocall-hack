@@ -17,6 +17,12 @@ Open **http://localhost:3000**. Setup installs locked dependencies and creates `
 
 **Demo mode needs no API key.** Camera previews, uploads, preset worlds, movement, local interactions, and sample scene/object generation work. A banner identifies demo responses. Detection returns no inferred objects; photo transformation retains the original photo. Live voice and Genie streaming are disabled. This mode is for UI development, not demonstrating model quality. Install dependencies before working offline; web fonts fall back to local fonts without a network.
 
+## Museum AR (Demi contribution)
+
+Open **http://localhost:3000/museum** or choose **Museum AR** in the navigation. This workspace includes the Washington portrait anchor, camera/upload recognition, portrait animation, curatorial hotspots, character conversation, and a mobile QR preview. Existing vision and world workspaces remain at `/`.
+
+Museum recognition and conversation require a Gemini key; demo mode returns an explicit unavailable response for these model calls. Camera access on a phone requires an HTTPS deployment. Set `APP_URL` to the public origin if the QR preview cannot infer it correctly. Museum voice uses `/ws/museum`; the original voice bridge remains at `/ws/live`.
+
 ## Use real Gemini features
 
 Add your hackathon key to the ignored `.env.local` file:
@@ -56,6 +62,7 @@ Use `bun run test`, not `bun test`, so the Node test runner is used. `bun run pr
 | Camera, detection controls, filters, logs | `src/features/vision/` |
 | Historical personas and costume overlays | `src/features/character/` |
 | World workspace, Three.js scenes, Genie transport | `src/features/world/` |
+| Museum AR, portrait tracking, character voice | `src/features/museum/`, `server/museum.ts` |
 | Shared microphone/audio/voice lifecycle | `src/features/live/` |
 | HTTP validation and responses | `server/routes/` |
 | Gemini prompts, schemas, model calls | `server/services/gemini/` |

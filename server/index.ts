@@ -1,3 +1,4 @@
+import { attachMuseumBridge } from "./museum.ts";
 import http from "node:http";
 import { existsSync } from "node:fs";
 import path from "node:path";
@@ -16,6 +17,7 @@ async function startServer() {
   const app = createApp({ services, ...config });
   const server = http.createServer(app);
   const live = attachLiveBridge(server, config.demoMode);
+  const museumLive = attachMuseumBridge(server, config.demoMode);
   let closeVite: (() => Promise<void>) | undefined;
 
   if (!config.production) {
@@ -45,6 +47,8 @@ async function startServer() {
     stopping = true;
     for (const socket of live.clients) socket.close(1001, "Server shutting down");
     live.close();
+    for (const socket of museumLive.clients) socket.close(1001, "Server shutting down");
+    museumLive.close();
     await closeVite?.();
     server.close(() => process.exit(0));
     setTimeout(() => process.exit(0), 3000).unref();
