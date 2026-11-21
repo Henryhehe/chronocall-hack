@@ -3,6 +3,7 @@ import { downsampleAndEncodePcm16 } from "../../../utils/audio";
 import { captureMediaFrame } from "../../../utils/canvas";
 import type {
   CallTranscriptMessage,
+  FaceTimePortalInvite,
   FaceTimeReactionCue,
   HistoricalProfile,
 } from "../types";
@@ -25,6 +26,7 @@ interface ActiveCallSession {
 interface UseFaceTimeCallOptions {
   demoMode: boolean;
   onReaction?: (cue: FaceTimeReactionCue) => void;
+  onPortalInvite?: (portal: FaceTimePortalInvite) => void;
   onConnected?: () => void;
   onError?: (msg: string | null) => void;
 }
@@ -97,6 +99,9 @@ export function useFaceTimeCall(options: UseFaceTimeCallOptions) {
   const [transcripts, setTranscripts] = useState<CallTranscriptMessage[]>([]);
   const [liveCaption, setLiveCaption] = useState<string>("");
   const [lastReaction, setLastReaction] = useState<FaceTimeReactionCue | null>(
+    null
+  );
+  const [portalInvite, setPortalInvite] = useState<FaceTimePortalInvite | null>(
     null
   );
 
@@ -245,6 +250,7 @@ export function useFaceTimeCall(options: UseFaceTimeCallOptions) {
     setIsSpeaking(false);
     setLiveCaption("");
     setLastReaction(null);
+    setPortalInvite(null);
     stopUserCamera();
 
     if (!s) return;
@@ -286,6 +292,7 @@ export function useFaceTimeCall(options: UseFaceTimeCallOptions) {
       setTranscripts([]);
       setLiveCaption("");
       setLastReaction(null);
+      setPortalInvite(null);
       setMicMuted(false);
       optionsRef.current.onError?.(null);
 
@@ -449,6 +456,9 @@ export function useFaceTimeCall(options: UseFaceTimeCallOptions) {
             } else if (msg.type === "reaction") {
               setLastReaction(msg.cue);
               optionsRef.current.onReaction?.(msg.cue);
+            } else if (msg.type === "portalInvite") {
+              setPortalInvite(msg.portal);
+              optionsRef.current.onPortalInvite?.(msg.portal);
             } else if (msg.type === "error") {
               optionsRef.current.onError?.(msg.message);
               if (!readyReceived) {
@@ -569,6 +579,9 @@ export function useFaceTimeCall(options: UseFaceTimeCallOptions) {
     transcripts,
     liveCaption,
     lastReaction,
+    portalInvite,
+    clearPortalInvite: () => setPortalInvite(null),
+    setPortalInvite,
     isSendingText,
     cameraEnabled,
     cameraReady,

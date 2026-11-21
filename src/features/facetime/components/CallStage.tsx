@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from "react";
 import {
   Captions,
   CaptionsOff,
+  Compass,
   Loader2,
   MessageSquare,
   Mic,
@@ -22,11 +23,13 @@ import {
   formatConfidencePercent,
   formatDecisionVerdictLabel,
 } from "../../../../shared/facetime.ts";
+import { WorldPortalOverlay } from "./WorldPortalOverlay";
 import type {
   ActiveVideoLayer,
   CallTranscriptMessage,
   FaceTimeDecisionResult,
   FaceTimePhase,
+  FaceTimePortalInvite,
   FaceTimeReactionCue,
   GeminiPipelineEvent,
   HistoricalProfile,
@@ -54,6 +57,8 @@ interface CallStageProps {
   transcripts: CallTranscriptMessage[];
   liveCaption: string;
   lastReaction: FaceTimeReactionCue | null;
+  portalInvite?: FaceTimePortalInvite | null;
+  onDismissPortalInvite?: () => void;
   isSendingText: boolean;
   onSendMessage: (text: string) => void;
   videoEngineMode: VideoEngineMode;
@@ -108,6 +113,8 @@ export const CallStage: React.FC<CallStageProps> = ({
   transcripts,
   liveCaption,
   lastReaction,
+  portalInvite,
+  onDismissPortalInvite,
   isSendingText,
   onSendMessage,
   videoEngineMode,
@@ -125,6 +132,8 @@ export const CallStage: React.FC<CallStageProps> = ({
   const [engineMenuOpen, setEngineMenuOpen] = useState(false);
   const [pipCorner, setPipCorner] = useState<PiPCorner>("top-right");
   const [draftMessage, setDraftMessage] = useState("");
+  const [portalActive, setPortalActive] = useState(false);
+  const [dismissedInvite, setDismissedInvite] = useState(false);
   const [videoTelemetry, setVideoTelemetry] = useState<{
     activeLayer: ActiveVideoLayer;
     label: string;
@@ -136,6 +145,21 @@ export const CallStage: React.FC<CallStageProps> = ({
   });
 
   const transcriptEndRef = useRef<HTMLDivElement | null>(null);
+
+  // Reset portal states on call phase change
+  useEffect(() => {
+    if (phase !== "in-call") {
+      setPortalActive(false);
+      setDismissedInvite(false);
+    }
+  }, [phase]);
+
+  // When a new portal invite arrives, allow toast to show
+  useEffect(() => {
+    if (portalInvite) {
+      setDismissedInvite(false);
+    }
+  }, [portalInvite]);
 
   // Call timer starts when connected
   useEffect(() => {
@@ -384,6 +408,45 @@ export const CallStage: React.FC<CallStageProps> = ({
               >
                 <X className="w-3.5 h-3.5" />
               </button>
+            </div>
+          )}
+
+          {/* Inviting Translucent Toast for World Portal */}
+          {portalInvite && !portalActive && !dismissedInvite && (
+            <div className="absolute top-20 left-1/2 -translate-x-1/2 z-30 max-w-lg w-[92vw] sm:w-auto rounded-2xl bg-black/80 border border-amber-400/50 p-3 sm:px-4 sm:py-3 text-amber-100 backdrop-blur-2xl flex items-center justify-between gap-4 shadow-2xl animate-in fade-in slide-in-from-top-4 duration-300">
+              <div className="flex items-center gap-3 min-w-0">
+                <div className="w-8 h-8 rounded-full bg-amber-400/20 border border-amber-400/40 flex items-center justify-center shrink-0">
+                  <Compass className="w-4 h-4 text-amber-300 animate-spin" />
+                </div>
+                <div className="min-w-0">
+                  <p className="text-xs font-bold text-white truncate">
+                    Step inside {portalInvite.locationName}
+                  </p>
+                  <p className="text-[11px] text-amber-200/80 truncate">
+                    {profile.name} invited you to explore their surroundings
+                  </p>
+                </div>
+              </div>
+              <div className="flex items-center gap-2 shrink-0">
+                <button
+                  type="button"
+                  onClick={() => setPortalActive(true)}
+                  className="px-3.5 py-1.5 rounded-full bg-gradient-to-r from-amber-400 to-amber-500 hover:from-amber-300 hover:to-amber-400 text-slate-950 text-xs font-bold shadow-md cursor-pointer transition-transform active:scale-95"
+                >
+                  Enter Portal →
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setDismissedInvite(true);
+                    onDismissPortalInvite?.();
+                  }}
+                  className="p-1 rounded-full text-slate-400 hover:text-white cursor-pointer"
+                  aria-label="Dismiss portal invite"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
             </div>
           )}
 
@@ -664,6 +727,33 @@ export const CallStage: React.FC<CallStageProps> = ({
               )}
             </button>
 
+            {/* Step Inside World Portal Button */}
+            <button
+              type="button"
+              onClick={() => setPortalActive((v) => !v)}
+              aria-label={portalActive ? "Return to FaceTime view" : "Step inside world"}
+              title="Step Inside World Portal"
+              className={`group relative h-12 px-3 sm:px-4 rounded-full flex items-center gap-2 transition-all cursor-pointer ${
+                portalActive
+                  ? "bg-amber-400 text-slate-950 font-semibold shadow-lg shadow-amber-400/30"
+                  : "bg-gradient-to-r from-amber-500/20 to-emerald-500/20 hover:from-amber-500/30 hover:to-emerald-500/30 border border-amber-400/40 text-amber-200"
+              }`}
+            >
+              <Compass
+                className={`w-5 h-5 ${
+                  portalActive
+                    ? "animate-spin text-slate-950"
+                    : "text-amber-300 group-hover:rotate-45 transition-transform"
+                }`}
+              />
+              <span className="text-xs font-semibold whitespace-nowrap hidden sm:inline">
+                Step Inside
+              </span>
+              {portalInvite && !portalActive && (
+                <span className="absolute -top-1 -right-1 w-3 h-3 rounded-full bg-amber-400 animate-ping" />
+              )}
+            </button>
+
             <div className="w-px h-7 bg-white/15 mx-0.5" />
 
             <button
@@ -677,6 +767,23 @@ export const CallStage: React.FC<CallStageProps> = ({
               <span className="hidden sm:inline">End</span>
             </button>
           </div>
+
+          {/* Fullscreen Interactive World Portal Overlay */}
+          {portalActive && (
+            <WorldPortalOverlay
+              profile={profile}
+              portraitDataUrl={portraitDataUrl}
+              demoMode={demoMode}
+              portalInvite={portalInvite ?? null}
+              onExitPortal={() => setPortalActive(false)}
+              isSpeaking={isSpeaking}
+              liveCaption={liveCaption}
+              voiceStatus={voiceStatus}
+              micMuted={micMuted}
+              onToggleMic={onToggleMic}
+              lastReaction={lastReaction}
+            />
+          )}
         </>
       )}
     </div>

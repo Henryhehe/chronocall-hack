@@ -145,6 +145,11 @@ export function formatConfidencePercent(confidence: number): string {
   return `${Math.round(clamped * 100)}%`;
 }
 
+export interface FaceTimePortalInvite {
+  locationName: string;
+  portalPrompt: string;
+}
+
 export type FaceTimeClientMessage =
   | { type: "start"; profile: HistoricalProfile }
   | { type: "audio" | "video"; data: string }
@@ -163,6 +168,7 @@ export type FaceTimeServerEvent =
     }
   | { type: "interrupted" | "turnComplete" }
   | { type: "reaction"; cue: FaceTimeReactionCue }
+  | { type: "portalInvite"; portal: FaceTimePortalInvite }
   | { type: "error"; message: string };
 
 const VALID_VOICES: ReadonlySet<FaceTimeVoiceName> = new Set([
@@ -305,4 +311,22 @@ export function resolveActiveVideoLayer(params: {
   if (veoReady) return "veo";
   if (genieHasFrame) return "genie";
   return "portrait";
+}
+
+/**
+ * Pure prompt builder for entering the historical figure's 3D Genie 4 world portal.
+ * Prepares a vivid first-person exploration prompt incorporating their location, era, and scene.
+ */
+export function normalizePortalPrompt(
+  profile: HistoricalProfile,
+  rawPrompt?: string
+): string {
+  const clean = rawPrompt?.trim();
+  if (clean && clean.length > 5) {
+    return clean;
+  }
+  if (profile.genieWorldPrompt?.trim()) {
+    return profile.genieWorldPrompt.trim();
+  }
+  return `First-person continuous interactive world exploration walking through ${profile.location} (${profile.era}) where ${profile.name} lives and works, authentic historical architecture, ambient atmospheric lighting, steady smooth camera movement.`;
 }

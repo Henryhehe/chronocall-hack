@@ -3,6 +3,7 @@ import type {
   DecisionVerdict,
   FaceTimeDecisionResult,
   FaceTimeIdentifyResult,
+  FaceTimePortalInvite,
   FaceTimePortraitResult,
   FaceTimeReactionCue,
   FaceTimeVideoJobStatus,
@@ -12,12 +13,14 @@ import type {
   HistoricalProfile,
   VideoEngineMode,
 } from "../../../shared/facetime.ts";
+import { normalizePortalPrompt } from "../../../shared/facetime.ts";
 
 export type {
   ActiveVideoLayer,
   DecisionVerdict,
   FaceTimeDecisionResult,
   FaceTimeIdentifyResult,
+  FaceTimePortalInvite,
   FaceTimePortraitResult,
   FaceTimeReactionCue,
   FaceTimeVideoJobStatus,
@@ -27,6 +30,7 @@ export type {
   HistoricalProfile,
   VideoEngineMode,
 };
+export { normalizePortalPrompt };
 
 export type FaceTimePhase = "launcher" | "ringing" | "in-call";
 
