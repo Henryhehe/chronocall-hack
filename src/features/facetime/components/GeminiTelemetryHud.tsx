@@ -90,24 +90,24 @@ export const GeminiTelemetryHud: React.FC<GeminiTelemetryHudProps> = ({
           : latestDecision?.verdict === "unavailable"
             ? "Unavailable"
             : latestDecision
-            ? "Active"
+            ? "Ready"
             : "Standby",
         latencyMs: latestDecision?.latencyMs ?? decisionEv?.latencyMs,
         highlight: verifyingDecision || Boolean(latestDecision),
       },
       {
-        id: "gemini-4-hydrogen",
+        id: visionEv?.model || "gemini-4-hydrogen",
         role: "Artwork Scan & Persona",
-        status: visionEv?.status === "running" ? "Verifying" : visionEv ? "Ready" : "Standby",
+        status: visionEv?.status === "running" ? "Verifying" : visionEv?.status === "done" || visionEv?.status === "active" ? "Ready" : "Standby",
         latencyMs: visionEv?.latencyMs,
       },
       {
-        id: "gemini-3.1-flash-lite-image",
+        id: portraitEv?.model || "gemini-3.1-flash-lite-image",
         role: "Living Portrait Synthesis",
         status:
           portraitEv?.status === "running"
             ? "Verifying"
-            : portraitEv
+            : portraitEv?.status === "done" || portraitEv?.status === "active"
               ? "Ready"
               : "Standby",
         latencyMs: portraitEv?.latencyMs,
@@ -137,9 +137,9 @@ export const GeminiTelemetryHud: React.FC<GeminiTelemetryHudProps> = ({
     voiceStatus,
   ]);
 
-  const activeCount = modelRows.filter(
-    (m) => m.status === "Streaming" || m.status === "Active" || m.status === "Verifying"
-  ).length;
+  const activeCount = demoMode ? 0 : new Set(modelRows.filter(
+    (m) => m.status === "Streaming" || m.status === "Verifying"
+  ).map(m => m.id)).size;
 
   const isPulsing =
     verifyingDecision ||
@@ -221,7 +221,7 @@ export const GeminiTelemetryHud: React.FC<GeminiTelemetryHudProps> = ({
               </div>
             </div>
             <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-white/[0.08] text-slate-300 border border-white/10">
-              {activeCount} live
+              {demoMode ? 'Demo' : `${activeCount} active models`}
             </span>
           </div>
 

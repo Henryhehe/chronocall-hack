@@ -37,12 +37,12 @@ const expressReactionTool: FunctionDeclaration = {
       gesture: {
         type: Type.STRING,
         description:
-          "Short human gesture, e.g. 'nods warmly', 'leans closer to examine the camera', 'chuckles softly'.",
+          "Small seated gesture within a fixed head-and-shoulders frame, e.g. 'nods warmly', 'raises an eyebrow', 'chuckles softly'. Keep the subject at the same distance from the camera.",
       },
       videoCue: {
         type: Type.STRING,
         description:
-          "Concise natural motion prompt to steer the live video avatar, e.g. 'smiles warmly and leans slightly forward with bright attentive eyes'.",
+          "Concise facial-expression prompt, e.g. 'smiles warmly with bright attentive eyes'. Keep the same fixed close-up, face size, and stationary background. Never request camera movement, zoom, pulling back, a wider shot, or moving away from the caller.",
       },
     },
     required: ["mood", "gesture", "videoCue"],

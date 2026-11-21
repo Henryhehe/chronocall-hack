@@ -1,4 +1,5 @@
 import { CallEvidencePanel } from "./components/CallEvidencePanel";
+import { RehearsalPanel } from "./components/RehearsalPanel";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { ArtworkScannerModal } from "./components/ArtworkScannerModal";
 import { CallLauncher } from "./components/CallLauncher";
@@ -381,6 +382,8 @@ export default function FaceTimeApp() {
           <CallEvidencePanel trace={call.evidence} />
         </details>
       )}
+
+      <div hidden={phase !== "launcher"}><RehearsalPanel trace={call.evidence} /></div>
 
       {(phase === "ringing" || phase === "in-call") && activeProfile && (
         <CallStage

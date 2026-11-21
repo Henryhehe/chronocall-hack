@@ -28,8 +28,8 @@ export function LearningHome({ onNavigate }: { onNavigate: (view: LearningView) 
     <div className="learning-home">
       <section className="learning-hero" aria-labelledby="discovery-title">
         <div className="hero-copy">
-          <p className="eyebrow">A CALL ACROSS CENTURIES</p>
-          <h1 id="discovery-title">Someone in this painting<br /><em>can see your world.</em></h1>
+          <p className="eyebrow">Art, with a point of view</p>
+          <h1 id="discovery-title">The past has<br />a new <span>perspective.</span></h1>
           <p className="hero-description">Scan an artwork, start a live call, and show its subject something from your world. See what they make of it from theirs.</p>
           <div className="hero-actions">
             <a className="learning-primary" href="/facetime">Start a call <ArrowRight size={18} /></a>
@@ -39,14 +39,26 @@ export function LearningHome({ onNavigate }: { onNavigate: (view: LearningView) 
 
         </div>
         <a className="hero-art" href="/facetime" aria-label="Start a call with a historical figure">
-          <img src="/assets/aistudio/washington_fd94f6dd.jpeg" alt="Equestrian portrait of George Washington beneath a dramatic sky" fetchPriority="high" />
-          <span className="art-badge">SCAN · CALL · SHOW</span>
-          <span className="art-label"><span>BRING YOUR WORLD INTO THE CALL</span><strong>“What do you make<br />of this?”</strong><span>Meet a historical figure <ArrowRight size={16} /></span></span>
-          <span className="art-index">EXHIBIT 001 / WASHINGTON</span>
+          {/* Public-domain John Faed painting; original 639 × 900 reproduction from Wikimedia Commons. */}
+          <img
+            src="https://upload.wikimedia.org/wikipedia/commons/7/77/Portrait-of-george-washington-taking-the-salute-at-trenton-john-faed.jpg"
+            alt="Equestrian portrait of George Washington beneath a dramatic sky"
+            width={639}
+            height={900}
+            fetchPriority="high"
+            onError={event => {
+              const fallback = '/assets/aistudio/washington_fd94f6dd.jpeg';
+              if (event.currentTarget.getAttribute('src') !== fallback) {
+                event.currentTarget.src = fallback;
+              }
+            }}
+          />
+          <span className="art-label"><span>A conversation across centuries</span><strong>“What do you make<br />of this?”</strong><span>Meet a historical figure <ArrowRight size={16} /></span></span>
+          <span className="art-index">001 / George Washington</span>
         </a>
       </section>
       <section id="experiences" className="experience-section" aria-labelledby="experiences-title">
-        <div className="section-heading"><div><p className="eyebrow">MORE TO EXPLORE</p><h2 id="experiences-title">Explore the other experiments.</h2></div><p>Start with whatever interests you.</p></div>
+        <div className="section-heading"><div><p className="eyebrow">Keep exploring</p><h2 id="experiences-title">Follow your curiosity.</h2></div><p>A different way into history.</p></div>
         <div className="experience-grid">{experiences.map(e => <button className="experience-card" key={e.id} onClick={() => onNavigate(e.id)}>
           <div className="card-top"><e.icon size={23} /><span>{e.number}</span></div>
           <h3>{e.label}</h3><p>{e.description}</p>

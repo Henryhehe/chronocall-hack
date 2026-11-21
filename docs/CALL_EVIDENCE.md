@@ -10,7 +10,7 @@ Restart the app after updating so the server emits the new research events. Use 
 4. If a reply is flagged, show the original utterance and the correction request. Inspect the following spoken turn to determine whether recovery actually happened.
 5. Download the trace before starting another call. Repeat with another person or difficult input if time permits. Keep failed attempts as well as successful ones.
 
-Use a compact manual log alongside each JSON file: input chosen by whom; expected observable behavior; actual behavior; pass/fail; failure notes; trace filename. Do not turn a handful of trials into a general accuracy claim.
+Use **Demo rehearsal** below the call launcher to record the input, non-builder selection, observed outcome, failure notes and linked retries. Attach the correct trace explicitly. Download the rehearsal report, which retains failures and unassessed attempts and counts each connection's audio timing once. See [final rehearsal and judge handoff](JUDGE_REHEARSAL.md). Do not turn a handful of trials into a general accuracy claim.
 
 ## What the trace supports
 

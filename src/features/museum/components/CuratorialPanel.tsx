@@ -52,7 +52,7 @@ export const CuratorialPanel: React.FC<CuratorialPanelProps> = ({
     <aside className="flex flex-col h-full bg-surface rounded-2xl border border-white/10 overflow-hidden">
       {/* Artwork Title & Unboxed Accession Header */}
       <div className="px-5 pt-5 pb-4 border-b border-white/10">
-        <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px] uppercase tracking-widest text-slate-400">
+        <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-slate-400">
           <span className="font-mono">{artwork.accessionNumber}</span>
           <span aria-hidden="true">·</span>
           <span>{artwork.year}</span>
@@ -60,7 +60,7 @@ export const CuratorialPanel: React.FC<CuratorialPanelProps> = ({
           <span>{artwork.medium}</span>
         </div>
 
-        <h2 className="font-serif text-2xl sm:text-3xl font-semibold text-slate-100 leading-tight mt-1.5 text-balance">
+        <h2 className="font-display text-2xl sm:text-3xl font-semibold text-slate-100 leading-tight mt-1.5 text-balance">
           {artwork.title}
         </h2>
         <p className="text-sm text-slate-300 mt-1">
@@ -232,36 +232,36 @@ export const CuratorialPanel: React.FC<CuratorialPanelProps> = ({
       ) : (
         /* Museum Accession Catalog Dossier */
         <div className="flex-1 overflow-y-auto curatorial-scroll px-5 py-5 space-y-5">
-          <p className="text-sm leading-relaxed text-slate-200 first-letter:text-4xl first-letter:font-serif first-letter:font-semibold first-letter:float-left first-letter:mr-2.5 first-letter:leading-none">
+          <p className="text-sm leading-relaxed text-slate-200">
             {artwork.historicalContext}
           </p>
 
           <dl className="divide-y divide-white/10 border-t border-b border-white/10 text-sm">
             <div className="py-2.5 flex justify-between gap-4">
-              <dt className="text-xs uppercase tracking-wider text-slate-400">Artist / School</dt>
+              <dt className="text-xs font-medium text-slate-400">Artist / School</dt>
               <dd className="text-right text-slate-100 font-medium">{artwork.artist}</dd>
             </div>
             <div className="py-2.5 flex justify-between gap-4">
-              <dt className="text-xs uppercase tracking-wider text-slate-400">Date</dt>
+              <dt className="text-xs font-medium text-slate-400">Date</dt>
               <dd className="text-right text-slate-100 tabular-nums">{artwork.year}</dd>
             </div>
             <div className="py-2.5 flex justify-between gap-4">
-              <dt className="text-xs uppercase tracking-wider text-slate-400">Medium</dt>
+              <dt className="text-xs font-medium text-slate-400">Medium</dt>
               <dd className="text-right text-slate-100">{artwork.medium}</dd>
             </div>
             <div className="py-2.5 flex justify-between gap-4">
-              <dt className="text-xs uppercase tracking-wider text-slate-400">Dimensions</dt>
+              <dt className="text-xs font-medium text-slate-400">Dimensions</dt>
               <dd className="text-right text-slate-100 tabular-nums">{artwork.dimensions}</dd>
             </div>
             <div className="py-2.5 flex justify-between gap-4">
-              <dt className="text-xs uppercase tracking-wider text-slate-400">Gallery Wing</dt>
+              <dt className="text-xs font-medium text-slate-400">Gallery Wing</dt>
               <dd className="text-right text-slate-100">{artwork.galleryLocation}</dd>
             </div>
           </dl>
 
           {artwork.hotspots.length > 0 && (
             <div>
-              <h3 className="text-xs uppercase tracking-widest text-slate-400 mb-2.5">
+              <h3 className="text-xs font-medium text-slate-400 mb-2.5">
                 Interactive Portrait Details
               </h3>
               <ul className="divide-y divide-white/10">

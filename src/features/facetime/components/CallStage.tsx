@@ -422,7 +422,7 @@ export const CallStage: React.FC<CallStageProps> = ({
                       {
                         id: "portrait",
                         label: "Animated portrait",
-                        desc: "Responsive animated portrait",
+                        desc: "Steady framing with subtle reactions",
                       },
                     ] as const
                   ).map((opt) => (

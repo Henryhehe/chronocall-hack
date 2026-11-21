@@ -12,7 +12,7 @@ Record organizer name, answer and time here. **Pending; this repository does not
 
 ## Required deliverables
 
-- [ ] Public repository accessible in a logged-out browser: `https://github.com/Henryhehe/chronocall-hack`.
+- [x] Public repository accessible in a logged-out browser: `https://github.com/Henryhehe/chronocall-hack`. Confirmed November 21, 2026; local changes still need release synchronization.
 - [ ] Public HTTPS demo link works on another device, with microphone/camera permissions.
 - [ ] One-minute real demo video uploaded; generated/prerecorded elements identified.
 - [ ] All 1–4 team members entered in the submission form.
@@ -43,3 +43,5 @@ Git timestamps show these commits on November 21, 2026 (America/New_York). An im
 - Camera/audio rehearsal, organizer approval, public deployment/accessibility and submission upload require direct confirmation. They are not completed by preparing this checklist.
 
 Use [the runbook](DEMO_RUNBOOK.md). Record real run results in the [evaluation protocol](../evaluation/README.md); do not replace missing data with sample numbers.
+
+Use [the final rehearsal guide](JUDGE_REHEARSAL.md) for the in-app five-trial log, a failure/repeat pair, video narration and judge Q&A. Organizer approval, real volunteer trials, public deployment and video upload remain pending until directly completed.

@@ -26,7 +26,7 @@ export const CallLauncher: React.FC<CallLauncherProps> = ({ health, resolvingQue
   return <div className="call-launcher min-h-screen bg-canvas text-slate-100">
     <JourneyHeader view="facetime" />
     <main id="learning-main" tabIndex={-1} className="call-launcher-main">
-      <section className="page-intro"><p className="eyebrow">VIDEO CALLS</p><h1>Who would you ask?</h1><p>Choose a person from history, search by name, scan an artwork, or pull a famous painting or sculpture online.</p></section>
+      <section className="page-intro"><p className="eyebrow">Conversations across time</p><h1>Who would you ask?</h1><p>Meet someone from history. Choose a person below, or find them in a work of art.</p></section>
       {health?.demoMode && <p className="ui-notice" role="status">Demo mode · Conversations use sample responses.</p>}
       {health && !health.demoMode && !health.apiKeyConfigured && <p className="ui-notice" role="status">Calling is unavailable until the server’s AI connection is configured.</p>}
       {errorMessage && <div className="ui-alert" role="alert"><span>{errorMessage}</span><button className="ui-button" onClick={onDismissError}>Dismiss</button></div>}
