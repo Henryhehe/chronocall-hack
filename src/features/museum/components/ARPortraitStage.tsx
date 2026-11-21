@@ -10,19 +10,11 @@ import {
   VoiceConnectionState,
 } from '../types/portrait';
 import { WASHINGTON_PORTRAIT } from '../data/washingtonPortrait';
-import {
-  buildFeatheredLayers,
-  CachedPortraitLayer,
-  drawAnimatedPaintingComposition,
-  getPortraitRegionSpecs,
-} from '../utils/livingPortraitLayers';
 import { WashingtonAnchorTracker } from '../utils/washingtonAnchorTracker';
 import {
   boxToQuad,
-  extractRectifiedCanvasFromCanvas,
   isPlausiblePerspectiveQuad,
   orderQuadCorners,
-  PerspectiveCanvasRenderer,
   projectScreenToQuadUv,
   projectUvThroughQuad,
   quadToBoundingBox,
@@ -47,17 +39,6 @@ interface ARPortraitStageProps {
   onCameraError: (msg: string | null) => void;
   onCameraReadyChange?: (ready: boolean) => void;
   onAvatarTap: () => void;
-}
-
-interface DustMote {
-  x: number;
-  y: number;
-  r: number;
-  vx: number;
-  vy: number;
-  alpha: number;
-  depth: number;
-  phase: number;
 }
 
 interface PositionedTag {
@@ -100,13 +81,7 @@ export const ARPortraitStage: React.FC<ARPortraitStageProps> = ({
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const videoRef = useRef<HTMLVideoElement | null>(null);
 
-  const washingtonAnchorImgRef = useRef<HTMLImageElement | null>(null);
-  const washingtonAnchorLayersRef = useRef<CachedPortraitLayer[]>([]);
-  const customArtCanvasRef = useRef<HTMLCanvasElement | null>(null);
-  const customArtLayersRef = useRef<CachedPortraitLayer[]>([]);
 
-  const avatarOffscreenCanvasRef = useRef<HTMLCanvasElement | null>(null);
-  const perspectiveRendererRef = useRef<PerspectiveCanvasRenderer | null>(null);
   const anchorTrackerRef = useRef<WashingtonAnchorTracker>(
     new WashingtonAnchorTracker(WASHINGTON_PORTRAIT.imageUrl)
   );
@@ -114,40 +89,26 @@ export const ARPortraitStage: React.FC<ARPortraitStageProps> = ({
   const videoMaskCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
 
-  const [washingtonAvatarLoaded, setWashingtonAvatarLoaded] = useState(false);
   const [cameraReady, setCameraReady] = useState(false);
   const [isScanning, setIsScanning] = useState(false);
   const [autoScan, setAutoScan] = useState(true);
   const [cameraDetected, setCameraDetected] = useState(false);
-  const [anchorType, setAnchorType] = useState<'washington' | 'custom' | null>(null);
   const [trackedQuad, setTrackedQuad] = useState<FocalQuad>(DEFAULT_QUAD);
   const [anchorConfidence, setAnchorConfidence] = useState<number>(0);
   const [showHotspots, setShowHotspots] = useState(false);
   const [availableCameras, setAvailableCameras] = useState<MediaDeviceInfo[]>([]);
   const [selectedCameraId, setSelectedCameraId] = useState<string>('');
-  const [tilt, setTilt] = useState({ x: 0, y: 0 });
   const [containerSize, setContainerSize] = useState({ width: 1024, height: 768 });
 
-  const tiltRef = useRef({ x: 0, y: 0 });
-  const activeCueRef = useRef<string | null>(activeCue);
   const artworkRef = useRef<PortraitArtwork | null>(artwork);
   const cameraReadyRef = useRef(cameraReady);
   const cameraDetectedRef = useRef(cameraDetected);
   const isScanningRef = useRef(false);
-  const anchorTypeRef = useRef<'washington' | 'custom' | null>(anchorType);
   const trackedQuadRef = useRef<FocalQuad>(trackedQuad);
   const isSpeakingRef = useRef(isSpeaking);
-  const isListeningRef = useRef(isListening);
-  const connectionStateRef = useRef(connectionState);
 
   const trackedBox = useMemo(() => quadToBoundingBox(trackedQuad), [trackedQuad]);
 
-  useEffect(() => {
-    tiltRef.current = tilt;
-  }, [tilt]);
-  useEffect(() => {
-    activeCueRef.current = activeCue;
-  }, [activeCue]);
   useEffect(() => {
     artworkRef.current = artwork;
   }, [artwork]);
@@ -159,45 +120,15 @@ export const ARPortraitStage: React.FC<ARPortraitStageProps> = ({
     cameraDetectedRef.current = cameraDetected;
   }, [cameraDetected]);
   useEffect(() => {
-    anchorTypeRef.current = anchorType;
-  }, [anchorType]);
-  useEffect(() => {
     trackedQuadRef.current = trackedQuad;
   }, [trackedQuad]);
   useEffect(() => {
     isSpeakingRef.current = isSpeaking;
   }, [isSpeaking]);
-  useEffect(() => {
-    isListeningRef.current = isListening;
-  }, [isListening]);
-  useEffect(() => {
-    connectionStateRef.current = connectionState;
-  }, [connectionState]);
 
   // Preload the Washington AR Anchor Template once
   useEffect(() => {
     anchorTrackerRef.current.ensureLoaded().catch(() => {});
-    const img = new Image();
-    img.crossOrigin = 'anonymous';
-    img.onload = () => {
-      washingtonAnchorImgRef.current = img;
-      const specs = getPortraitRegionSpecs(true, WASHINGTON_PORTRAIT.focalPoint, true);
-      washingtonAnchorLayersRef.current = buildFeatheredLayers(img, specs);
-      setWashingtonAvatarLoaded(true);
-    };
-    img.src = WASHINGTON_PORTRAIT.imageUrl;
-  }, []);
-
-  // Smartphone gyroscope parallax
-  useEffect(() => {
-    const handleOrientation = (e: DeviceOrientationEvent) => {
-      if (e.beta == null || e.gamma == null) return;
-      const nx = Math.max(-1, Math.min(1, e.gamma / 30));
-      const ny = Math.max(-1, Math.min(1, (e.beta - 45) / 30));
-      setTilt({ x: nx, y: ny });
-    };
-    window.addEventListener('deviceorientation', handleOrientation);
-    return () => window.removeEventListener('deviceorientation', handleOrientation);
   }, []);
 
   // Track viewport dimensions for mobile-safe AR tag label placement
@@ -219,21 +150,6 @@ export const ARPortraitStage: React.FC<ARPortraitStageProps> = ({
     window.addEventListener('resize', updateSize);
     return () => window.removeEventListener('resize', updateSize);
   }, []);
-
-  const handlePointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
-    if (!containerRef.current) return;
-    const rect = containerRef.current.getBoundingClientRect();
-    const nx = ((e.clientX - rect.left) / rect.width - 0.5) * 2;
-    const ny = ((e.clientY - rect.top) / rect.height - 0.5) * 2;
-    setTilt({
-      x: Math.max(-1, Math.min(1, nx)),
-      y: Math.max(-1, Math.min(1, ny)),
-    });
-  };
-
-  const handlePointerLeave = () => {
-    setTilt({ x: 0, y: 0 });
-  };
 
   // Manage camera lifecycle: automatically prefer plugged-in external USB webcam over built-in laptop webcam
   useEffect(() => {
@@ -375,10 +291,7 @@ export const ARPortraitStage: React.FC<ARPortraitStageProps> = ({
         }
       } else if (cameraDetectedRef.current) {
         // Artwork left the camera frame — clear AR overlay completely
-        customArtCanvasRef.current = null;
-        customArtLayersRef.current = [];
         setCameraDetected(false);
-        setAnchorType(null);
         onArtworkLost();
       }
     }, 40);
@@ -529,12 +442,9 @@ export const ARPortraitStage: React.FC<ARPortraitStageProps> = ({
         }
 
         if (data.isWashingtonAnchor) {
-          customArtCanvasRef.current = null;
-          customArtLayersRef.current = [];
           trackedQuadRef.current = liveQuad;
           setTrackedQuad(liveQuad);
           setCameraDetected(true);
-          setAnchorType('washington');
           onArtworkIdentified({
             ...WASHINGTON_PORTRAIT,
             focalBox: quadToBoundingBox(liveQuad),
@@ -588,14 +498,6 @@ export const ARPortraitStage: React.FC<ARPortraitStageProps> = ({
               })
             : [];
 
-        // Rectify straight from the exact T0 scan canvas so pixels match the 4 corners 1:1
-        const rectified = extractRectifiedCanvasFromCanvas(scanCanvas, snappedQuad);
-        if (rectified) {
-          customArtCanvasRef.current = rectified;
-          const specs = getPortraitRegionSpecs(false, localFp, hasHumanSubject);
-          customArtLayersRef.current = buildFeatheredLayers(rectified, specs);
-        }
-
         const charName =
           data.characterName || data.paintingTitle || 'Historical Figure';
 
@@ -638,7 +540,6 @@ export const ARPortraitStage: React.FC<ARPortraitStageProps> = ({
         trackedQuadRef.current = liveQuad;
         setTrackedQuad(liveQuad);
         setCameraDetected(true);
-        setAnchorType('custom');
         onArtworkIdentified(identified);
       } catch (err) {
         onCameraError(err instanceof Error ? err.message : 'Artwork recognition failed.');
@@ -676,33 +577,12 @@ export const ARPortraitStage: React.FC<ARPortraitStageProps> = ({
     };
   }, [cameraReady, autoScan, cameraDetected, handleScanCameraFrame]);
 
-  // 60fps Perspective-Warped AR Render Loop (Renders ONLY when a famous artwork is identified)
+  // Live-camera AR composition: no cached replacement portrait or synthetic facial features.
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
-
-    if (!avatarOffscreenCanvasRef.current) {
-      const off = document.createElement('canvas');
-      off.width = 520;
-      off.height = 728;
-      avatarOffscreenCanvasRef.current = off;
-    }
-    if (!perspectiveRendererRef.current) {
-      perspectiveRendererRef.current = new PerspectiveCanvasRenderer();
-    }
-
-    const motes: DustMote[] = Array.from({ length: 26 }, () => ({
-      x: Math.random(),
-      y: Math.random(),
-      r: 0.9 + Math.random() * 1.9,
-      vx: (Math.random() - 0.35) * 0.00018,
-      vy: -0.00012 - Math.random() * 0.00022,
-      alpha: 0.16 + Math.random() * 0.36,
-      depth: 0.4 + Math.random() * 1.1,
-      phase: Math.random() * Math.PI * 2,
-    }));
 
     let rafId = 0;
     const startTime = performance.now();
@@ -726,23 +606,8 @@ export const ARPortraitStage: React.FC<ARPortraitStageProps> = ({
 
         // Strictly render AR overlay ONLY when a famous work of art is identified!
         if (detected && currentArtwork) {
-          const speech = currentArtwork.hasHumanSubject ? speechLevelRef.current : 0;
-          const currentTilt = tiltRef.current;
-          const cue = activeCueRef.current;
-          const behavior = {
-            speech,
-            isSpeaking: currentArtwork.hasHumanSubject && isSpeakingRef.current,
-            isListening: currentArtwork.hasHumanSubject && isListeningRef.current,
-            isThinking:
-              currentArtwork.hasHumanSubject &&
-              (connectionStateRef.current === 'thinking' ||
-                connectionStateRef.current === 'connecting'),
-            cue,
-            tiltX: currentTilt.x,
-            tiltY: currentTilt.y,
-          };
-
-          const aType = anchorTypeRef.current;
+          const speech = currentArtwork.hasHumanSubject && isSpeakingRef.current
+            ? Math.max(0, Math.min(1, speechLevelRef.current)) : 0;
           const video = videoRef.current;
           const hasVideo = cameraReadyRef.current && video && video.readyState >= 2;
           const quadPct = trackedQuadRef.current;
@@ -760,116 +625,40 @@ export const ARPortraitStage: React.FC<ARPortraitStageProps> = ({
           };
           const boxPx = quadToBoundingBox(quadPx);
 
-          if (
-            aType === 'washington' &&
-            washingtonAnchorImgRef.current &&
-            washingtonAvatarLoaded &&
-            avatarOffscreenCanvasRef.current &&
-            perspectiveRendererRef.current
-          ) {
-            const offCanvas = avatarOffscreenCanvasRef.current;
-            if (offCanvas.width !== 520 || offCanvas.height !== 728) {
-              offCanvas.width = 520;
-              offCanvas.height = 728;
-            }
-            const offCtx = offCanvas.getContext('2d');
-            if (offCtx) {
-              const ow = offCanvas.width;
-              const oh = offCanvas.height;
-              offCtx.clearRect(0, 0, ow, oh);
-              drawAnimatedPaintingComposition(
-                offCtx,
-                washingtonAnchorImgRef.current,
-                washingtonAnchorLayersRef.current,
-                0,
-                0,
-                ow,
-                oh,
-                elapsed,
-                behavior,
-                1,
-                true
-              );
-              const offFx = (WASHINGTON_PORTRAIT.focalPoint.x / 100) * ow;
-              const offFy = (WASHINGTON_PORTRAIT.focalPoint.y / 100) * oh;
-              drawLivingVoiceAura(offCtx, offFx, offFy, Math.min(ow, oh), speech, elapsed);
-              drawCueOverlay(offCtx, 0, 0, ow, oh, cue, elapsed);
-
-              perspectiveRendererRef.current.draw(ctx, offCanvas, quadPx, cw, ch, 0.94);
-            }
-
-            drawOpticalQuadCorners(ctx, quadPx, speech, elapsed, 0.85);
-            drawAmbientMotesInQuad(ctx, motes, cw, ch, quadPx, boxPx, currentTilt, speech, elapsed);
-          } else if (
-            aType === 'custom' &&
-            customArtCanvasRef.current &&
-            avatarOffscreenCanvasRef.current &&
-            perspectiveRendererRef.current
-          ) {
-            const srcCanvas = customArtCanvasRef.current;
-            const offCanvas = avatarOffscreenCanvasRef.current;
-            if (offCanvas.width !== srcCanvas.width || offCanvas.height !== srcCanvas.height) {
-              offCanvas.width = srcCanvas.width;
-              offCanvas.height = srcCanvas.height;
-            }
-            const offCtx = offCanvas.getContext('2d');
-            if (offCtx) {
-              const ow = offCanvas.width;
-              const oh = offCanvas.height;
-              offCtx.clearRect(0, 0, ow, oh);
-              // Keep the live crisp painting underneath; warp only the softly feathered living layers & light
-              drawAnimatedPaintingComposition(
-                offCtx,
-                srcCanvas,
-                customArtLayersRef.current,
-                0,
-                0,
-                ow,
-                oh,
-                elapsed,
-                behavior,
-                1,
-                false,
-                false
-              );
-              if (currentArtwork.hasHumanSubject) {
-                const offFx = (currentArtwork.focalPoint.x / 100) * ow;
-                const offFy = (currentArtwork.focalPoint.y / 100) * oh;
-                drawLivingVoiceAura(offCtx, offFx, offFy, Math.min(ow, oh), speech, elapsed);
-              }
-              perspectiveRendererRef.current.draw(ctx, offCanvas, quadPx, cw, ch, 0.92);
-            }
-
-            drawOpticalQuadCorners(ctx, quadPx, speech, elapsed, 0.82);
-            drawAmbientMotesInQuad(ctx, motes, cw, ch, quadPx, boxPx, currentTilt, speech, elapsed);
-          } else if (hasVideo && video) {
+          if (hasVideo && video) {
             const fp = projectUvThroughQuad(
               quadPx,
               currentArtwork.focalPoint.x / 100,
               currentArtwork.focalPoint.y / 100
             );
-            if (currentArtwork.hasHumanSubject) {
+            // Clip every effect to the detected canvas, never the wall or frame.
+            ctx.save();
+            ctx.beginPath();
+            ctx.moveTo(quadPx.topLeft.x, quadPx.topLeft.y);
+            ctx.lineTo(quadPx.topRight.x, quadPx.topRight.y);
+            ctx.lineTo(quadPx.bottomRight.x, quadPx.bottomRight.y);
+            ctx.lineTo(quadPx.bottomLeft.x, quadPx.bottomLeft.y);
+            ctx.closePath();
+            ctx.clip();
+            if (currentArtwork.hasHumanSubject && speech > 0.01) {
               animateFigureInLiveVideo(
                 ctx,
                 video,
                 cw,
                 ch,
-                boxPx.x,
-                boxPx.y,
                 boxPx.width,
                 boxPx.height,
                 fp.x,
                 fp.y,
                 elapsed,
                 speech,
-                cue,
                 videoPatchCanvasRef,
                 videoMaskCanvasRef
               );
-              drawLivingVoiceAura(ctx, fp.x, fp.y, Math.min(boxPx.width, boxPx.height), speech, elapsed);
+              drawLivingVoiceAura(ctx, fp.x, fp.y, Math.min(boxPx.width, boxPx.height), speech);
             }
-            drawOpticalQuadCorners(ctx, quadPx, speech, elapsed, 0.78);
-            drawAmbientMotesInQuad(ctx, motes, cw, ch, quadPx, boxPx, currentTilt, speech, elapsed);
+            ctx.restore();
+            drawOpticalQuadCorners(ctx, quadPx, 0, elapsed, 0.22);
           }
         }
       }
@@ -879,7 +668,7 @@ export const ARPortraitStage: React.FC<ARPortraitStageProps> = ({
 
     rafId = requestAnimationFrame(render);
     return () => cancelAnimationFrame(rafId);
-  }, [washingtonAvatarLoaded, speechLevelRef]);
+  }, [speechLevelRef]);
 
   // Compute non-blocking AR tag dots (perspective-projected via trackedQuad) + mobile-safe side/above-line callouts
   const positionedTags: PositionedTag[] = useMemo(() => {
@@ -1000,8 +789,6 @@ export const ARPortraitStage: React.FC<ARPortraitStageProps> = ({
   return (
     <div
       ref={containerRef}
-      onPointerMove={handlePointerMove}
-      onPointerLeave={handlePointerLeave}
       className="relative w-full h-full min-h-0 bg-[#11100F] overflow-hidden select-none"
     >
       {/* Full-Screen Live Camera Feed */}
@@ -1227,10 +1014,7 @@ export const ARPortraitStage: React.FC<ARPortraitStageProps> = ({
                 onClick={() => {
                   if (cameraDetected) {
                     anchorTrackerRef.current.clearLock();
-                    customArtCanvasRef.current = null;
-                    customArtLayersRef.current = [];
                     setCameraDetected(false);
-                    setAnchorType(null);
                     onArtworkLost();
                   }
                   handleScanCameraFrame();
@@ -1339,15 +1123,12 @@ function animateFigureInLiveVideo(
   video: HTMLVideoElement,
   cw: number,
   ch: number,
-  bx: number,
-  by: number,
   bw: number,
   bh: number,
   fx: number,
   fy: number,
   elapsed: number,
   speech: number,
-  cue: string | null,
   patchCanvasRef: React.MutableRefObject<HTMLCanvasElement | null>,
   maskCanvasRef: React.MutableRefObject<HTMLCanvasElement | null>
 ) {
@@ -1361,8 +1142,9 @@ function animateFigureInLiveVideo(
   const visSrcX = (vw - visSrcW) / 2;
   const visSrcY = (vh - visSrcH) / 2;
 
-  const patchW = Math.max(64, Math.min(cw * 0.45, bw * 0.42));
-  const patchH = Math.max(80, Math.min(ch * 0.5, bh * 0.44));
+  const patchW = Math.min(cw * 0.3, bw * 0.28);
+  const patchH = Math.min(ch * 0.35, bh * 0.3);
+  if (patchW < 8 || patchH < 8) return;
   const px = fx - patchW / 2;
   const py = fy - patchH * 0.42;
 
@@ -1370,6 +1152,8 @@ function animateFigureInLiveVideo(
   const srcPatchY = visSrcY + (py / ch) * visSrcH;
   const srcPatchW = (patchW / cw) * visSrcW;
   const srcPatchH = (patchH / ch) * visSrcH;
+
+  if (srcPatchX < 0 || srcPatchY < 0 || srcPatchX + srcPatchW > vw || srcPatchY + srcPatchH > vh) return;
 
   if (!patchCanvasRef.current) {
     patchCanvasRef.current = document.createElement('canvas');
@@ -1426,13 +1210,11 @@ function animateFigureInLiveVideo(
   pctx.drawImage(maskCanvas, 0, 0);
   pctx.globalCompositeOperation = 'source-over';
 
-  const cueBoost = cue === 'gaze' ? 1.6 : 1;
-  const breathScale = 1 + Math.sin(elapsed * 1.6) * 0.014 + speech * 0.032;
-  const angle =
-    Math.sin(elapsed * 1.15) * 0.018 * cueBoost +
-    Math.sin(elapsed * 6.5) * speech * 0.028;
-  const liftY = Math.sin(elapsed * 1.6) * -1.6 - speech * 4.0;
-  const swayX = Math.cos(elapsed * 0.9) * 1.4;
+  // Subpixel motion keeps the sampled face aligned with the live painting underneath.
+  const breathScale = 1 + Math.sin(elapsed * 1.6) * speech * 0.002;
+  const angle = Math.sin(elapsed * 1.15) * speech * 0.0015;
+  const liftY = -speech * Math.min(0.6, patchH * 0.003);
+  const swayX = Math.cos(elapsed * 0.9) * speech * 0.2;
 
   const pivotX = fx;
   const pivotY = py + patchH * 0.72;
@@ -1444,62 +1226,6 @@ function animateFigureInLiveVideo(
   ctx.drawImage(patchCanvas, -patchW / 2, -patchH * 0.72, patchW, patchH);
   ctx.restore();
 
-  const breezeProgress = ((elapsed * 0.07) % 1.4) - 0.2;
-  const wx = bx + breezeProgress * bw;
-  const wy = by + bh * 0.22;
-  const rad = bw * 0.28;
-  const skyGrad = ctx.createRadialGradient(wx, wy, 2, wx, wy, rad);
-  skyGrad.addColorStop(0, 'rgba(244, 224, 186, 0.12)');
-  skyGrad.addColorStop(1, 'rgba(244, 224, 186, 0)');
-  ctx.fillStyle = skyGrad;
-  ctx.beginPath();
-  ctx.arc(wx, wy, rad, 0, Math.PI * 2);
-  ctx.fill();
-}
-
-function drawAmbientMotesInQuad(
-  ctx: CanvasRenderingContext2D,
-  motes: DustMote[],
-  cw: number,
-  ch: number,
-  quad: FocalQuad,
-  box: FocalBox,
-  tilt: { x: number; y: number },
-  speech: number,
-  elapsed: number
-) {
-  ctx.save();
-  ctx.beginPath();
-  ctx.moveTo(quad.topLeft.x, quad.topLeft.y);
-  ctx.lineTo(quad.topRight.x, quad.topRight.y);
-  ctx.lineTo(quad.bottomRight.x, quad.bottomRight.y);
-  ctx.lineTo(quad.bottomLeft.x, quad.bottomLeft.y);
-  ctx.closePath();
-  ctx.clip();
-
-  for (const m of motes) {
-    m.x += m.vx + Math.sin(elapsed * 0.7 + m.phase) * 0.00009;
-    m.y += m.vy;
-    if (m.y < -0.02) {
-      m.y = 1.02;
-      m.x = Math.random();
-    }
-    if (m.x < -0.02) m.x = 1.02;
-    if (m.x > 1.02) m.x = -0.02;
-
-    const px = box.x + m.x * box.width + tilt.x * 14 * m.depth;
-    const py = box.y + m.y * box.height + tilt.y * 10 * m.depth;
-    if (px < 0 || px > cw || py < 0 || py > ch) continue;
-
-    const shimmer = 0.65 + 0.35 * Math.sin(elapsed * 2.1 + m.phase);
-    const alpha = m.alpha * shimmer * (1 + speech * 0.8);
-
-    ctx.beginPath();
-    ctx.arc(px, py, m.r, 0, Math.PI * 2);
-    ctx.fillStyle = `rgba(235, 198, 132, ${Math.min(0.85, alpha)})`;
-    ctx.fill();
-  }
-  ctx.restore();
 }
 
 function drawLivingVoiceAura(
@@ -1507,11 +1233,10 @@ function drawLivingVoiceAura(
   fx: number,
   fy: number,
   scale: number,
-  speech: number,
-  elapsed: number
+  speech: number
 ) {
-  const glowRadius = scale * (0.2 + speech * 0.18);
-  const glowAlpha = 0.08 + speech * 0.28;
+  const glowRadius = scale * (0.12 + speech * 0.03);
+  const glowAlpha = speech * 0.035;
   const grad = ctx.createRadialGradient(fx, fy, 4, fx, fy, glowRadius);
   grad.addColorStop(0, `rgba(232, 186, 112, ${glowAlpha})`);
   grad.addColorStop(0.5, `rgba(180, 131, 62, ${glowAlpha * 0.45})`);
@@ -1521,18 +1246,6 @@ function drawLivingVoiceAura(
   ctx.arc(fx, fy, glowRadius, 0, Math.PI * 2);
   ctx.fill();
 
-  if (speech > 0.03) {
-    for (let i = 0; i < 3; i++) {
-      const wavePhase = (elapsed * 1.15 + i * 0.33) % 1;
-      const r = scale * (0.06 + wavePhase * (0.14 + speech * 0.14));
-      const ringAlpha = (1 - wavePhase) * Math.min(0.55, speech * 0.75);
-      ctx.beginPath();
-      ctx.arc(fx, fy, r, 0, Math.PI * 2);
-      ctx.strokeStyle = `rgba(229, 190, 128, ${ringAlpha})`;
-      ctx.lineWidth = 1.25;
-      ctx.stroke();
-    }
-  }
 }
 
 function drawOpticalQuadCorners(
@@ -1583,44 +1296,6 @@ function drawOpticalQuadCorners(
   drawCorner(quad.bottomRight, quad.topRight, quad.bottomLeft);
   drawCorner(quad.bottomLeft, quad.topLeft, quad.bottomRight);
   ctx.restore();
-}
-
-function drawCueOverlay(
-  ctx: CanvasRenderingContext2D,
-  ox: number,
-  oy: number,
-  dw: number,
-  dh: number,
-  cue: string | null,
-  elapsed: number
-) {
-  if (!cue) return;
-  if (cue === 'sword') {
-    const sx = ox + dw * 0.13;
-    const sy = oy + dh * 0.37;
-    const ex = ox + dw * 0.32;
-    const ey = oy + dh * 0.31;
-    const t = (Math.sin(elapsed * 3.5) + 1) / 2;
-    const px = sx + (ex - sx) * t;
-    const py = sy + (ey - sy) * t;
-    const grad = ctx.createRadialGradient(px, py, 1, px, py, dw * 0.08);
-    grad.addColorStop(0, 'rgba(255, 244, 214, 0.55)');
-    grad.addColorStop(1, 'rgba(255, 244, 214, 0)');
-    ctx.fillStyle = grad;
-    ctx.beginPath();
-    ctx.arc(px, py, dw * 0.08, 0, Math.PI * 2);
-    ctx.fill();
-  } else if (cue === 'horse') {
-    const hx = ox + dw * 0.62;
-    const hy = oy + dh * 0.78;
-    const grad = ctx.createRadialGradient(hx, hy, 4, hx, hy, dw * 0.22);
-    grad.addColorStop(0, 'rgba(218, 198, 164, 0.24)');
-    grad.addColorStop(1, 'rgba(218, 198, 164, 0)');
-    ctx.fillStyle = grad;
-    ctx.beginPath();
-    ctx.arc(hx, hy, dw * 0.22, 0, Math.PI * 2);
-    ctx.fill();
-  }
 }
 
 function pickPreferredExternalCamera(devices: MediaDeviceInfo[]): MediaDeviceInfo | null {

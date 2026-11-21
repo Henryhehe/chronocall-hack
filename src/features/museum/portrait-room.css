@@ -35,3 +35,6 @@
 .portrait-room-panel button { min-height: 44px; }
 .portrait-room-sheet :focus-visible { outline: 2px solid var(--journey-gold); outline-offset: 2px; }
 @media (max-width: 640px) { .portrait-room-speak { order: -1; width: 100%; min-height: 48px; } .portrait-room-actions { gap: 4px 16px; } .portrait-room-hint { display: none; } }
+
+.portrait-room-ar { padding: 10px 16px; border: 1px solid #8e877a; border-radius: 999px; color: #f5efe4; background: #ffffff0d; }
+.portrait-room-ar:hover, .portrait-room-ar[aria-pressed="true"] { background: #ffffff1a; border-color: #c7c0b4; }
