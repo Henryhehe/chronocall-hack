@@ -150,6 +150,7 @@ export interface GeminiPipelineEvent {
 }
 
 export type DecisionVerdict =
+  | "unavailable"
   | "verified"
   | "plausible_persona"
   | "anachronism";
@@ -158,7 +159,7 @@ export interface FaceTimeDecisionResult {
   verdict: DecisionVerdict;
   confidence: number;
   probabilities: Record<string, number>;
-  eraFidelityScore: number;
+  eraFidelityScore: number | null;
   eraFidelityMax: number;
   suggestedCue: string;
   summary: string;
@@ -196,11 +197,13 @@ export interface FaceTimeArtifactResult {
 export function formatDecisionVerdictLabel(verdict: DecisionVerdict): string {
   switch (verdict) {
     case "verified":
-      return "Historically Grounded";
+      return "Model-assessed consistency";
     case "plausible_persona":
       return "In-Era Persona";
     case "anachronism":
       return "Anachronism Flagged";
+    case "unavailable":
+      return "Assessment unavailable";
   }
 }
 

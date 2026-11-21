@@ -47,3 +47,11 @@ test("an unsure answer is refused with a hint to hold the camera steady", async 
   assert.equal(r.allowed, false);
   assert.match(r.reason, /steady/);
 });
+
+test("a provider outage pauses identification instead of approving the image", async () => {
+  const ai = { decisions: { create: async () => { throw new Error("quota"); } } } as unknown as GoogleGenAI;
+  const result = await gateImage(ai, img);
+  assert.equal(result.allowed, false);
+  assert.equal(result.error, "quota");
+  assert.match(result.reason, /unavailable/);
+});

@@ -51,7 +51,7 @@ export interface ImageGateResult {
   /** Shown to the visitor when not allowed. */
   reason: string;
   latencyMs: number;
-  /** Set if the Decisions API call failed; the gate then lets the frame through to identification. */
+  /** Set if the Decisions API call failed; identification is paused until the gate is available. */
   error?: string;
 }
 
@@ -101,11 +101,11 @@ export async function gateImage(
     };
   } catch (err) {
     return {
-      allowed: true,
+      allowed: false,
       kind: null,
       kinds: {},
       hasCharacter: 0,
-      reason: '',
+      reason: 'Artwork check unavailable. Please try again.',
       latencyMs: Date.now() - t0,
       error: err instanceof Error ? err.message : String(err),
     };

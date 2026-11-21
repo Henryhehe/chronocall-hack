@@ -6,7 +6,7 @@ import {
 } from "../shared/facetime.ts";
 
 test("formatDecisionVerdictLabel returns concise user-facing labels for Decisions API verdicts", () => {
-  assert.equal(formatDecisionVerdictLabel("verified"), "Historically Grounded");
+  assert.equal(formatDecisionVerdictLabel("verified"), "Model-assessed consistency");
   assert.equal(formatDecisionVerdictLabel("plausible_persona"), "In-Era Persona");
   assert.equal(formatDecisionVerdictLabel("anachronism"), "Anachronism Flagged");
 });

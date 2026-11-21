@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import type { GoogleGenAI } from "@google/genai";
-import { checkReply, correctionNote, REPLY_CHECKS } from "../server/services/gemini/replyChecks.ts";
+import { checkReply, correctionNote, REPLY_CHECKS, parseReplyChecks } from "../server/services/gemini/replyChecks.ts";
 
 // A stand-in for the Gemini client: answers every Decisions API question with the given P(yes).
 function fakeAi(p: Record<string, number>, calls: unknown[] = []): GoogleGenAI {
@@ -37,7 +37,8 @@ test("code decides: a check fails at its threshold, not below it", async () => {
 test("if the Decisions API call fails, the reply goes through unchecked and the error is reported", async () => {
   const broken = { decisions: { create: async () => { throw new Error("quota"); } } } as unknown as GoogleGenAI;
   const result = await checkReply(broken, { reply: "Good day." });
-  assert.equal(result.passed, true);
+  assert.equal(result.passed, false);
+  assert.equal(result.status, "unavailable");
   assert.equal(result.error, "quota");
 });
 
@@ -45,4 +46,14 @@ test("the correction note names only the failed checks", () => {
   const note = correctionNote(["advice"]);
   assert.match(note, /advice/);
   assert.doesNotMatch(note, /out of character/);
+});
+
+test('missing, nonfinite and out-of-range check scores cannot pass', () => {
+  for (const bad of [undefined, NaN, Infinity, -0.1, 1.1, '0']) {
+    const answers = Object.fromEntries(REPLY_CHECKS.map(c => [c.id, { noul: 0 }]));
+    answers.hindsight = { noul: bad as number };
+    const result = parseReplyChecks(answers, 1);
+    assert.equal(result.passed, false);
+    assert.equal(result.status, 'unavailable');
+  }
 });

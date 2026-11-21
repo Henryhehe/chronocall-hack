@@ -307,11 +307,11 @@ If no portrait or figure is clearly visible, set detected to false and explain b
       let replyText = await generate();
       let checks: ReplyCheckResult = await checkReply(ai, { reply: replyText, instructions, visitorMessage: message });
       let retried = false;
-      if (!checks.passed) {
+      if (checks.status === 'flagged') {
         const retry = await generate(correctionNote(checks.failed));
         const retryChecks = await checkReply(ai, { reply: retry, instructions, visitorMessage: message });
         retried = true;
-        if (retry && (retryChecks.passed || retryChecks.failed.length < checks.failed.length)) {
+        if (retry && retryChecks.status !== 'unavailable' && (retryChecks.passed || retryChecks.failed.length < checks.failed.length)) {
           replyText = retry;
           checks = retryChecks;
         }
@@ -460,7 +460,7 @@ export function attachMuseumBridge(server: Server, demoMode = false) {
                     void checkReply(checker, { reply: spoken, instructions: sessionInstructions, visitorMessage: visitor }).then(
                       (result) => {
                         safeSend({ type: 'replyCheck', ...result });
-                        if (!result.passed && liveSession && !isClosing) {
+                        if (result.status === 'flagged' && liveSession && !isClosing) {
                           liveSession.sendClientContent({
                             turns: [{ role: 'user', parts: [{ text: correctionNote(result.failed) }] }],
                             turnComplete: true,

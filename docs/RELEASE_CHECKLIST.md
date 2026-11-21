@@ -1,5 +1,7 @@
 # Chronocall release checklist
 
+**Current presentation:** use the single-call Element 119 sequence in [DEMO_RUNBOOK.md](DEMO_RUNBOOK.md). Older museum/world walkthroughs below are optional feature checks, not the judging pitch.
+
 Deploy one Docker web service on Render. It runs React assets, Express APIs, camera/world voice, and museum voice together. No database, separate frontend host, or persistent disk is needed for the current app. Use this checklist in order; detailed hosting settings are in [DEPLOYMENT.md](DEPLOYMENT.md).
 
 ## 1. Choose the release

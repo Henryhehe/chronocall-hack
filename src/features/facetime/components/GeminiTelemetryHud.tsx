@@ -272,13 +272,13 @@ export const GeminiTelemetryHud: React.FC<GeminiTelemetryHudProps> = ({
           <div className="rounded-2xl bg-gradient-to-br from-sky-500/10 via-violet-500/10 to-emerald-500/10 border border-white/12 p-3 space-y-2.5">
             <div className="flex items-center justify-between gap-2">
               <div className="flex items-center gap-1.5">
-                {latestDecision?.verdict === "anachronism" ? (
+                {!latestDecision || latestDecision.verdict === "unavailable" || latestDecision.verdict === "anachronism" ? (
                   <ShieldAlert className="w-3.5 h-3.5 text-amber-300" />
                 ) : (
                   <CheckCircle2 className="w-3.5 h-3.5 text-emerald-300" />
                 )}
                 <span className="text-[11px] font-semibold text-white">
-                  Decisions API · Historical Grounding
+                  Post-turn model assessment
                 </span>
               </div>
               {latestDecision && (
@@ -291,9 +291,9 @@ export const GeminiTelemetryHud: React.FC<GeminiTelemetryHudProps> = ({
             {verifyingDecision ? (
               <p className="text-[11px] text-sky-200 flex items-center gap-1.5">
                 <Activity className="w-3.5 h-3.5 animate-pulse" />
-                Scoring era fidelity & factual grounding via gemini-decision-1…
+                Checking the completed reply for era consistency…
               </p>
-            ) : latestDecision ? (
+            ) : latestDecision && latestDecision.verdict !== "unavailable" ? (
               <>
                 <div className="flex items-center justify-between text-[11px]">
                   <span className="text-slate-200 font-medium">
@@ -308,7 +308,7 @@ export const GeminiTelemetryHud: React.FC<GeminiTelemetryHudProps> = ({
                 <div className="space-y-1.5">
                   {(
                     [
-                      { key: "verified", label: "Verified", bar: "bg-emerald-400" },
+                      { key: "verified", label: "Consistent", bar: "bg-emerald-400" },
                       {
                         key: "plausible_persona",
                         label: "Persona",
@@ -346,7 +346,7 @@ export const GeminiTelemetryHud: React.FC<GeminiTelemetryHudProps> = ({
 
                 <div className="flex items-center justify-between pt-1 border-t border-white/10 text-[10px] text-slate-300">
                   <span>
-                    Era Fidelity: {latestDecision.eraFidelityScore}/
+                    Era Fidelity: {latestDecision.eraFidelityScore ?? "—"}/
                     {latestDecision.eraFidelityMax}
                   </span>
                   <span className="font-mono text-slate-400">
@@ -356,11 +356,12 @@ export const GeminiTelemetryHud: React.FC<GeminiTelemetryHudProps> = ({
               </>
             ) : (
               <p className="text-[11px] text-slate-400">
-                Calibrated grounding scores appear automatically as the
-                historical figure speaks.
+                Assessment unavailable or not yet received. No verification is claimed.
               </p>
             )}
           </div>
+
+          <p className="text-[10px] text-slate-400">Checks run after speech. Model assessments can be wrong and do not independently verify sources.</p>
 
           {/* Compact Recent Trace */}
           {latestEvent && (

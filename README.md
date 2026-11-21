@@ -1,8 +1,12 @@
 # Chronocall
 
-A hackathon prototype for camera-based historical characters, live conversations, and interactive worlds. React, TypeScript, and Three.js run in the browser; one Node/Express server hosts the UI, Gemini HTTP calls, and live voice WebSocket.
+Chronocall lets you call someone inside a painting. Scan an artwork, start a live voice/video encounter, and show its subject something from your world. The character responds through an AI interpretation of its historical perspective.
 
-**Demo story:** show a modern object to the camera, explore how a historical character interprets it, then enter and change a playable world.
+**Element 119 demo:** open `/facetime` → scan artwork → call → show an unexpected object. Hydrogen handles identification and quick research; Neon adds deeper research; Decisions filters research claims and assesses completed replies. Live 3.8 handles voice and sampled camera frames. Automated assessments are not independent historical verification.
+
+[Three-minute demo and one-minute video](docs/DEMO_RUNBOOK.md) · [Evaluation protocol](evaluation/README.md) · [Submission and contribution checklist](docs/SUBMISSION_CHECKLIST.md)
+
+**Evidence status:** automated checks validate code paths. External-image comparison and venue camera/audio rehearsal are still pending; no measured model-accuracy claim is made. Confirm the experience's eligibility with an organizer because the event excludes education chatbots and image analyzers.
 
 [Local setup](#start-locally) · [Features](#whats-in-the-app) · [Deployment](#deploy) · [Demo runbook](docs/DEMO_RUNBOOK.md) · [Architecture/API](docs/ARCHITECTURE.md) · [Contributing](CONTRIBUTING.md)
 
@@ -138,7 +142,7 @@ See [deployment settings, real-key activation, rollback, and limitations](docs/D
 
 ## Present the demo
 
-Use the [three-minute demo runbook](docs/DEMO_RUNBOOK.md) for exact actions, prompts, and fallbacks. Keep **Three.js** as the main world flow; include **Genie Video** only after a successful rehearsal with the event key and venue network. Demo mode is a clearly labeled UI fallback, not evidence of real model capability.
+Use the [three-minute demo runbook](docs/DEMO_RUNBOOK.md) for exact actions, prompts, and fallbacks. Use the historical call as the main flow. Keep world experiments outside the three-minute presentation unless they are essential to the same encounter and have passed a live rehearsal. Demo mode is a clearly labeled UI fallback, not evidence of real model capability.
 
 ## Where to contribute
 
@@ -185,27 +189,17 @@ Read [CONTRIBUTING.md](CONTRIBUTING.md) before branching. See the [architecture 
 
 ### Verification record — 2026-11-21
 
-Dependencies are now installed. Two service-contract type errors were fixed so scene/prop fixtures can retain the `demo` model label while using the same response shapes as Gemini.
-
 | Check | Latest result |
 | --- | --- |
-| TypeScript (`npm run typecheck`) | Passed |
-| Node regression tests (`npm test`) | All 8 passed |
-| Production frontend (`npm run build`) | Passed; Vite reports a large-bundle warning |
-| Built assets and Washington portrait | Present; configured server key absent from client JS/CSS |
-| Local configuration | Key present, `DEMO_MODE=false`, port 3000; model access not verified |
-| API integration / production-server smoke | Blocked by `listen EPERM` on localhost in this execution environment |
-| Docker build/run | Docker installed; daemon socket access blocked by this execution environment |
-| Browser, real-model, and hosted deployment checks | Not yet verified |
+| TypeScript | Passed |
+| Unit regression suite | Passed; includes missing/invalid Decisions fields and evaluation accounting |
+| Production frontend build | Passed; existing large-bundle and Vite config warnings remain |
+| HTTP integration suite | Blocked: environment rejects localhost listening with `EPERM` |
+| External evaluation collection | Blocked: museum API DNS `ENOTFOUND`; no model-quality results |
+| Hydrogen real-key preflight | Blocked: DNS `ENOTFOUND`; model entitlement unverified |
+| Camera/audio, public deployment, submission video | Pending direct verification |
 
-Dependencies are managed with npm. To run the already-built app from your normal Mac Terminal:
-
-```bash
-cd "/Users/Chuanheng.He/Gemini 4/gemini-live-vision-nov-21-2026-12-16-49-pm"
-npm run start
-```
-
-Open `http://localhost:3000`. This loads the ignored local configuration and its key without printing it. To repeat the complete automated checks from a terminal that can open local ports, run `npm run check`. No hosted deployment was created by this review. CI remains configured to check the app and Docker image when the complete changes are pushed.
+Run `npm run check` and the commands in [evaluation/README.md](evaluation/README.md) from the normal terminal before freezing a release. No public deployment or submission was created by this preparation work.
 
 Original AI Studio app: https://ai.studio/apps/a8853fcf-4129-461b-8257-8266d72421cb
 
@@ -230,15 +224,9 @@ Each experience has a guiding question and a suggested activity. Visual discover
 
 Notebook reflections persist in browser local storage, independently of the in-memory detection and conversation histories. If storage is unavailable, the notebook reports session-only saving and offers a download. These are learner-authored notes, not automatically generated lesson summaries. Generated characters and worlds are explicitly presented as interpretations requiring verification.
 
-### Suggested 3-minute education demo
+### Presentation focus
 
-1. **Discover:** introduce the idea of learning history through observation, dialogue, and exploration.
-2. **Portrait gallery:** inspect the included artwork, choose a hotspot, and ask a follow-up question (model features require a configured key).
-3. **Character studio:** add a camera feed or photo, choose a persona, and use the guiding question to compare perspectives.
-4. **World explorer:** open a preset scene and explore its spatial choices; use generation only when the configured provider is ready.
-5. **Notebook:** save one observation and one claim to verify, then download the reflection.
-
-Without a key, demonstrate the included artwork, capture/upload UI, preset world, and notebook; museum AI dialogue and recognition are unavailable in demo mode. Do not present fixture responses as model results.
+Use the single-call [Element 119 runbook](docs/DEMO_RUNBOOK.md). The other workspaces remain available as experiments; they are not the judging walkthrough.
 
 ### Learning UI smoke check
 
@@ -251,7 +239,7 @@ Without a key, demonstrate the included artwork, capture/upload UI, preset world
 
 ### Characters contribution
 
-Museum identification now uses a general era-aware character guide. `POST /api/research-figure` adds Google Search research, structured profiles, and Decisions API support checks (threshold 0.8). Persona helpers also support animal, object, and place speakers. The research endpoint and alternate-speaker helpers are available for frontend integration; the existing UI does not yet automatically request research or switch speakers. Research is disabled in demo mode. See [character pipeline](research/README.md).
+Museum identification now uses a general era-aware character guide. `POST /api/research-figure` adds Google Search research, structured profiles, and Decisions API support checks (threshold 0.8). Persona helpers also support animal, object, and place speakers. Historical calls now start quick Hydrogen and deep Neon research in the background. The museum research endpoint and alternate-speaker helpers remain available separately. Research is disabled in demo mode. See [character pipeline](research/README.md).
 
 ## UI references
 

@@ -17,7 +17,8 @@
     "test:api": "node --import tsx --test tests/integration/*.test.ts",
     "test:production": "node scripts/test-production.mjs",
     "smoke": "node scripts/smoke.mjs",
-    "check": "npm run typecheck && npm test && npm run test:api && npm run build && npm run test:production"
+    "check": "npm run typecheck && npm test && npm run test:api && npm run build && npm run test:production",
+    "evaluate": "node --import tsx scripts/evaluate.ts"
   },
   "dependencies": {
     "@google/genai": "^3.6.1",

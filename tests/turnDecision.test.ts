@@ -30,3 +30,16 @@ test("failed turn evaluation is unavailable, rather than a verified telemetry re
   assert.equal(result.decision, null);
   assert.equal(result.checks.error, "quota");
 });
+
+for (const choice of [undefined, 'unexpected']) {
+  test(`missing or unknown grounding verdict (${choice}) never becomes verified`, async () => {
+    const ai = { decisions: { create: async () => ({ answers: {
+      historical_grounding: { choice, confidence: 0.9 },
+    } }) } } as unknown as GoogleGenAI;
+    const result = await evaluateTurn(ai, { utterance: 'Good day.' });
+    assert.equal(result.decision?.verdict, 'unavailable');
+    assert.equal(result.decision?.eraFidelityScore, null);
+    assert.equal(result.checks.passed, false);
+    assert.equal(result.checks.status, 'unavailable');
+  });
+}

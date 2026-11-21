@@ -31,25 +31,25 @@ export function LearningHome({ onNavigate }: { onNavigate: (view: LearningView) 
     <div className="learning-home">
       <section className="learning-hero" aria-labelledby="discovery-title">
         <div className="hero-copy">
-          <p className="eyebrow">HISTORY, OPEN FOR CONVERSATION</p>
-          <h1 id="discovery-title">Meet the past.<br /><em>Ask it anything.</em></h1>
-          <p className="hero-description">Explore a portrait, ask its subject a question, and discover the story behind a detail.</p>
+          <p className="eyebrow">A CALL ACROSS CENTURIES</p>
+          <h1 id="discovery-title">Someone in this painting<br /><em>can see your world.</em></h1>
+          <p className="hero-description">Scan an artwork, start a live call, and show its subject something from your world. See what they make of it from theirs.</p>
           <div className="hero-actions">
-            <button className="learning-primary" onClick={() => onNavigate('museum')}>Explore the portrait <ArrowRight size={18} /></button>
+            <a className="learning-primary" href="/facetime">Start a call <ArrowRight size={18} /></a>
             <a href="#experiences">See all experiences <span aria-hidden="true">↗</span></a>
           </div>
-          <p className="hero-note">Artwork included · No camera needed to explore</p>
+          <p className="hero-note">Camera + voice · AI interpretation of a historical character</p>
 
         </div>
-        <button className="hero-art" onClick={() => onNavigate('museum')} aria-label="Explore the George Washington portrait">
+        <a className="hero-art" href="/facetime" aria-label="Start a call with a historical figure">
           <img src="/assets/aistudio/washington_fd94f6dd.jpeg" alt="Equestrian portrait of George Washington beneath a dramatic sky" fetchPriority="high" />
-          <span className="art-badge">START HERE · LIVING PORTRAIT</span>
-          <span className="art-label"><span>A QUESTION TO TAKE INSIDE</span><strong>“What does your pose<br />say about power?”</strong><span>Explore George Washington <ArrowRight size={16} /></span></span>
+          <span className="art-badge">SCAN · CALL · SHOW</span>
+          <span className="art-label"><span>BRING YOUR WORLD INTO THE CALL</span><strong>“What do you make<br />of this?”</strong><span>Meet a historical figure <ArrowRight size={16} /></span></span>
           <span className="art-index">EXHIBIT 001 / WASHINGTON</span>
-        </button>
+        </a>
       </section>
       <section id="experiences" className="experience-section" aria-labelledby="experiences-title">
-        <div className="section-heading"><div><p className="eyebrow">FOLLOW YOUR CURIOSITY</p><h2 id="experiences-title">Choose your way in.</h2></div><p>Start with whatever interests you.</p></div>
+        <div className="section-heading"><div><p className="eyebrow">MORE TO EXPLORE</p><h2 id="experiences-title">Explore the other experiments.</h2></div><p>Start with whatever interests you.</p></div>
         <div className="experience-grid">{experiences.map(e => <button className="experience-card" key={e.id} onClick={() => onNavigate(e.id)}>
           <div className="card-top"><e.icon size={23} /><span>{e.number}</span></div>
           <h3>{e.label}</h3><p>{e.description}</p>

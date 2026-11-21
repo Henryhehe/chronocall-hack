@@ -64,6 +64,7 @@ export const REPLY_CHECKS: ReplyCheck[] = [
 
 export interface ReplyCheckResult {
   passed: boolean;
+  status: 'passed' | 'flagged' | 'unavailable';
   /** P(yes) for each check id. */
   scores: Record<string, number>;
   failed: string[];
@@ -72,13 +73,35 @@ export interface ReplyCheckResult {
   error?: string;
 }
 
+/** Incomplete or malformed provider output must never count as a successful check. */
+export function parseReplyChecks(answers: Record<string, unknown> | undefined, latencyMs: number): ReplyCheckResult {
+  const scores: Record<string, number> = {};
+  const failed: string[] = [];
+  const missing: string[] = [];
+  for (const c of REPLY_CHECKS) {
+    const p = (answers?.[c.id] as { noul?: unknown } | undefined)?.noul;
+    if (typeof p !== 'number' || !Number.isFinite(p) || p < 0 || p > 1) {
+      missing.push(c.id);
+      continue;
+    }
+    scores[c.id] = p;
+    if (p >= c.threshold) failed.push(c.id);
+  }
+  return {
+    passed: missing.length === 0 && failed.length === 0,
+    status: missing.length ? 'unavailable' : failed.length ? 'flagged' : 'passed',
+    scores, failed, latencyMs,
+    ...(missing.length ? { error: `Incomplete check results: ${missing.join(', ')}` } : {}),
+  };
+}
+
 /** Runs all checks on one reply in a single Decisions API call. */
 export async function checkReply(
   ai: GoogleGenAI,
   params: { reply: string; instructions?: string; visitorMessage?: string },
 ): Promise<ReplyCheckResult> {
   const t0 = Date.now();
-  if (!params.reply.trim()) return { passed: true, scores: {}, failed: [], latencyMs: 0 };
+  if (!params.reply.trim()) return { passed: false, status: 'unavailable', scores: {}, failed: [], latencyMs: 0, error: 'No reply to check.' };
   try {
     const input = [
       params.instructions ? `INSTRUCTIONS GIVEN TO THE SPEAKER:\n${params.instructions}` : '',
@@ -95,18 +118,11 @@ export async function checkReply(
         REPLY_CHECKS.map((c) => [c.id, { type: 'noul' as const, instructions: c.question }]),
       ),
     });
-    const scores: Record<string, number> = {};
-    const failed: string[] = [];
-    for (const c of REPLY_CHECKS) {
-      const answer = response.answers?.[c.id] as { noul?: number } | undefined;
-      const p = typeof answer?.noul === 'number' ? answer.noul : 0;
-      scores[c.id] = p;
-      if (p >= c.threshold) failed.push(c.id);
-    }
-    return { passed: failed.length === 0, scores, failed, latencyMs: Date.now() - t0 };
+    return parseReplyChecks(response.answers, Date.now() - t0);
   } catch (err) {
     return {
-      passed: true,
+      passed: false,
+      status: 'unavailable',
       scores: {},
       failed: [],
       latencyMs: Date.now() - t0,

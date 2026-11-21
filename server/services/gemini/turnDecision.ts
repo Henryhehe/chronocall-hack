@@ -4,7 +4,7 @@
 //   - a grounding verdict and an era-fidelity score, in the shape the FaceTime telemetry display uses
 //     (FaceTimeDecisionResult on feat/gemini-live-telemetry-cues), so both can share this one call.
 import type { GoogleGenAI } from '@google/genai';
-import { DECISION_MODEL, DECISIONS_API_VERSION, REPLY_CHECKS, type ReplyCheckResult } from './replyChecks.ts';
+import { DECISION_MODEL, DECISIONS_API_VERSION, REPLY_CHECKS, parseReplyChecks, type ReplyCheckResult } from './replyChecks.ts';
 
 import type { FaceTimeDecisionResult, DecisionVerdict } from '../../../shared/facetime.ts';
 
@@ -21,7 +21,7 @@ export async function evaluateTurn(
   p: { utterance: string; instructions?: string; userPrompt?: string; speaker?: string },
 ): Promise<TurnEvaluation> {
   const t0 = Date.now();
-  const none: TurnEvaluation = { checks: { passed: true, scores: {}, failed: [], latencyMs: 0 }, decision: null };
+  const none: TurnEvaluation = { checks: { passed: false, status: 'unavailable', scores: {}, failed: [], latencyMs: 0 }, decision: null };
   if (!p.utterance.trim()) return none;
   try {
     const input = [
@@ -62,25 +62,21 @@ export async function evaluateTurn(
     });
     const latencyMs = Date.now() - t0;
 
-    const scores: Record<string, number> = {};
-    const failed: string[] = [];
-    for (const c of REPLY_CHECKS) {
-      const pYes = (r.answers?.[c.id] as { noul?: number } | undefined)?.noul ?? 0;
-      scores[c.id] = pYes;
-      if (pYes >= c.threshold) failed.push(c.id);
-    }
+    const checks = parseReplyChecks(r.answers, latencyMs);
 
     const g = r.answers?.historical_grounding as
       | { choice?: string; confidence?: number; probabilities?: Record<string, number> }
       | undefined;
     const s = r.answers?.era_fidelity as { probabilities?: Record<string, number> } | undefined;
     const verdict: TurnVerdict =
-      g?.choice === 'anachronism' || g?.choice === 'plausible_persona' ? g.choice : 'verified';
-    const confidence = g?.confidence ?? 0;
-    let eraFidelityScore = 0;
+      checks.status !== 'unavailable' && ['anachronism', 'plausible_persona', 'verified'].includes(g?.choice ?? '') &&
+      typeof g?.confidence === 'number' && Number.isFinite(g.confidence) && g.confidence >= 0 && g.confidence <= 1
+        ? g!.choice as TurnVerdict : 'unavailable';
+    const confidence = verdict === 'unavailable' ? 0 : g!.confidence!;
+    let eraFidelityScore: number | null = null;
     let best = -1;
     for (const [k, prob] of Object.entries(s?.probabilities ?? {})) {
-      if (prob > best) {
+      if (Number.isInteger(Number(k)) && Number(k) >= 0 && Number(k) <= 4 && Number.isFinite(prob) && prob >= 0 && prob <= 1 && prob > best) {
         best = prob;
         eraFidelityScore = Number(k);
       }
@@ -88,22 +84,22 @@ export async function evaluateTurn(
     const decision: TurnDecision = {
       verdict,
       confidence,
-      probabilities: g?.probabilities ?? {},
+      probabilities: verdict === 'unavailable' ? {} : g?.probabilities ?? {},
       eraFidelityScore,
       eraFidelityMax: 4,
       suggestedCue: verdict === 'anachronism' ? 'thoughtful_pause' : 'warm_nod',
       summary:
-        verdict === 'anachronism'
-          ? `Possible anachronism flagged (${Math.round(confidence * 100)}% calibrated)`
-          : `Authentic in-character dialogue (${Math.round(confidence * 100)}% calibrated)`,
+        verdict === 'unavailable' ? 'Assessment unavailable: incomplete provider response.'
+          : verdict === 'anachronism' ? 'Model flagged a possible anachronism; review the claim.'
+          : 'Model-assessed era consistency; not independent source verification.',
       model: DECISION_MODEL.replace(/^models\//, ''),
       latencyMs,
     };
-    const result: TurnEvaluation = { checks: { passed: failed.length === 0, scores, failed, latencyMs }, decision };
+    const result: TurnEvaluation = { checks, decision };
     return result;
   } catch (err) {
     return {
-      checks: { passed: true, scores: {}, failed: [], latencyMs: Date.now() - t0, error: err instanceof Error ? err.message : String(err) },
+      checks: { passed: false, status: 'unavailable', scores: {}, failed: [], latencyMs: Date.now() - t0, error: err instanceof Error ? err.message : String(err) },
       decision: null,
     };
   }

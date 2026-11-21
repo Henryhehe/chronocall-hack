@@ -259,3 +259,7 @@ button:disabled { cursor: not-allowed; opacity: .5; }
 .world-workspace button { min-height: 44px; }
 .world-viewport button[aria-label^="Move"] { min-width: 44px; }
 @media (max-width: 700px) { .world-viewport { aspect-ratio: auto; height: 420px; } }
+
+/* The call is the discovery page’s primary action. */
+.hero-actions a.learning-primary { padding: 12px 20px; color: #111318; }
+a.hero-art { display: block; }
