@@ -1,5 +1,5 @@
-import { PortraitArtwork } from '../types/portrait';
-import { resolvePersona } from './personas';
+import { PortraitArtwork } from '../types/portrait.ts';
+import { resolvePersona } from './personas.ts';
 
 export const WASHINGTON_PORTRAIT: PortraitArtwork = {
   id: 'washington-equestrian-1777',

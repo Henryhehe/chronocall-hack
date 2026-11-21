@@ -11,6 +11,14 @@ The visitor points a phone at any painting. Nothing about the figure is stored i
 3. **Structure** (`gemini-4-hydrogen`): turns the notes into a short profile, using only what the notes support.
 4. **Check** (`gemini-decision-1`, the Decisions API): a yes/no question for every fact. Code keeps a fact only if P(yes) ≥ 0.8.
 5. **Speak** (`gemini-3.8-live`): the checked profile plus the general guide.
+6. **Check every reply** (`gemini-decision-1`, `server/services/gemini/replyChecks.ts`): one call asks five yes/no questions about each reply, measured against the figure's own instructions:
+   - Does it show hindsight?
+   - Does it break character?
+   - Does it give advice?
+   - Does it sound like a modern museum guide?
+   - Is it unsafe?
+
+   Code fails a check when P(yes) reaches its threshold. A failed text reply (`/api/character/respond`) is regenerated once with a correction. A live voice turn (`/ws/museum`) is checked when it ends, the client gets a `replyCheck` message, and the figure gets a private note to correct itself in character. If the Decisions API is unavailable, the reply goes through and the error is reported.
 
 Files:
 - `src/features/museum/data/fallbackPersona.ts`: `characterGuide()` is the **general guide**, which sets how every speaker behaves. They act as that person would in their own world, not as a guide or teacher. They have no hindsight, read the visitor by their era's codes, and admit the painter's liberties honestly. They say "no one wrote that down" rather than invent. Any part of a painting can speak: a person, an animal, an object, a place or the painting itself.
