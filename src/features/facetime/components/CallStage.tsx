@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from "react";
 import {
+  Camera,
   Captions,
   CaptionsOff,
   Compass,
@@ -17,6 +18,7 @@ import {
   VideoOff,
   X,
 } from "lucide-react";
+import { captureMediaFrame } from "../../../utils/canvas";
 import { HistoricalVideoStage } from "./HistoricalVideoStage";
 import { GeminiTelemetryHud } from "./GeminiTelemetryHud";
 import {
@@ -66,6 +68,7 @@ interface CallStageProps {
   pipelineEvents: GeminiPipelineEvent[];
   latestDecision: FaceTimeDecisionResult | null;
   verifyingDecision: boolean;
+  onTakePhotoTogether: (callerImageBase64?: string) => void;
   errorMessage: string | null;
   onDismissError: () => void;
   onEndCall: () => void;
@@ -122,6 +125,7 @@ export const CallStage: React.FC<CallStageProps> = ({
   pipelineEvents,
   latestDecision,
   verifyingDecision,
+  onTakePhotoTogether,
   errorMessage,
   onDismissError,
   onEndCall,
@@ -145,6 +149,27 @@ export const CallStage: React.FC<CallStageProps> = ({
   });
 
   const transcriptEndRef = useRef<HTMLDivElement | null>(null);
+  const userVideoElRef = useRef<HTMLVideoElement | null>(null);
+
+  const handleUserVideoRef = (el: HTMLVideoElement | null) => {
+    userVideoElRef.current = el;
+    bindUserVideoRef(el);
+  };
+
+  const handleTakePhotoTogether = () => {
+    let callerImageBase64: string | undefined = undefined;
+    if (cameraEnabled && cameraReady && userVideoElRef.current) {
+      try {
+        const frame = captureMediaFrame(userVideoElRef.current, 960, 0.85);
+        if (frame?.base64) {
+          callerImageBase64 = frame.base64;
+        }
+      } catch {
+        // Graceful fallback if video frame capture fails
+      }
+    }
+    onTakePhotoTogether(callerImageBase64);
+  };
 
   // Reset portal states on call phase change
   useEffect(() => {
@@ -463,7 +488,7 @@ export const CallStage: React.FC<CallStageProps> = ({
             className={`absolute z-20 ${PIP_CORNER_CLASSES[pipCorner]} w-28 sm:w-40 aspect-[3/4] sm:aspect-[4/3] rounded-2xl overflow-hidden bg-[#111622]/90 border border-white/25 shadow-2xl shadow-black/60 transition-all duration-300 group`}
           >
             <video
-              ref={bindUserVideoRef}
+              ref={handleUserVideoRef}
               playsInline
               muted
               autoPlay
@@ -690,6 +715,17 @@ export const CallStage: React.FC<CallStageProps> = ({
               className="w-12 h-12 rounded-full bg-white/15 hover:bg-white/25 text-white flex items-center justify-center transition-all cursor-pointer"
             >
               <RefreshCw className="w-5 h-5" />
+            </button>
+
+            {/* Take Photo Together (Chrono-Selfie) */}
+            <button
+              type="button"
+              onClick={handleTakePhotoTogether}
+              aria-label="Take Photo Together"
+              title="Take Photo Together (Chrono-Selfie)"
+              className="w-12 h-12 rounded-full bg-gradient-to-tr from-amber-400 to-amber-300 hover:from-amber-300 hover:to-amber-200 text-slate-950 flex items-center justify-center transition-all cursor-pointer shadow-lg shadow-amber-400/25 active:scale-95"
+            >
+              <Camera className="w-5 h-5 text-slate-950" />
             </button>
 
             <button

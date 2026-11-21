@@ -126,6 +126,14 @@ test("FaceTime live-mode Veo job start, poll, and binary media stream", async ()
       model: "mock-image",
       latencyMs: 5,
     }),
+    generateChronoSelfie: async ({ profile }) => ({
+      imageDataUrl: "data:image/png;base64,SELFIE",
+      mimeType: "image/png",
+      caption: `Selfie with ${profile.name}`,
+      eraStamp: profile.era,
+      model: "mock-image",
+      latencyMs: 5,
+    }),
     startVeoPortraitVideo: async ({ mode }) => ({
       jobId: "job-123",
       status: "running",

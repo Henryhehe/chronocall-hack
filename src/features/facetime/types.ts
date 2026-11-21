@@ -1,3 +1,4 @@
+import { buildSelfieEraStamp } from "../../../shared/facetime.ts";
 import type {
   ActiveVideoLayer,
   DecisionVerdict,
@@ -12,8 +13,11 @@ import type {
   GeminiPipelineStage,
   HistoricalProfile,
   VideoEngineMode,
+  FaceTimeSelfieResult,
 } from "../../../shared/facetime.ts";
 import { normalizePortalPrompt } from "../../../shared/facetime.ts";
+
+export { buildSelfieEraStamp };
 
 export type {
   ActiveVideoLayer,
@@ -23,6 +27,7 @@ export type {
   FaceTimePortalInvite,
   FaceTimePortraitResult,
   FaceTimeReactionCue,
+  FaceTimeSelfieResult,
   FaceTimeVideoJobStatus,
   FaceTimeVoiceName,
   GeminiPipelineEvent,

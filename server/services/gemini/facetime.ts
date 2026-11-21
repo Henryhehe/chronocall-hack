@@ -3,12 +3,14 @@ import { ThinkingLevel, Type, type GenerateVideosOperation } from "@google/genai
 import { getGeminiClient, getLiveGeminiClient } from "./client.ts";
 import { IMAGE_GEN_MODEL, PRO_VISION_MODEL, VISION_MODEL } from "../../../shared/models.ts";
 import {
+  buildSelfieEraStamp,
   normalizeHistoricalProfile,
   type ArtworkKind,
   type DecisionVerdict,
   type FaceTimeDecisionResult,
   type FaceTimeIdentifyResult,
   type FaceTimePortraitResult,
+  type FaceTimeSelfieResult,
   type FaceTimeVideoJobStatus,
   type HistoricalProfile,
 } from "../../../shared/facetime.ts";
@@ -345,6 +347,103 @@ export async function generateHistoricalPortrait(params: {
   return {
     imageDataUrl,
     mimeType: outputMime,
+    model: IMAGE_GEN_MODEL,
+    latencyMs: Date.now() - startedAt,
+  };
+}
+
+export async function generateChronoSelfie(params: {
+  profile: HistoricalProfile;
+  callerImageBase64?: string;
+  callerMimeType?: string;
+  figureImageBase64?: string;
+  figureMimeType?: string;
+}): Promise<FaceTimeSelfieResult> {
+  const ai = getGeminiClient();
+  const startedAt = Date.now();
+  const { profile } = params;
+  const eraStamp = buildSelfieEraStamp(profile);
+
+  const parts: Array<
+    { text: string } | { inlineData: { mimeType: string; data: string } }
+  > = [];
+
+  if (params.callerImageBase64) {
+    const cleanCaller = stripDataUrlPrefix(params.callerImageBase64);
+    parts.push({
+      inlineData: {
+        mimeType: params.callerMimeType || cleanCaller.mimeType || "image/jpeg",
+        data: cleanCaller.base64,
+      },
+    });
+  }
+
+  if (params.figureImageBase64) {
+    const cleanFigure = stripDataUrlPrefix(params.figureImageBase64);
+    parts.push({
+      inlineData: {
+        mimeType: params.figureMimeType || cleanFigure.mimeType || "image/jpeg",
+        data: cleanFigure.base64,
+      },
+    });
+  }
+
+  const promptParts = [
+    `Create a candid, photorealistic historical time-travel "Chrono-Selfie" photograph of TWO people standing together shoulder-to-shoulder smiling into the camera:`,
+    `Person 1: The historical figure ${profile.name} (${profile.era}) in ${profile.location}. Likeness cues: ${profile.portraitPrompt}. Authentic historical hair, warm expression, and period garments.`,
+  ];
+
+  if (params.callerImageBase64) {
+    promptParts.push(
+      `Person 2 (The Modern Time-Travel Companion): The caller shown in the reference selfie camera image. Faithfully preserve this person's exact recognizable facial features, facial structure, skin tone, eye shape, and smile from the caller image, BUT dress them authentically in period attire matching ${profile.era} in ${profile.location} so they look naturally at home together with ${profile.name}.`
+    );
+  } else {
+    promptParts.push(
+      `Person 2: A cheerful companion traveling through time, standing shoulder-to-shoulder with ${profile.name}, dressed authentically in matching period clothing of ${profile.era} in ${profile.location}.`
+    );
+  }
+
+  promptParts.push(
+    `Composition: A warm, authentic candid selfie shot taken at arm's length or close companion distance. Both individuals are looking directly and cheerfully into the camera lens together.`,
+    `Setting & Lighting: Vivid historical setting in ${profile.location} during ${profile.era}, with period-accurate architecture, furniture, or atmospheric background, illuminated by natural window light or warm lantern light.`,
+    `Photography style: High-resolution modern color camera snapshot, lifelike skin texture, natural eye reflections, genuine smiles, shallow depth of field with the background softly focused.`,
+    `Zero artificial text overlays, zero borders, zero watermarks, zero split-screens.`
+  );
+
+  parts.push({ text: promptParts.join(" ") });
+
+  const response = await ai.models.generateContent({
+    model: IMAGE_GEN_MODEL,
+    contents: { parts },
+    config: {
+      imageConfig: {
+        aspectRatio: "1:1",
+      },
+    },
+  });
+
+  let imageDataUrl: string | null = null;
+  let outputMime = "image/png";
+
+  for (const part of response.candidates?.[0]?.content?.parts ?? []) {
+    if (part.inlineData?.data) {
+      outputMime = part.inlineData.mimeType ?? "image/png";
+      imageDataUrl = `data:${outputMime};base64,${part.inlineData.data}`;
+      break;
+    }
+  }
+
+  if (!imageDataUrl) {
+    throw new Error(
+      `Gemini did not return a chrono-selfie image for ${profile.name}.`
+    );
+  }
+
+  return {
+    imageDataUrl,
+    mimeType: outputMime,
+    caption: `Time-travel selfie with ${profile.name} in ${profile.location}`,
+    eraStamp,
     model: IMAGE_GEN_MODEL,
     latencyMs: Date.now() - startedAt,
   };

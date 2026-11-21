@@ -2,8 +2,10 @@ import React, { useCallback, useEffect, useRef, useState } from "react";
 import { ArtworkScannerModal } from "./components/ArtworkScannerModal";
 import { CallLauncher } from "./components/CallLauncher";
 import { CallStage } from "./components/CallStage";
+import { ChronoSelfieModal } from "./components/ChronoSelfieModal";
 import { matchCuratedContact } from "./data/contacts";
 import { useFaceTimeCall } from "./hooks/useFaceTimeCall";
+import { captureMediaFrame } from "../../utils/canvas";
 import {
   playConnectChime,
   playEndCallChime,
@@ -60,6 +62,12 @@ export default function FaceTimeApp() {
     },
     []
   );
+  const [selfieModalOpen, setSelfieModalOpen] = useState(false);
+  const [selfieCallerFrame, setSelfieCallerFrame] = useState<string | undefined>(
+    undefined
+  );
+
+  const userVideoElRef = useRef<HTMLVideoElement | null>(null);
 
   useEffect(() => {
     let active = true;
@@ -286,7 +294,37 @@ export default function FaceTimeApp() {
     setPhase("launcher");
     setActiveProfile(null);
     setPortraitDataUrl(null);
+    setSelfieModalOpen(false);
+    setSelfieCallerFrame(undefined);
   }, [call, stopRingtone]);
+
+  const bindUserVideoRef = useCallback(
+    (el: HTMLVideoElement | null) => {
+      userVideoElRef.current = el;
+      call.bindUserVideoRef(el);
+    },
+    [call]
+  );
+
+  const handleTakePhotoTogether = useCallback((callerImageBase64?: string) => {
+    setSelfieCallerFrame(callerImageBase64);
+    setSelfieModalOpen(true);
+  }, []);
+
+  const handleTakeAnotherSelfie = useCallback(() => {
+    let freshFrame: string | undefined = undefined;
+    if (call.cameraEnabled && call.cameraReady && userVideoElRef.current) {
+      try {
+        const captured = captureMediaFrame(userVideoElRef.current, 960, 0.85);
+        if (captured?.base64) {
+          freshFrame = captured.base64;
+        }
+      } catch {
+        // Fallback gracefully if frame capture fails
+      }
+    }
+    setSelfieCallerFrame(freshFrame);
+  }, [call.cameraEnabled, call.cameraReady]);
 
   useEffect(() => {
     return () => {
@@ -321,7 +359,7 @@ export default function FaceTimeApp() {
           cameraEnabled={call.cameraEnabled}
           cameraReady={call.cameraReady}
           facingMode={call.facingMode}
-          bindUserVideoRef={call.bindUserVideoRef}
+          bindUserVideoRef={bindUserVideoRef}
           onToggleCamera={call.toggleCamera}
           onFlipCamera={call.flipCamera}
           isSpeaking={call.isSpeaking}
@@ -338,9 +376,23 @@ export default function FaceTimeApp() {
           pipelineEvents={pipelineEvents}
           latestDecision={latestDecision}
           verifyingDecision={verifyingDecision}
+          onTakePhotoTogether={handleTakePhotoTogether}
           errorMessage={errorMessage}
           onDismissError={() => setErrorMessage(null)}
           onEndCall={handleEndCall}
+        />
+      )}
+
+      {activeProfile && (
+        <ChronoSelfieModal
+          open={selfieModalOpen}
+          onClose={() => setSelfieModalOpen(false)}
+          profile={activeProfile}
+          callerImageBase64={selfieCallerFrame}
+          figureImageBase64={
+            portraitDataUrl || activeProfile.previewImageUrl || undefined
+          }
+          onTakeAnother={handleTakeAnotherSelfie}
         />
       )}
 
