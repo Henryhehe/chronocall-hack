@@ -27,7 +27,7 @@ async function startServer() {
     closeVite = () => vite.close();
   } else {
     const dist = path.join(projectRoot, "dist");
-    if (!existsSync(path.join(dist, "index.html"))) throw new Error("Missing production build. Run bun run build first.");
+    if (!existsSync(path.join(dist, "index.html"))) throw new Error("Missing production build. Run npm run build first.");
     app.use(express.static(dist));
     app.get("*", (_req, res) => res.sendFile(path.join(dist, "index.html")));
   }
@@ -38,7 +38,7 @@ async function startServer() {
   });
   server.listen(config.port, config.host, () => {
     console.log(`Chronocall: http://localhost:${config.port}${config.demoMode ? " (local demo mode)" : ""}`);
-    if (!config.apiKeyConfigured && !config.demoMode) console.warn("GEMINI_API_KEY is missing. Set .env.local or run bun run dev:demo.");
+    if (!config.apiKeyConfigured && !config.demoMode) console.warn("GEMINI_API_KEY is missing. Set .env.local or run npm run dev:demo.");
   });
 
   let stopping = false;
