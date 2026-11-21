@@ -13,6 +13,34 @@ export type ArtworkKind =
   | "illustration"
   | "unknown";
 
+export type OnlineArtworkMedium =
+  | "painting"
+  | "sculpture"
+  | "portrait"
+  | "photograph";
+
+export interface OnlineArtworkCandidate {
+  id: string;
+  title: string;
+  artist: string;
+  year: string;
+  medium: OnlineArtworkMedium;
+  museum: string;
+  thumbnailUrl: string;
+  imageUrl: string;
+  pageUrl: string;
+  isMostFamous?: boolean;
+  whyFamous?: string;
+}
+
+export interface OnlineArtworkSearchResult {
+  query: string;
+  selectedArtwork: OnlineArtworkCandidate | null;
+  alternatives: OnlineArtworkCandidate[];
+  profile: HistoricalProfile;
+  demoMode?: boolean;
+}
+
 export interface FaceAnchor {
   /** Normalized 0..1 face center X */
   cx: number;
@@ -251,4 +279,76 @@ export function resolveActiveVideoLayer(params: {
   if (veoReady) return "veo";
   if (genieHasFrame) return "genie";
   return "portrait";
+}
+
+export function classifyArtworkMedium(text: string): OnlineArtworkMedium {
+  const lower = text.toLowerCase();
+  if (
+    /\b(statue|sculpture|bust|marble|bronze|terracotta|relief|carving|monument)\b/.test(
+      lower
+    )
+  ) {
+    return "sculpture";
+  }
+  if (/\b(photo|photograph|daguerreotype|gelatin silver|negative)\b/.test(lower)) {
+    return "photograph";
+  }
+  if (
+    /\b(oil on canvas|painting|fresco|tempera|panel|watercolor|canvas)\b/.test(
+      lower
+    )
+  ) {
+    return "painting";
+  }
+  return "portrait";
+}
+
+/**
+ * Deterministic relevance & iconic-artwork ranking for online museum/Wikimedia candidates.
+ * Strongly prefers portraits, paintings, busts, and statues over maps, signatures, or coins.
+ */
+export function rankArtworkCandidates(
+  query: string,
+  candidates: OnlineArtworkCandidate[]
+): OnlineArtworkCandidate[] {
+  const tokens = query
+    .toLowerCase()
+    .split(/\s+/)
+    .filter((t) => t.length >= 3);
+
+  const score = (item: OnlineArtworkCandidate): number => {
+    const hay = `${item.title} ${item.artist} ${item.museum} ${item.medium}`.toLowerCase();
+    let s = 0;
+
+    for (const tok of tokens) {
+      if (hay.includes(tok)) s += 25;
+    }
+
+    if (item.medium === "painting") s += 22;
+    else if (item.medium === "sculpture") s += 20;
+    else if (item.medium === "portrait") s += 18;
+    else if (item.medium === "photograph") s += 12;
+
+    if (/\b(portrait|bust|statue|self-portrait|painting)\b/.test(hay)) s += 18;
+    if (
+      /\b(metropolitan museum|louvre|uffizi|national portrait gallery|british museum|smithsonian|prado|national gallery)\b/.test(
+        hay
+      )
+    ) {
+      s += 14;
+    }
+
+    // Demote non-portrait ephemera (signatures, maps, stamps, graves, coins, plaques)
+    if (
+      /\b(signature|autograph|grave|tombstone|map|stamp|coin|banknote|medal|plaque|letter|manuscript|diagram|coat of arms|flag|seal)\b/.test(
+        hay
+      )
+    ) {
+      s -= 45;
+    }
+
+    return s;
+  };
+
+  return [...candidates].sort((a, b) => score(b) - score(a));
 }

@@ -1,12 +1,14 @@
 import { Router } from "express";
 import { formatGeminiError } from "../services/gemini/errors.ts";
 import * as geminiFaceTime from "../services/gemini/facetime.ts";
+import * as artworkSearch from "../services/artwork-search.ts";
 import {
   normalizeHistoricalProfile,
   type FaceTimeIdentifyResult,
   type FaceTimePortraitResult,
   type FaceTimeVideoJobStatus,
   type HistoricalProfile,
+  type OnlineArtworkSearchResult,
 } from "../../shared/facetime.ts";
 
 export interface FaceTimeServices {
@@ -17,6 +19,8 @@ export interface FaceTimeServices {
   pollVeoPortraitVideo: typeof geminiFaceTime.pollVeoPortraitVideo;
   getVeoVideoMedia: typeof geminiFaceTime.getVeoVideoMedia;
   respondToFaceTimeText: typeof geminiFaceTime.respondToFaceTimeText;
+  searchOnlineArtworks?: typeof artworkSearch.searchOnlineArtworksForFigure;
+  fetchArtworkImage?: typeof artworkSearch.fetchAllowedArtworkImage;
 }
 
 function createDemoPortraitSvgDataUrl(profile: HistoricalProfile): string {
@@ -323,6 +327,142 @@ export function createFaceTimeRouter(
         history,
       });
       res.json({ ...result, demoMode: false });
+    } catch (err) {
+      const formatted = formatGeminiError(err);
+      res.status(formatted.status).json({ error: formatted.message });
+    }
+  });
+
+  // Search online museum & Wikimedia archives for paintings/sculptures of a historical figure,
+  // auto-selecting the single most famous piece while returning alternatives to choose from.
+  router.post("/api/facetime/artwork-search", async (req, res) => {
+    try {
+      const query =
+        typeof req.body?.query === "string" ? req.body.query.trim() : "";
+      const rawFilter = req.body?.mediumFilter;
+      const mediumFilter: "all" | "painting" | "sculpture" =
+        rawFilter === "painting" || rawFilter === "sculpture"
+          ? rawFilter
+          : "all";
+
+      if (!query) {
+        res
+          .status(400)
+          .json({ error: "query (historical figure name) is required." });
+        return;
+      }
+
+      if (demoMode) {
+        const { selectedArtwork, alternatives } =
+          artworkSearch.buildDemoArtworkSearch(query, mediumFilter);
+        const profile = normalizeHistoricalProfile(
+          {
+            name: query,
+            title: "Historical Figure (Demo Mode)",
+            era: selectedArtwork.year || "Across History",
+            location: "Historic Gallery",
+            bio: `Brought to life from "${selectedArtwork.title}" (${selectedArtwork.museum}).`,
+            artworkTitle: selectedArtwork.title,
+            artist: selectedArtwork.artist,
+            previewImageUrl: selectedArtwork.imageUrl,
+          },
+          "scanned"
+        );
+        const payload: OnlineArtworkSearchResult = {
+          query,
+          selectedArtwork,
+          alternatives,
+          profile,
+          demoMode: true,
+        };
+        res.json(payload);
+        return;
+      }
+
+      const searchFn =
+        services.searchOnlineArtworks ?? artworkSearch.searchOnlineArtworksForFigure;
+      const [artResults, baseProfile] = await Promise.all([
+        searchFn({ query, mediumFilter, useGeminiRanking: true }),
+        services.resolveHistoricalFigure({ query }),
+      ]);
+
+      const selected = artResults.selectedArtwork;
+      const enrichedProfile = normalizeHistoricalProfile(
+        {
+          ...baseProfile,
+          artworkTitle: selected?.title ?? baseProfile.artworkTitle,
+          artist: selected?.artist ?? baseProfile.artist,
+          previewImageUrl: selected?.thumbnailUrl ?? baseProfile.previewImageUrl,
+        },
+        selected ? "scanned" : "search"
+      );
+
+      const payload: OnlineArtworkSearchResult = {
+        query,
+        selectedArtwork: selected,
+        alternatives: artResults.alternatives,
+        profile: enrichedProfile,
+        demoMode: false,
+      };
+      res.json(payload);
+    } catch (err) {
+      const formatted = formatGeminiError(err);
+      res.status(formatted.status).json({ error: formatted.message });
+    }
+  });
+
+  router.post("/api/facetime/artwork-fetch", async (req, res) => {
+    try {
+      const imageUrl =
+        typeof req.body?.imageUrl === "string" ? req.body.imageUrl.trim() : "";
+      if (!imageUrl) {
+        res.status(400).json({ error: "imageUrl is required." });
+        return;
+      }
+
+      if (imageUrl.startsWith("data:image/") || imageUrl.startsWith("/assets/")) {
+        res.json({
+          imageDataUrl: imageUrl,
+          mimeType: imageUrl.startsWith("data:image/svg+xml")
+            ? "image/svg+xml"
+            : "image/jpeg",
+        });
+        return;
+      }
+
+      if (demoMode) {
+        res.status(503).json({
+          error: "Remote artwork fetching is disabled in local demo mode.",
+        });
+        return;
+      }
+
+      const fetchFn =
+        services.fetchArtworkImage ?? artworkSearch.fetchAllowedArtworkImage;
+      const fetched = await fetchFn(imageUrl);
+      res.json({
+        imageDataUrl: fetched.dataUrl,
+        mimeType: fetched.mimeType,
+      });
+    } catch (err) {
+      const formatted = formatGeminiError(err);
+      res.status(formatted.status).json({ error: formatted.message });
+    }
+  });
+
+  router.get("/api/facetime/artwork-proxy", async (req, res) => {
+    try {
+      const rawUrl = typeof req.query.url === "string" ? req.query.url.trim() : "";
+      if (!rawUrl || !artworkSearch.isAllowedArtworkUrl(rawUrl)) {
+        res.status(400).json({ error: "Valid allowlisted museum image url is required." });
+        return;
+      }
+      const fetchFn =
+        services.fetchArtworkImage ?? artworkSearch.fetchAllowedArtworkImage;
+      const fetched = await fetchFn(rawUrl);
+      res.setHeader("Content-Type", fetched.mimeType);
+      res.setHeader("Cache-Control", "public, max-age=3600");
+      res.send(fetched.buffer);
     } catch (err) {
       const formatted = formatGeminiError(err);
       res.status(formatted.status).json({ error: formatted.message });

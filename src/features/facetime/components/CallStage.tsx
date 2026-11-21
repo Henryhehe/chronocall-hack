@@ -1,7 +1,9 @@
 import React, { useEffect, useRef, useState } from "react";
 import {
+  BookmarkPlus,
   Captions,
   CaptionsOff,
+  Check,
   Loader2,
   MessageSquare,
   Mic,
@@ -112,6 +114,33 @@ export const CallStage: React.FC<CallStageProps> = ({
   const [engineMenuOpen, setEngineMenuOpen] = useState(false);
   const [pipCorner, setPipCorner] = useState<PiPCorner>("top-right");
   const [draftMessage, setDraftMessage] = useState("");
+  const [savedEntryIds, setSavedEntryIds] = useState<Record<string, boolean>>({});
+
+  const saveEntryToNotebook = (entry: CallTranscriptMessage, index: number) => {
+    try {
+      const storageKey = "chronocall-learning-notes-v1";
+      const raw = window.localStorage.getItem(storageKey);
+      const parsed: unknown = raw ? JSON.parse(raw) : [];
+      const existing = Array.isArray(parsed) ? parsed : [];
+      const previousUser = transcripts
+        .slice(0, index)
+        .reverse()
+        .find((item) => item.speaker === "user");
+      const newNote = {
+        id: crypto.randomUUID(),
+        space: "Video calls",
+        observation: `${profile.name} (${profile.era}): "${entry.text}"`,
+        question: previousUser ? previousUser.text : "",
+      };
+      window.localStorage.setItem(
+        storageKey,
+        JSON.stringify([newNote, ...existing])
+      );
+      setSavedEntryIds((prev) => ({ ...prev, [entry.id]: true }));
+    } catch {
+      // Ignore storage quota or private-mode errors gracefully
+    }
+  };
   const [videoTelemetry, setVideoTelemetry] = useState<{
     activeLayer: ActiveVideoLayer;
     label: string;
@@ -455,16 +484,38 @@ export const CallStage: React.FC<CallStageProps> = ({
                     {profile.name}.
                   </p>
                 ) : (
-                  transcripts.map((entry) => (
+                  transcripts.map((entry, idx) => (
                     <div
                       key={entry.id}
                       className={`flex flex-col ${
                         entry.speaker === "user" ? "items-end" : "items-start"
                       }`}
                     >
-                      <span className="text-[10px] text-slate-400 mb-1 px-1">
-                        {entry.speaker === "user" ? "You" : profile.name}
-                      </span>
+                      <div className="flex items-center gap-2 mb-1 px-1">
+                        <span className="text-[10px] text-slate-400">
+                          {entry.speaker === "user" ? "You" : profile.name}
+                        </span>
+                        {entry.speaker === "figure" && !entry.streaming && (
+                          <button
+                            type="button"
+                            onClick={() => saveEntryToNotebook(entry, idx)}
+                            className="inline-flex items-center gap-1 text-[10px] text-slate-400 hover:text-emerald-300 cursor-pointer transition-colors"
+                            title="Save quote to Chronocall Notebook"
+                          >
+                            {savedEntryIds[entry.id] ? (
+                              <>
+                                <Check className="w-3 h-3 text-emerald-400" />
+                                <span className="text-emerald-300">Saved</span>
+                              </>
+                            ) : (
+                              <>
+                                <BookmarkPlus className="w-3 h-3" />
+                                <span>Save to Notebook</span>
+                              </>
+                            )}
+                          </button>
+                        )}
+                      </div>
                       <div
                         className={`max-w-[85%] rounded-2xl px-3.5 py-2 text-xs sm:text-sm leading-relaxed ${
                           entry.speaker === "user"

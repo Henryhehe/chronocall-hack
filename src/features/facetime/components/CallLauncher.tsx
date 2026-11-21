@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from "react";
-import { ArrowRight, Camera, Loader2, Search, Video } from "lucide-react";
+import { ArrowRight, Camera, Landmark, Loader2, Search, Video } from "lucide-react";
 import { JourneyHeader } from "../../../app/LearningJourney";
 import { CURATED_HISTORICAL_CONTACTS } from "../data/contacts";
 import type { HistoricalProfile, RuntimeHealth } from "../types";
@@ -12,10 +12,12 @@ interface CallLauncherProps {
   onDialCustomName: (name: string) => void;
   onSelectContact: (contact: HistoricalProfile) => void;
   onOpenScanner: () => void;
+  onOpenArtworkSearch: (initialQuery?: string) => void;
 }
 
-export const CallLauncher: React.FC<CallLauncherProps> = ({ health, resolvingQuery, errorMessage, onDismissError, onDialCustomName, onSelectContact, onOpenScanner }) => {
+export const CallLauncher: React.FC<CallLauncherProps> = ({ health, resolvingQuery, errorMessage, onDismissError, onDialCustomName, onSelectContact, onOpenScanner, onOpenArtworkSearch }) => {
   const [query, setQuery] = useState("");
+  const [failedImages, setFailedImages] = useState<Record<string, boolean>>({});
   const filteredContacts = useMemo(() => {
     const q = query.trim().toLowerCase();
     return CURATED_HISTORICAL_CONTACTS.filter(c => !q || [c.name, c.era, c.title, c.location].some(value => value.toLowerCase().includes(q)));
@@ -24,7 +26,7 @@ export const CallLauncher: React.FC<CallLauncherProps> = ({ health, resolvingQue
   return <div className="call-launcher min-h-screen bg-canvas text-slate-100">
     <JourneyHeader view="facetime" />
     <main id="learning-main" tabIndex={-1} className="call-launcher-main">
-      <section className="page-intro"><p className="eyebrow">VIDEO CALLS</p><h1>Who would you ask?</h1><p>Choose a person from history, search by name, or scan an artwork.</p></section>
+      <section className="page-intro"><p className="eyebrow">VIDEO CALLS</p><h1>Who would you ask?</h1><p>Choose a person from history, search by name, scan an artwork, or pull a famous painting or sculpture online.</p></section>
       {health?.demoMode && <p className="ui-notice" role="status">Demo mode · Conversations use sample responses.</p>}
       {health && !health.demoMode && !health.apiKeyConfigured && <p className="ui-notice" role="status">Calling is unavailable until the server’s AI connection is configured.</p>}
       {errorMessage && <div className="ui-alert" role="alert"><span>{errorMessage}</span><button className="ui-button" onClick={onDismissError}>Dismiss</button></div>}
@@ -34,11 +36,12 @@ export const CallLauncher: React.FC<CallLauncherProps> = ({ health, resolvingQue
           <button className="learning-primary" disabled={!query.trim() || resolvingQuery}>{resolvingQuery ? <Loader2 size={17} className="animate-spin" /> : <Video size={17} />} {resolvingQuery ? 'Preparing…' : 'Call'}</button>
         </form>
         <button className="ui-button" onClick={onOpenScanner} disabled={resolvingQuery}><Camera size={18} />Scan artwork</button>
+        <button className="ui-button" onClick={() => onOpenArtworkSearch(query.trim() || undefined)} disabled={resolvingQuery}><Landmark size={18} />Find famous art</button>
       </div>
       <section aria-labelledby="contacts-title">
         <div className="section-heading"><h2 id="contacts-title">{query.trim() ? 'Search results' : 'Choose a person'}</h2><p>AI interpretations of historical figures</p></div>
-        {filteredContacts.length === 0 ? <div className="ui-empty"><Search size={28} /><h3>No matching contacts</h3><p>Search by another name, or use Call to look up “{query.trim()}”.</p></div> : <div className="contact-grid">{filteredContacts.map(contact => <button key={contact.id} className="contact-card" disabled={resolvingQuery} onClick={() => onSelectContact(contact)} aria-label={`Call ${contact.name}`}>
-          <div className="contact-card-top">{contact.previewImageUrl ? <img src={contact.previewImageUrl} alt="" loading="lazy" /> : <span className="contact-initials">{contact.initials}</span>}<span>{contact.era}</span></div>
+        {filteredContacts.length === 0 ? <div className="ui-empty"><Search size={28} /><h3>No matching contacts</h3><p>Search by another name, use Call, or Find famous art for “{query.trim()}”.</p></div> : <div className="contact-grid">{filteredContacts.map(contact => <button key={contact.id} className="contact-card" disabled={resolvingQuery} onClick={() => onSelectContact(contact)} aria-label={`Call ${contact.name}`}>
+          <div className="contact-card-top">{contact.previewImageUrl && !failedImages[contact.id] ? <img src={contact.previewImageUrl} alt="" loading="lazy" onError={() => setFailedImages(prev => ({ ...prev, [contact.id]: true }))} /> : <span className="contact-initials">{contact.initials}</span>}<span>{contact.era}</span></div>
           <h3>{contact.name}</h3><p className="contact-role">{contact.title}</p><p>{contact.bio}</p>
           <div className="contact-card-footer"><span>{contact.location}</span><span>Call <ArrowRight size={16} /></span></div>
         </button>)}</div>}
