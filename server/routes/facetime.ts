@@ -27,6 +27,8 @@ export interface FaceTimeServices {
   evaluateHistoricalTurnDecision: typeof geminiFaceTime.evaluateHistoricalTurnDecision;
   searchOnlineArtworks?: typeof artworkSearch.searchOnlineArtworksForFigure;
   fetchArtworkImage?: typeof artworkSearch.fetchAllowedArtworkImage;
+  /** Name gate (Decisions API). Optional so tests with stand-in services skip it. */
+  checkFigureName?: typeof geminiFaceTime.checkFigureName;
 }
 
 function createDemoPortraitSvgDataUrl(profile: HistoricalProfile): string {
@@ -326,6 +328,11 @@ export function createFaceTimeRouter(
         return;
       }
 
+      const nameGate = await services.checkFigureName?.(query);
+      if (nameGate && !nameGate.allowed) {
+        res.status(422).json({ error: nameGate.reason, refused: true, nameGate });
+        return;
+      }
       const profile = await services.resolveHistoricalFigure({ query });
       res.json({ profile, demoMode: false });
     } catch (err) {
@@ -763,6 +770,11 @@ export function createFaceTimeRouter(
         return;
       }
 
+      const nameGate = await services.checkFigureName?.(query);
+      if (nameGate && !nameGate.allowed) {
+        res.status(422).json({ error: nameGate.reason, refused: true, nameGate });
+        return;
+      }
       const searchFn =
         services.searchOnlineArtworks ?? artworkSearch.searchOnlineArtworksForFigure;
       const [artResults, baseProfile] = await Promise.all([
