@@ -505,7 +505,8 @@ export default function FaceTimeApp() {
           void beginCall(profile, artworkDataUrl)
         }
       />
-      <PrintOfferModal {...printOffer} open={showPrints} onClose={() => { setShowPrints(false); printOffer.onClose(); }} />
+      {/* Opens by itself when a call ends (printOffer.open), and again from "Explore artwork prints". */}
+      <PrintOfferModal {...printOffer} open={showPrints || printOffer.open} onClose={() => { setShowPrints(false); printOffer.onClose(); }} />
     </>
   );
 }
