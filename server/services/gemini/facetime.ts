@@ -1,6 +1,7 @@
 import crypto from "node:crypto";
 import { ThinkingLevel, Type, type GenerateVideosOperation } from "@google/genai";
 import { getGeminiClient } from "./client.ts";
+import { gateImage } from "./imageGate.ts";
 import { IMAGE_GEN_MODEL, VISION_MODEL } from "../../../shared/models.ts";
 import {
   normalizeHistoricalProfile,
@@ -121,6 +122,9 @@ export async function identifyFigureFromImage(params: {
   const ai = getGeminiClient();
   const clean = stripDataUrlPrefix(params.imageBase64);
   const mimeType = params.mimeType || clean.mimeType || "image/jpeg";
+  // Image gate (Decisions API), alongside identification: refuse frames with no figure to talk to,
+  // and never turn an ordinary present-day person into a character.
+  const gatePromise = gateImage(ai, { data: clean.base64, mimeType });
 
   const response = await ai.models.generateContent({
     model: VISION_MODEL,
@@ -189,6 +193,20 @@ If no historical figure, painting, portrait, or statue is clearly visible, set d
   const artworkType: ArtworkKind = validKinds.includes(parsed.artworkType as ArtworkKind)
     ? (parsed.artworkType as ArtworkKind)
     : "unknown";
+
+  const gate = await gatePromise;
+  if (!gate.allowed) {
+    return {
+      detected: false,
+      confidence: 0,
+      artworkType,
+      artworkTitle: String(parsed.artworkTitle ?? ""),
+      artist: String(parsed.artist ?? ""),
+      year: String(parsed.year ?? ""),
+      reason: gate.reason,
+      profile: null,
+    };
+  }
 
   if (!detected) {
     return {

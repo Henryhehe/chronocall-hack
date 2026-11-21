@@ -109,6 +109,25 @@ export type FaceTimeServerEvent =
     }
   | { type: "interrupted" | "turnComplete" }
   | { type: "reaction"; cue: FaceTimeReactionCue }
+  | {
+      /** Live research arrived and was handed to the figure mid-call (no UI change needed to work). */
+      type: "research";
+      stage: "quick" | "deep";
+      facts: number;
+      sources: number;
+      grounded: boolean;
+      dropped: number;
+      ms: number;
+    }
+  | { type: "researchFailed"; stage: "quick" | "deep"; message: string }
+  | {
+      /** Decisions API check on the figure's last spoken turn. */
+      type: "replyCheck";
+      passed: boolean;
+      failed: string[];
+      scores: Record<string, number>;
+      latencyMs: number;
+    }
   | { type: "error"; message: string };
 
 const VALID_VOICES: ReadonlySet<FaceTimeVoiceName> = new Set([
