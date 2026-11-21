@@ -1,7 +1,6 @@
 import crypto from "node:crypto";
 import { ThinkingLevel, Type, type GenerateVideosOperation } from "@google/genai";
 import { getGeminiClient } from "./client.ts";
-import { gateImage } from "./imageGate.ts";
 import { IMAGE_GEN_MODEL, VISION_MODEL } from "../../../shared/models.ts";
 import {
   normalizeHistoricalProfile,
@@ -114,6 +113,9 @@ Write vivid, photorealistic webcam-call visual prompts (portraitPrompt, videoMot
     "search"
   );
 }
+
+// Image gate (Decisions API): see imageGate.ts.
+import { gateImage } from "./imageGate.ts";
 
 export async function identifyFigureFromImage(params: {
   imageBase64: string;
