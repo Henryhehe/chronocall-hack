@@ -11,7 +11,9 @@ import { formatGeminiError } from "../services/gemini/errors.ts";
 import { LIVE_MODEL } from "../../shared/models.ts";
 import {
   normalizeHistoricalProfile,
+  normalizePortalPrompt,
   type FaceTimeClientMessage,
+  type FaceTimePortalInvite,
   type FaceTimeReactionCue,
   type FaceTimeServerEvent,
   type HistoricalProfile,
@@ -44,6 +46,28 @@ const expressReactionTool: FunctionDeclaration = {
   },
 };
 
+const enterWorldPortalTool: FunctionDeclaration = {
+  name: "enter_world_portal",
+  description:
+    "Invites the caller to step into your historical world, workshop, laboratory, or era when they ask to see around, explore your surroundings, or step into your world.",
+  parameters: {
+    type: Type.OBJECT,
+    properties: {
+      locationName: {
+        type: Type.STRING,
+        description:
+          "The specific historical room, laboratory, studio, or landscape, e.g. 'Leonardo's Florence Bottega' or 'Curie's Paris Radium Lab'.",
+      },
+      portalPrompt: {
+        type: Type.STRING,
+        description:
+          "A vivid 3D first-person world generation prompt describing the historical environment to explore.",
+      },
+    },
+    required: ["locationName"],
+  },
+};
+
 function buildFaceTimeSystemInstruction(profile: HistoricalProfile): string {
   const artworkLine = profile.artworkTitle
     ? `The caller reached you by scanning "${profile.artworkTitle}"${profile.artist ? ` (${profile.artist})` : ""}. You may acknowledge stepping out of that portrait or statue into this live conversation if natural.`
@@ -56,6 +80,7 @@ function buildFaceTimeSystemInstruction(profile: HistoricalProfile): string {
     "Setting: You are LIVE on a FaceTime video call with a modern-day person. You can hear their voice and see live video frames from their camera.",
     "Style: Speak naturally, warmly, and vividly in first person as if talking face-to-face. Keep spoken turns concise (1–3 sentences) so the conversation flows briskly like a real video call. React genuinely if they hold an object up to the camera or ask about your era. Never break character or mention being an AI.",
     "Call express_reaction occasionally when your emotional reaction or posture shifts so your live video reflects your expression.",
+    "Call enter_world_portal when the caller asks to see around your room, workshop, laboratory, or era (e.g. 'show me around', 'step into your world', 'can I explore?').",
   ]
     .filter(Boolean)
     .join("\n\n");
@@ -148,7 +173,14 @@ export function attachFaceTimeBridge(server: Server, demoMode = false) {
               },
               inputAudioTranscription: {},
               outputAudioTranscription: {},
-              tools: [{ functionDeclarations: [expressReactionTool] }],
+              tools: [
+                {
+                  functionDeclarations: [
+                    expressReactionTool,
+                    enterWorldPortalTool,
+                  ],
+                },
+              ],
               systemInstruction: buildFaceTimeSystemInstruction(profile),
             },
             callbacks: {
@@ -205,6 +237,30 @@ export function attachFaceTimeBridge(server: Server, demoMode = false) {
                           name: call.name,
                           response: {
                             result: "Expression reflected on the FaceTime video feed.",
+                          },
+                        },
+                      ],
+                    });
+                  } else if (call.name === "enter_world_portal") {
+                    const locationName =
+                      String(call.args?.locationName ?? "").trim() ||
+                      profile.location;
+                    const rawPrompt =
+                      typeof call.args?.portalPrompt === "string"
+                        ? call.args.portalPrompt
+                        : undefined;
+                    const portal: FaceTimePortalInvite = {
+                      locationName,
+                      portalPrompt: normalizePortalPrompt(profile, rawPrompt),
+                    };
+                    sendSafe({ type: "portalInvite", portal });
+                    connectedSession.sendToolResponse({
+                      functionResponses: [
+                        {
+                          id: call.id,
+                          name: call.name,
+                          response: {
+                            result: `Portal invitation to ${locationName} delivered to caller.`,
                           },
                         },
                       ],

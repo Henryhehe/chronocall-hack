@@ -216,6 +216,8 @@ export default function FaceTimeApp() {
           transcripts={call.transcripts}
           liveCaption={call.liveCaption}
           lastReaction={call.lastReaction}
+          portalInvite={call.portalInvite}
+          onDismissPortalInvite={call.clearPortalInvite}
           isSendingText={call.isSendingText}
           onSendMessage={(msg) => void call.sendMessage(msg)}
           videoEngineMode={videoEngineMode}
