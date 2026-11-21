@@ -222,7 +222,23 @@ export type FaceTimeClientMessage =
   | { type: "audio" | "video"; data: string }
   | { type: "text"; text: string };
 
+export type ResearchEvidenceEvent =
+  | { type: "researchStarted"; stage: "quick" | "deep"; model: string }
+  | { type: "researchFailed"; stage: "quick" | "deep"; model: string; message: string; ms: number }
+  | { type: "research"; stage: "quick" | "deep"; model: string; structureModel: string;
+      facts: number; sources: number; grounded: boolean; dropped: number; ms: number;
+      cached: boolean; generationMs: number; sourceLinks: { title?: string; uri?: string }[];
+      retainedFacts: { fact: string; source: string }[];
+      droppedClaims: { id: string; question: string; source: string; score: number }[] };
+export type ReplyEvidenceEvent = {
+  type: "replyCheck"; status: "passed" | "flagged" | "unavailable"; passed: boolean;
+  failed: string[]; scores: Record<string, number>; latencyMs: number;
+  utterance: string; visitorMessage: string; turnId: number; correctionRequested: boolean;
+};
+
 export type FaceTimeServerEvent =
+  | ResearchEvidenceEvent
+  | ReplyEvidenceEvent
   | {
       type: "status";
       status: "connecting" | "connected" | "closed";

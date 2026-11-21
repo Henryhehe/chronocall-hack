@@ -1,3 +1,4 @@
+import type { CallTrace } from "../../../../shared/callEvidence.ts";
 import React, { useEffect, useRef, useState } from "react";
 import {
   Camera,
@@ -47,6 +48,7 @@ import type {
 } from "../types";
 
 interface CallStageProps {
+  evidence: CallTrace | null;
   phase: Exclude<FaceTimePhase, "launcher">;
   profile: HistoricalProfile;
   portraitDataUrl: string | null;
@@ -137,6 +139,7 @@ export const CallStage: React.FC<CallStageProps> = ({
   onSendMessage,
   videoEngineMode,
   onChangeVideoEngineMode,
+  evidence,
   pipelineEvents,
   latestDecision,
   verifyingDecision,
@@ -372,6 +375,7 @@ export const CallStage: React.FC<CallStageProps> = ({
             {/* Gemini 4 Live Telemetry + Video Engine Controls */}
             <div className="pointer-events-auto flex items-center gap-2">
               <GeminiTelemetryHud
+                evidence={evidence}
                 events={pipelineEvents}
                 latestDecision={latestDecision}
                 verifyingDecision={verifyingDecision}

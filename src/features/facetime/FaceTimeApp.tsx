@@ -1,3 +1,4 @@
+import { CallEvidencePanel } from "./components/CallEvidencePanel";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { ArtworkScannerModal } from "./components/ArtworkScannerModal";
 import { CallLauncher } from "./components/CallLauncher";
@@ -127,6 +128,7 @@ export default function FaceTimeApp() {
       setLatestDecision(null);
       setVerifyingDecision(false);
       lastVerifiedUtteranceRef.current = "";
+      setPipelineEvents([]);
       setPhase("ringing");
 
       stopRingtoneRef.current = startOutgoingRingtone();
@@ -373,8 +375,16 @@ export default function FaceTimeApp() {
         />
       )}
 
+      {phase === "launcher" && call.evidence && (
+        <details className="mx-auto max-w-3xl px-5 pb-6">
+          <summary className="cursor-pointer py-3 text-sm text-slate-300">Last call evidence · {call.evidence.figure}</summary>
+          <CallEvidencePanel trace={call.evidence} />
+        </details>
+      )}
+
       {(phase === "ringing" || phase === "in-call") && activeProfile && (
         <CallStage
+          evidence={call.evidence}
           phase={phase}
           profile={activeProfile}
           portraitDataUrl={portraitDataUrl}
