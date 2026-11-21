@@ -225,6 +225,8 @@ Branch maintainers: follow the [integration guide](docs/BRANCH_INTEGRATION.md) f
 
 ## Connected learning experience
 
+Historical calls now include a [guided investigation and reflection](docs/LEARNING_EXPERIENCE.md): choose a visual question, optionally record a first guess, investigate through camera and voice, then compare the original reference image, character replies and available research sources. Learners download their own observation/evidence/reflection; there is no automatic mastery score. The print offer is opened explicitly after the call so it does not interrupt reflection.
+
 Chronocall opens on a discovery page that connects the existing features into a learning journey. The shared navigation is available inside every experience, including Museum AR. Browser Back/Forward and direct links select the corresponding workspace.
 
 | Space | Link | Learning activity |

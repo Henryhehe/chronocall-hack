@@ -1,5 +1,7 @@
 import { CallEvidencePanel } from "./components/CallEvidencePanel";
 import { RehearsalPanel } from "./components/RehearsalPanel";
+import { EncounterReflection } from './components/EncounterReflection';
+import type { EncounterReflection as Encounter, InquiryId } from '../../../shared/inquiry.ts';
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { ArtworkScannerModal } from "./components/ArtworkScannerModal";
 import { CallLauncher } from "./components/CallLauncher";
@@ -29,6 +31,11 @@ import { PrintOfferModal } from "../shop/PrintOfferModal";
 import { usePrintOffer } from "../shop/usePrintOffer";
 
 export default function FaceTimeApp() {
+  const [inquiry, setInquiry] = useState<InquiryId>('perspective');
+  const [prediction, setPrediction] = useState('');
+  const [originalImage, setOriginalImage] = useState<string | null>(null);
+  const [lastEncounter, setLastEncounter] = useState<Encounter | null>(null);
+  const [showPrints, setShowPrints] = useState(false);
   const [health, setHealth] = useState<RuntimeHealth | null>(null);
   const [phase, setPhase] = useState<FaceTimePhase>("launcher");
   const [activeProfile, setActiveProfile] = useState<HistoricalProfile | null>(
@@ -123,6 +130,9 @@ export default function FaceTimeApp() {
       const portraitRequest = new AbortController();
       portraitRequestRef.current = portraitRequest;
       setPortraitPreparing(true);
+      setLastEncounter(null);
+      setShowPrints(false);
+      setOriginalImage(scannedReferenceDataUrl || profile.scannedImageDataUrl || profile.previewImageUrl || null);
       stopRingtone();
       setErrorMessage(null);
       setScannerOpen(false);
@@ -330,6 +340,11 @@ export default function FaceTimeApp() {
   }, [activeProfile, call.transcripts, call.voiceStatus, phase, recordPipelineEvent]);
 
   const handleEndCall = useCallback(() => {
+    if (phase === 'in-call' && activeProfile) {
+      setLastEncounter({ id: `${Date.now()}`, figure: activeProfile.name, era: activeProfile.era,
+        artworkTitle: activeProfile.artworkTitle, originalImage, inquiry, prediction, demoMode,
+        replies: call.transcripts.map(r => ({ ...r })), trace: call.evidence });
+    }
     callSeqRef.current++;
     portraitRequestRef.current?.abort();
     portraitRequestRef.current = null;
@@ -342,7 +357,7 @@ export default function FaceTimeApp() {
     setPortraitPreparing(false);
     setSelfieModalOpen(false);
     setSelfieCallerFrame(undefined);
-  }, [call, stopRingtone]);
+  }, [call, stopRingtone, phase, activeProfile, originalImage, inquiry, prediction, demoMode]);
 
   const bindUserVideoRef = useCallback(
     (el: HTMLVideoElement | null) => {
@@ -385,6 +400,11 @@ export default function FaceTimeApp() {
     <>
       {phase === "launcher" && (
         <CallLauncher
+          inquiry={inquiry}
+          prediction={prediction}
+          onInquiryChange={id => { setInquiry(id); setPrediction(''); }}
+          onPredictionChange={setPrediction}
+          reflection={lastEncounter ? <EncounterReflection key={lastEncounter.id} encounter={lastEncounter} onBrowsePrints={() => setShowPrints(true)} /> : undefined}
           health={health}
           resolvingQuery={resolvingQuery}
           errorMessage={errorMessage}
@@ -410,6 +430,9 @@ export default function FaceTimeApp() {
 
       {(phase === "ringing" || phase === "in-call") && activeProfile && (
         <CallStage
+          inquiry={inquiry}
+          prediction={prediction}
+          originalImage={originalImage}
           evidence={call.evidence}
           phase={phase}
           profile={activeProfile}
@@ -482,7 +505,7 @@ export default function FaceTimeApp() {
           void beginCall(profile, artworkDataUrl)
         }
       />
-      <PrintOfferModal {...printOffer} />
+      <PrintOfferModal {...printOffer} open={showPrints} onClose={() => { setShowPrints(false); printOffer.onClose(); }} />
     </>
   );
 }

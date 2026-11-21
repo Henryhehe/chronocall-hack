@@ -31,7 +31,7 @@ export function LearningHome({ onNavigate }: { onNavigate: (view: LearningView) 
         <div className="hero-copy">
           <p className="eyebrow">Art, with a point of view</p>
           <h1 id="discovery-title">The past has<br />a new <span>perspective.</span></h1>
-          <p className="hero-description">Scan an artwork, start a live call, and show its subject something from your world. See what they make of it from theirs.</p>
+          <p className="hero-description">Scan an artwork and call its subject. Bring a question, show them something from your world, and compare their perspective with what you can see and verify.</p>
           <div className="hero-actions">
             <a className="learning-primary" href="/facetime">Start a call <ArrowRight size={18} /></a>
             <a href="#experiences">See all experiences <span aria-hidden="true">↗</span></a>
