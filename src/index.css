@@ -38,3 +38,26 @@
 ::-webkit-scrollbar-thumb:hover {
   background: #334155;
 }
+
+.museum-workspace { color: #181614; font-family: "Plus Jakarta Sans", sans-serif; }
+.museum-workspace h1, .museum-workspace h2, .museum-workspace h3, .museum-workspace .font-display { font-family: "Cormorant Garamond", Georgia, serif; }
+/* Subtle custom scrollbar for curatorial drawers */
+.curatorial-scroll::-webkit-scrollbar {
+  width: 5px;
+  height: 5px;
+}
+.curatorial-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+.curatorial-scroll::-webkit-scrollbar-thumb {
+  background: rgba(24, 22, 20, 0.16);
+  border-radius: 9999px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
