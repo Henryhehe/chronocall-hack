@@ -98,14 +98,27 @@ async function startServer() {
               },
             },
             {
-              text: `Analyze this camera frame from a museum visitor's phone.
-Determine if a historical portrait, equestrian painting, sculpture, or artwork depicting a historical or notable figure is visible (including paintings shown on walls, prints, books, or screens).
-Set isWashingtonAnchor to true specifically if the visible painting is an equestrian portrait of George Washington on a white/gray horse (e.g., wearing a blue-and-buff Continental uniform with sword extended).
-If a portrait is visible:
-1. Identify the subject, artwork title, artist (or probable school), and historical era.
-2. Detect the exact four corners of the painting canvas in the camera image as focalQuad (topLeft, topRight, bottomRight, bottomLeft in 0-100 percentages), accurately reflecting any perspective skew or tilt of the canvas. Also provide the bounding focalBox (x, y, width, height in 0-100 percentages).
-3. Return 3 to 4 interactive AR hotspot coordinates (x, y percentages 0-100 on the full frame) for notable details, positioned slightly offset next to each feature (never directly covering the subject's eyes or face).
-If no portrait or figure is clearly visible, set detected to false and explain briefly in historicalContext.`,
+              text: `You are an expert museum art-history vision system. Analyze this camera frame to detect if ANY famous / canonical work of art (from art history / WikiArt collections, plus the Thomas Sully / John Faed equestrian portrait of George Washington) is visible.
+
+IMPORTANT DETECTION RULES:
+- A famous artwork may be hung on a wall, printed in a book/poster, OR displayed on a computer monitor, laptop, tablet, or phone screen (even with bezels, a desk, hands, or a room visible around it).
+- If ANY recognizable famous / canonical / WikiArt artwork is clearly visible in the frame, set "detected": true.
+- Set "detected": false ONLY if NO recognizable famous work of art is visible (e.g., only a blank wall, empty desk, keyboard, random room, or a live selfie/person with no famous painting).
+- Set "isWashingtonAnchor": true ONLY if the artwork is the equestrian portrait of George Washington on a white/gray horse.
+- Set "hasHumanSubject": true if the artwork depicts a recognizable human subject, historical person, mythological figure, or portrait figure (e.g., Mona Lisa, Girl with a Pearl Earring, Napoleon Crossing the Alps, Van Gogh Self-Portrait, American Gothic, The Birth of Venus, Washington on Horseback). Set "hasHumanSubject": false for landscapes, seascapes, still lifes, or abstract works without a speaking human figure (e.g., The Starry Night, The Great Wave off Kanagawa, Water Lilies, The Persistence of Memory).
+
+When "detected": false:
+- Return empty strings for text fields, empty arrays for hotspots/suggestedQuestions, [0, 0, 0, 0] for box2d, and 0 for numeric coordinates.
+
+When "detected": true:
+1. Provide concise canonical metadata: paintingTitle, artist (artist name only), year (short year/era only, e.g. "1889" or "c. 1503"), medium (short, e.g. "Oil on canvas"), styleMovement (e.g. "Post-Impressionism"), and historicalContext (2-3 sentences).
+2. Accurately locate the painted canvas/artwork surface itself (excluding surrounding room, desk, wall, monitor bezel, or thick decorative frame):
+   - Provide box2d as [ymin, xmin, ymax, xmax] in 0-1000 normalized image coordinates tightly enclosing the artwork surface.
+   - Provide focalBox (x, y, width, height in 0-100 percentages matching box2d).
+   - Provide focalQuad (topLeft, topRight, bottomRight, bottomLeft in 0-100 percentages) for the 4 corners of the artwork surface. Only tilt/skew the corners if the painting is visibly viewed at an angle; if viewed straight-on, keep the 4 corners aligned to the painting rectangle.
+3. Set focalPoint (x, y in 0-100 percentages of image width/height) to the human subject's face/head if hasHumanSubject is true, or the painting's compositional center if false.
+4. Return 3 to 4 AR hotspot tags (x, y in 0-100 percentages of the camera frame) highlighting notable artistic techniques, symbols, or historical details inside the painting. Offset each tag slightly beside the feature so it never covers a person's eyes or face.
+5. If hasHumanSubject is true: set characterName to the specific depicted person/figure, roleTitle to their concise title/identity, choose suggestedVoice (Kore or Zephyr for female; Charon or Fenrir for male), and write a vivid first-person systemPersona (2-4 sentences instructing how to speak in character with deep historical knowledge of who they are, their life, and this painting) plus an in-character openingLine (1-2 sentences). If hasHumanSubject is false, set characterName to paintingTitle, roleTitle to artist, suggestedVoice to "Charon", systemPersona to "", and openingLine to a 1-sentence artwork caption.`,
             },
           ],
         },
@@ -117,25 +130,61 @@ If no portrait or figure is clearly visible, set detected to false and explain b
             properties: {
               detected: { type: Type.BOOLEAN },
               isWashingtonAnchor: { type: Type.BOOLEAN },
-              characterName: { type: Type.STRING },
-              roleTitle: { type: Type.STRING },
-              paintingTitle: { type: Type.STRING },
-              artist: { type: Type.STRING },
-              year: { type: Type.STRING },
-              medium: { type: Type.STRING },
-              historicalContext: { type: Type.STRING },
+              hasHumanSubject: { type: Type.BOOLEAN },
+              characterName: {
+                type: Type.STRING,
+                description: 'Short name of depicted human subject, or paintingTitle if non-human.',
+              },
+              roleTitle: {
+                type: Type.STRING,
+                description: 'Concise role or subtitle (3-6 words max).',
+              },
+              paintingTitle: {
+                type: Type.STRING,
+                description: 'Canonical title of the artwork.',
+              },
+              artist: {
+                type: Type.STRING,
+                description: 'Artist name only (concise).',
+              },
+              year: {
+                type: Type.STRING,
+                description: 'Short creation year or date range only, e.g. "1889" or "c. 1503".',
+              },
+              medium: {
+                type: Type.STRING,
+                description: 'Short medium description, e.g. "Oil on canvas".',
+              },
+              styleMovement: {
+                type: Type.STRING,
+                description: 'Art movement or style, e.g. "High Renaissance".',
+              },
+              historicalContext: {
+                type: Type.STRING,
+                description: 'Concise 2-3 sentence historical and artistic overview.',
+              },
               systemPersona: {
                 type: Type.STRING,
                 description:
-                  'First-person system instruction so the figure can speak authentically to a museum visitor with deep historical context.',
+                  'First-person system instruction so the depicted human subject can speak authentically with full historical knowledge of who they are (empty string if hasHumanSubject is false).',
               },
-              openingLine: { type: Type.STRING },
+              openingLine: {
+                type: Type.STRING,
+                description: 'Brief 1-2 sentence greeting in character (or artwork caption).',
+              },
               suggestedVoice: {
                 type: Type.STRING,
                 description: 'One of: Charon, Fenrir, Kore, Zephyr, Puck',
               },
+              box2d: {
+                type: Type.ARRAY,
+                description:
+                  'Tight bounding box of the painting surface as [ymin, xmin, ymax, xmax] in 0-1000 normalized coordinates.',
+                items: { type: Type.NUMBER },
+              },
               focalPoint: {
                 type: Type.OBJECT,
+                description: 'Center of subject face or compositional focal point in 0-100 frame %.',
                 properties: {
                   x: { type: Type.NUMBER },
                   y: { type: Type.NUMBER },
@@ -144,6 +193,7 @@ If no portrait or figure is clearly visible, set detected to false and explain b
               },
               focalBox: {
                 type: Type.OBJECT,
+                description: 'Axis-aligned bounding box of the painting in 0-100 frame %.',
                 properties: {
                   x: { type: Type.NUMBER },
                   y: { type: Type.NUMBER },
@@ -154,24 +204,30 @@ If no portrait or figure is clearly visible, set detected to false and explain b
               },
               focalQuad: {
                 type: Type.OBJECT,
+                description:
+                  'Exact 4 perspective corners of the painting canvas in 0-100 frame percentages.',
                 properties: {
                   topLeft: {
                     type: Type.OBJECT,
+                    description: 'Top-left corner of the painting surface (x, y in 0-100).',
                     properties: { x: { type: Type.NUMBER }, y: { type: Type.NUMBER } },
                     required: ['x', 'y'],
                   },
                   topRight: {
                     type: Type.OBJECT,
+                    description: 'Top-right corner of the painting surface (x, y in 0-100).',
                     properties: { x: { type: Type.NUMBER }, y: { type: Type.NUMBER } },
                     required: ['x', 'y'],
                   },
                   bottomRight: {
                     type: Type.OBJECT,
+                    description: 'Bottom-right corner of the painting surface (x, y in 0-100).',
                     properties: { x: { type: Type.NUMBER }, y: { type: Type.NUMBER } },
                     required: ['x', 'y'],
                   },
                   bottomLeft: {
                     type: Type.OBJECT,
+                    description: 'Bottom-left corner of the painting surface (x, y in 0-100).',
                     properties: { x: { type: Type.NUMBER }, y: { type: Type.NUMBER } },
                     required: ['x', 'y'],
                   },
@@ -180,6 +236,7 @@ If no portrait or figure is clearly visible, set detected to false and explain b
               },
               hotspots: {
                 type: Type.ARRAY,
+                description: '3 to 4 AR detail markers inside the painting in 0-100 frame %.',
                 items: {
                   type: Type.OBJECT,
                   properties: {
@@ -199,14 +256,41 @@ If no portrait or figure is clearly visible, set detected to false and explain b
                 items: { type: Type.STRING },
               },
             },
-            required: ['detected', 'isWashingtonAnchor', 'characterName', 'paintingTitle', 'historicalContext'],
+            required: [
+              'detected',
+              'isWashingtonAnchor',
+              'hasHumanSubject',
+              'characterName',
+              'roleTitle',
+              'paintingTitle',
+              'artist',
+              'year',
+              'medium',
+              'styleMovement',
+              'historicalContext',
+              'systemPersona',
+              'openingLine',
+              'suggestedVoice',
+              'box2d',
+              'focalPoint',
+              'focalBox',
+              'focalQuad',
+              'hotspots',
+              'suggestedQuestions',
+            ],
           },
         },
       });
 
-      const parsed = JSON.parse((response.text ?? '{}').trim());
+      const rawText = (response.text ?? '{}')
+        .trim()
+        .replace(/^```json\s*/i, '')
+        .replace(/^```\s*/i, '')
+        .replace(/\s*```$/i, '');
+      const parsed = JSON.parse(rawText);
       res.json(parsed);
     } catch (err) {
+      console.error('/api/identify-portrait error:', err);
       const { status, message } = parseApiError(err);
       res.status(status).json({ error: message });
     }

@@ -44,6 +44,8 @@ export interface PortraitArtwork {
   medium: string;
   dimensions: string;
   galleryLocation: string;
+  styleMovement?: string;
+  hasHumanSubject: boolean;
   imageUrl: string;
   voiceName: VoiceName;
   historicalContext: string;

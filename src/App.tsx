@@ -5,7 +5,7 @@ import { ARHotspot, PortraitArtwork } from './types/portrait';
 import { ARPortraitStage } from './components/ARPortraitStage';
 
 export default function App() {
-  const [artwork, setArtwork] = useState<PortraitArtwork>(WASHINGTON_PORTRAIT);
+  const [artwork, setArtwork] = useState<PortraitArtwork | null>(null);
   const [activeHotspotId, setActiveHotspotId] = useState<string | null>(null);
   const [activeCue, setActiveCue] = useState<string | null>(null);
   const [cameraError, setCameraError] = useState<string | null>(null);
@@ -19,6 +19,9 @@ export default function App() {
       }, 4200);
     }
   }, []);
+
+  const hasHumanSubject = Boolean(artwork?.hasHumanSubject);
+  const voiceArtwork = artwork ?? WASHINGTON_PORTRAIT;
 
   const {
     connectionState,
@@ -35,30 +38,29 @@ export default function App() {
     askCharacter,
     sendCameraFrameToLive,
   } = useMuseumVoice({
-    artwork,
+    artwork: voiceArtwork,
     onAnimationCue: handleCue,
   });
 
-  const isCustomArtwork = artwork.id !== WASHINGTON_PORTRAIT.id;
-  const combinedError = cameraError || errorMessage;
+  const combinedError = cameraError || (hasHumanSubject ? errorMessage : null);
 
-  // Start microphone sequentially once camera permission resolves (avoids dual-prompt collision on mobile)
+  // Activate live microphone/voice ONLY when camera is ready AND an artwork with a human subject is detected
   useEffect(() => {
-    if (cameraReady) {
-      startLiveVoice(false);
+    if (!cameraReady || !artwork || !artwork.hasHumanSubject) {
+      stopLiveVoice();
       return;
     }
-    const fallbackTimer = window.setTimeout(() => {
-      startLiveVoice(false);
-    }, 1800);
-    return () => window.clearTimeout(fallbackTimer);
-  }, [artwork.id, cameraReady, startLiveVoice]);
+    startLiveVoice(false);
+  }, [artwork, cameraReady, startLiveVoice, stopLiveVoice]);
 
   // Unlock AudioContext and retry mic inside a user gesture if mobile browser blocked auto-mic
   useEffect(() => {
+    if (!cameraReady || !artwork || !artwork.hasHumanSubject) {
+      return;
+    }
     const handleGesture = () => {
       unlockAudioContexts();
-      if (connectionState !== 'live') {
+      if (needsAudioGesture || connectionState !== 'live') {
         startLiveVoice(true);
       }
     };
@@ -68,62 +70,81 @@ export default function App() {
       window.removeEventListener('pointerdown', handleGesture);
       window.removeEventListener('keydown', handleGesture);
     };
-  }, [connectionState, startLiveVoice, unlockAudioContexts]);
+  }, [
+    artwork,
+    cameraReady,
+    connectionState,
+    needsAudioGesture,
+    startLiveVoice,
+    unlockAudioContexts,
+  ]);
 
   const latestCharacterLine = useMemo(() => {
+    if (!hasHumanSubject) return null;
     for (let i = transcript.length - 1; i >= 0; i--) {
       if (transcript[i].speaker === 'character') return transcript[i];
     }
     return null;
-  }, [transcript]);
+  }, [hasHumanSubject, transcript]);
 
   const latestVisitorLine = useMemo(() => {
+    if (!hasHumanSubject) return null;
     for (let i = transcript.length - 1; i >= 0; i--) {
       if (transcript[i].speaker === 'visitor') return transcript[i];
     }
     return null;
-  }, [transcript]);
+  }, [hasHumanSubject, transcript]);
 
   const handleSelectHotspot = useCallback(
     (spot: ARHotspot) => {
       setActiveHotspotId(spot.id);
-      askCharacter(spot.prompt, spot.animationCue);
+      handleCue(spot.animationCue);
+      if (artwork?.hasHumanSubject) {
+        askCharacter(spot.prompt, spot.animationCue);
+      }
     },
-    [askCharacter]
+    [artwork?.hasHumanSubject, askCharacter, handleCue]
   );
 
   const handleArtworkIdentified = useCallback(
     (identified: PortraitArtwork) => {
-      if (identified.id !== artwork.id) {
+      if (identified.id !== artwork?.id || !identified.hasHumanSubject) {
         stopLiveVoice();
       }
       setArtwork(identified);
       setActiveHotspotId(null);
+      setActiveCue(null);
       setCameraError(null);
       setErrorMessage(null);
     },
-    [artwork.id, setErrorMessage, stopLiveVoice]
+    [artwork?.id, setErrorMessage, stopLiveVoice]
   );
 
-  const handleResetToWashington = useCallback(() => {
-    if (artwork.id !== WASHINGTON_PORTRAIT.id) {
-      stopLiveVoice();
-    }
-    setArtwork(WASHINGTON_PORTRAIT);
+  const handleArtworkLost = useCallback(() => {
+    stopLiveVoice();
+    setArtwork(null);
     setActiveHotspotId(null);
-    setCameraError(null);
+    setActiveCue(null);
     setErrorMessage(null);
-  }, [artwork.id, setErrorMessage, stopLiveVoice]);
+  }, [setErrorMessage, stopLiveVoice]);
+
+  const handleAvatarTap = useCallback(() => {
+    if (!artwork || !artwork.hasHumanSubject) return;
+    askCharacter(
+      `As ${artwork.characterName} in "${artwork.title}", please greet me in character and share what moment or story this painting captures.`,
+      'gaze'
+    );
+  }, [artwork, askCharacter]);
 
   return (
     <main className="h-dvh w-screen overflow-hidden bg-[#0D0C0A] text-[#F6F3EC]">
       <ARPortraitStage
         artwork={artwork}
         speechLevelRef={speechLevelRef}
-        isSpeaking={isSpeaking}
-        isListening={isListening}
-        needsAudioGesture={needsAudioGesture}
-        connectionState={connectionState}
+        isSpeaking={hasHumanSubject ? isSpeaking : false}
+        isListening={hasHumanSubject ? isListening : false}
+        needsAudioGesture={hasHumanSubject ? needsAudioGesture : false}
+        connectionState={hasHumanSubject ? connectionState : 'idle'}
         activeHotspotId={activeHotspotId}
         activeCue={activeCue}
         latestDialogue={latestCharacterLine}
@@ -131,17 +152,11 @@ export default function App() {
         errorMessage={combinedError}
         onSelectHotspot={handleSelectHotspot}
         onArtworkIdentified={handleArtworkIdentified}
-        onResetToWashington={handleResetToWashington}
-        isCustomArtwork={isCustomArtwork}
+        onArtworkLost={handleArtworkLost}
         onSendCameraFrame={sendCameraFrameToLive}
         onCameraError={setCameraError}
         onCameraReadyChange={setCameraReady}
-        onAvatarTap={() =>
-          askCharacter(
-            'General Washington, please greet me and tell me what moment this painting captures.',
-            'gaze'
-          )
-        }
+        onAvatarTap={handleAvatarTap}
       />
     </main>
   );
