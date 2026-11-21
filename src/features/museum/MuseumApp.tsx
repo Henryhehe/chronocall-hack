@@ -167,12 +167,12 @@ export default function App({ onExit }: { onExit: () => void }) {
       <div className="portrait-room-dock">
         {combinedError && <p role="alert" className="portrait-room-error">{combinedError}</p>}
         <div className="portrait-room-actions"><button type="button" className="portrait-room-secondary portrait-room-ar" aria-pressed={lensMode === 'camera'} onClick={() => { stopLiveVoice(); setCameraArtworkLost(true); setLensMode(lensMode === 'camera' ? 'portrait' : 'camera'); }}><ScanEye size={24} aria-hidden="true" /><span className="portrait-room-ar-copy"><strong>{lensMode === 'camera' ? 'Back to portrait' : 'Scan artwork in AR'}</strong>{lensMode !== 'camera' && <small>Open camera · Bring a painting to life</small>}</span></button>
-          <button type="button" className="portrait-room-secondary" onClick={() => setMobileSheetOpen(true)} aria-label="Open conversation"><MessageSquare size={20} /><span>Conversation</span></button>
           <button type="button" className={`portrait-room-speak ${isListening || connectionState === 'connecting' ? 'is-active' : ''}`} onClick={handleToggleVoice} disabled={!canSpeak && !isListening}>
             {isListening || connectionState === 'connecting' ? <MicOff size={22} /> : <Mic size={22} />}
             <span>{connectionState === 'connecting' ? 'Cancel connection' : isListening ? 'End conversation' : 'Talk to portrait'}</span>
           </button>
           {isSpeaking && <button type="button" className="portrait-room-secondary" onClick={stopPlaybackQueue} aria-label="Interrupt speech"><VolumeX size={20} /><span>Interrupt</span></button>}
+          <button type="button" className="portrait-room-secondary portrait-room-conversation" onClick={() => setMobileSheetOpen(true)} aria-label="Open conversation" title="Open conversation"><MessageSquare size={18} aria-hidden="true" /></button>
         </div>
         <p className="portrait-room-hint">{isListening ? 'Listening · Ask a question or interrupt naturally' : lensMode === 'camera' ? 'Point your camera at a painting. Once identified, talk to its subject.' : 'Scan a painting with your camera, or talk to the portrait above.'}</p>
       </div>

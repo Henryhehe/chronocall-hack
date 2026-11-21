@@ -49,3 +49,9 @@
   .portrait-room-ready-to-scan .portrait-room-ar { order: -2; width: 100%; }
   .portrait-room-ready-to-scan .portrait-room-actions { row-gap: 10px; }
 }
+
+.portrait-room-conversation { width: 44px; height: 44px; flex-shrink: 0; border: 1px solid #ffffff24; border-radius: 10px; }
+.portrait-room-conversation:hover { background: #ffffff0d; color: #f5efe4; }
+@media (max-width: 640px) {
+  .portrait-room-conversation { margin-left: auto; }
+}

@@ -17,13 +17,17 @@ The timing is **first audio received from voice-connection start**, not time fro
 
 ## Three-minute presentation
 
+The current timed presentation includes the new after-call reflection. Use the [presenter card and exact script](JUDGING_RUNBOOK.md) for wording and fallbacks.
+
 | Time | Show | Say |
 | --- | --- | --- |
-| 0:00–0:20 | Scan a painting | “We make the subject a participant in a live audiovisual encounter.” |
-| 0:20–1:15 | Call; let the judge choose an object/question | “You choose what we show them.” |
-| 1:15–1:50 | Refer to one of two objects, switch it, interrupt | Explain the observed result, including a failure if one happens. |
-| 1:50–2:25 | Actual model activity | “Hydrogen identifies and researches quickly; Neon deepens the research; Decisions filters claims and checks completed turns. Live 3.8 carries the conversation.” |
-| 2:25–3:00 | Rehearsal report and one failure/repeat pair | State actual completed/attempted counts, the hardest failure and what the repeat demonstrated. If no real trials are recorded, say so. |
+| 0:00–0:40 | Judge selects an object; record a first guess, scan and call | “What might someone from another time make of this?” |
+| 0:40–1:15 | Show the unnamed object | Ask for a visible observation and historical interpretation; let the response finish. |
+| 1:15–1:30 | Change the visible view if time permits | “What changed?” Explain the observed result, including any failure. |
+| 1:30–2:00 | Actual model activity | “Hydrogen identifies and researches quickly; Neon deepens the research; Decisions filters claims and checks completed turns. Live 3.8 carries the conversation.” |
+| 2:00–2:15 | Rehearsal report and one failure/repeat pair | State actual counts and outcomes. If no real trials are recorded, say so. |
+| 2:15–2:40 | Hang up; select the actual reply in **What changed your mind?** | Compare prediction, observation and interpretation; name a claim requiring a source check. |
+| 2:40–3:00 | Reflection remains visible | Name confirmed event-built contributions and close. Do not claim measured learning gains. |
 
 ## One-minute video script
 

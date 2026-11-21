@@ -648,9 +648,6 @@ export const PortraitStage: React.FC<ARPortraitStageProps> = ({
               false
             );
 
-            const fx = dx + (currentArtwork.focalPoint.x / 100) * drawW;
-            const fy = dy + (currentArtwork.focalPoint.y / 100) * drawH;
-            drawLivingVoiceAura(ctx, fx, fy, Math.min(drawW, drawH), speech, elapsed);
             drawCueOverlay(ctx, dx, dy, drawW, drawH, cue, elapsed);
           }
 
@@ -705,10 +702,7 @@ export const PortraitStage: React.FC<ARPortraitStageProps> = ({
                 true
               );
 
-              const fx = bx + (WASHINGTON_PORTRAIT.focalPoint.x / 100) * bw;
-              const fy = by + (WASHINGTON_PORTRAIT.focalPoint.y / 100) * bh;
               drawOpticalFrameCorners(ctx, bx, by, bw, bh, speech, elapsed, 0.85);
-              drawLivingVoiceAura(ctx, fx, fy, Math.min(bw, bh), speech, elapsed);
               drawCueOverlay(ctx, bx, by, bw, bh, cue, elapsed);
               drawAmbientMotes(ctx, motes, cw, ch, bx, by, bw, bh, currentTilt, speech, elapsed);
             } else {
@@ -735,7 +729,6 @@ export const PortraitStage: React.FC<ARPortraitStageProps> = ({
                 );
               }
               drawOpticalFrameCorners(ctx, bx, by, bw, bh, speech, elapsed, 0.8);
-              drawLivingVoiceAura(ctx, fx, fy, Math.min(bw, bh), speech, elapsed);
               drawCueOverlay(ctx, bx, by, bw, bh, cue, elapsed);
               drawAmbientMotes(ctx, motes, cw, ch, bx, by, bw, bh, currentTilt, speech, elapsed);
             }
@@ -1256,39 +1249,6 @@ function drawAmbientMotes(
     ctx.fill();
   }
   ctx.restore();
-}
-
-function drawLivingVoiceAura(
-  ctx: CanvasRenderingContext2D,
-  fx: number,
-  fy: number,
-  scale: number,
-  speech: number,
-  elapsed: number
-) {
-  const glowRadius = scale * (0.2 + speech * 0.18);
-  const glowAlpha = 0.08 + speech * 0.28;
-  const grad = ctx.createRadialGradient(fx, fy, 4, fx, fy, glowRadius);
-  grad.addColorStop(0, `rgba(232, 186, 112, ${glowAlpha})`);
-  grad.addColorStop(0.5, `rgba(180, 131, 62, ${glowAlpha * 0.45})`);
-  grad.addColorStop(1, 'rgba(180, 131, 62, 0)');
-  ctx.fillStyle = grad;
-  ctx.beginPath();
-  ctx.arc(fx, fy, glowRadius, 0, Math.PI * 2);
-  ctx.fill();
-
-  if (speech > 0.03) {
-    for (let i = 0; i < 3; i++) {
-      const wavePhase = (elapsed * 1.15 + i * 0.33) % 1;
-      const r = scale * (0.06 + wavePhase * (0.14 + speech * 0.14));
-      const ringAlpha = (1 - wavePhase) * Math.min(0.55, speech * 0.75);
-      ctx.beginPath();
-      ctx.arc(fx, fy, r, 0, Math.PI * 2);
-      ctx.strokeStyle = `rgba(229, 190, 128, ${ringAlpha})`;
-      ctx.lineWidth = 1.25;
-      ctx.stroke();
-    }
-  }
 }
 
 function drawOpticalFrameCorners(
