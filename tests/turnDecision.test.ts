@@ -84,9 +84,29 @@ test("a failed check is reported and the verdict can flag an anachronism", async
 
 test("if the Decisions API fails, the turn is unavailable with the error reported", async () => {
   const broken = { decisions: { create: async () => { throw new Error("404"); } } } as unknown as GoogleGenAI;
-  const r = await evaluateTurn(broken, { utterance: "Good day." });
+  const r = await evaluateTurn(broken, { utterance: "Good day, stranger in the glass." });
   assert.equal(r.checks.passed, false);
   assert.equal(r.checks.status, "unavailable");
   assert.equal(r.checks.error, "404");
   assert.equal(r.decision, null);
+});
+
+test("the call bridge and the display share one Decisions API call for the same turn", async () => {
+  const calls: Array<Record<string, any>> = [];
+  const ai = fakeAi({}, "verified", calls);
+  const [a, b] = await Promise.all([
+    evaluateTurn(ai, { utterance: "The ice on the river grows thicker by the hour." }),
+    evaluateTurn(ai, { utterance: "  the ice on the river   grows thicker by the hour. " }),
+  ]);
+  assert.equal(calls.length, 1);
+  assert.equal(a, b);
+});
+
+test("the same words from different figures are evaluated separately", async () => {
+  const calls: Array<Record<string, any>> = [];
+  const ai = fakeAi({}, "verified", calls);
+  await evaluateTurn(ai, { utterance: "Who goes there?", speaker: "George Washington (1776, Delaware)" });
+  await evaluateTurn(ai, { utterance: "Who goes there?", speaker: "Frida Kahlo (1953, Coyoacán)" });
+  await evaluateTurn(ai, { utterance: "Who goes there?", speaker: "George Washington (Commander, 1776, Delaware)" });
+  assert.equal(calls.length, 2);
 });
